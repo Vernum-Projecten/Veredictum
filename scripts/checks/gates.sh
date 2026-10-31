@@ -86,6 +86,8 @@ gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "gates self-test"          "bash scripts/checks/gates.sh --self-test"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
 gate guard "engine pin self-test"     "bash scripts/release/check-console-pin.sh --self-test"
+gate guard "GitLab CI template"       "bash scripts/release/check-gitlab-template.sh" yq
+gate guard "GitLab template self-test" "bash scripts/release/check-gitlab-template.sh --self-test" yq
 gate guard "citation version"         "bash scripts/checks/citation-version.sh"
 gate guard "citation version self-test" "bash scripts/checks/citation-version.sh --self-test"
 gate guard "zenodo metadata"          "bash scripts/render/zenodo-json.sh --check" jq

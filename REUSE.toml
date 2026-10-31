@@ -148,6 +148,17 @@ precedence = "override"
 SPDX-FileCopyrightText = "2014 Gregory Boissinot"
 SPDX-License-Identifier = "MIT"
 
+# ── The vendored GitLab CI/CD configuration schema ──────────────────────────
+# The schema the GitLab CI template is validated against in its test. GitLab's
+# root LICENSE puts every path outside `doc/`, `ee/` and `jh/` under the MIT
+# Expat license; the schema and that LICENSE are vendored together, and the
+# PROVENANCE.md beside them is ours and keeps the catch-all.
+[[annotations]]
+path = ["ci/gitlab/schema/ci.json", "ci/gitlab/schema/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = "GitLab Inc."
+SPDX-License-Identifier = "MIT"
+
 # ── One vendored file whose NAME contains a newline character ───────────────
 # A file in the vendored CNF suite is tracked with a literal U+000A inside its
 # filename — an upstream defect, and not something this repository may rename,

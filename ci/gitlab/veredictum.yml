@@ -1,0 +1,246 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# The Veredictum GitLab CI template (#920): one `include:` runs the conformance
+# instrument against a vendor's server, as the GitHub Action does on GitHub.
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/vX.Y.Z/ci/gitlab/veredictum.yml
+#       inputs:
+#         base-url: https://cdr.example/openehr/v1
+#
+# It adds two jobs. The first, `<job-name>`, runs the release image this file is
+# pinned to with `test`, `export` and `badge`, writes results.json, junit.xml,
+# ctrf.json, summary.md and badges/ into `out-dir`, keeps them as artifacts
+# with JUnit as the merge request's test report, and always succeeds, so its
+# artifacts belong to a pipeline GitLab can serve the badges from. The second,
+# `<job-name>-verdict`, reads the run's exit status and fails exactly as the
+# GitHub Action's step does: on 1 (a row counts against the server) and 2 (the
+# run could not start or finish), and on 3 (only inconclusive rows) unless
+# `fail-on-inconclusive` is false.
+#
+# The image is distroless and has no shell, so the job drives it from the
+# Docker CLI image through a Docker-in-Docker service, and moves every file in
+# and out with `docker cp`, which needs no directory shared with the daemon.
+#
+# Credentials are never inputs. The job reads masked CI/CD variables by the
+# names the engine reads (VEREDICTUM_CDR_USER, VEREDICTUM_CDR_PASSWORD,
+# VEREDICTUM_CDR_TOKEN and the VEREDICTUM_CDR_ADMIN_ counterparts, every
+# VEREDICTUM_SCOPED_TOKEN_<NAME>), or a File-type variable under the same name
+# with `_FILE` appended, and hands each to the container by name. An empty
+# variable is not handed over, so a missing one stops the run with exit 2.
+#
+# scripts/release/check-gitlab-template.sh holds the image tag below to the
+# engine version and checks the inputs every job reads.
+#
+# No openEHR specification governs this. It is our own design.
+spec:
+  description: Run the Veredictum openEHR conformance instrument against a CDR and publish its results and badges.
+  inputs:
+    base-url:
+      description: The server's base URL, up to and including the openEHR REST base, for example https://cdr.example/openehr/v1.
+    statement:
+      description: Path to the party's statement (JSON) in the repository. Empty runs every capability.
+      default: ""
+    ixit:
+      description: Path to the party's IXIT (JSON) in the repository. Empty skips the rows that read it as not-declared.
+      default: ""
+    auth:
+      description: How the CDR wants the client to log in, with its credential in CI/CD variables.
+      default: none
+      options: [none, basic, bearer]
+    admin-auth:
+      description: How the CDR wants the administrative principal to log in; with none the administrative workflows are skipped.
+      default: none
+      options: [none, basic, bearer]
+    documents:
+      description: Run only these documents, by id, separated by spaces. A narrowed run is never the record a party submits.
+      default: ""
+    profile:
+      description: The specification text the citations are read against.
+      default: development
+      options: [development, released]
+    platform-url:
+      description: The SMART Platform base URL. Empty skips every workflow sent to the Platform as not-declared.
+      default: ""
+    out-dir:
+      description: Where the results, the views and the badges are written, relative to the project directory.
+      default: veredictum-results
+    keep-recording:
+      type: boolean
+      description: Keep recording.har as an artifact. It holds the server's response bodies verbatim, so it is left out by default.
+      default: false
+    fail-on-inconclusive:
+      type: boolean
+      description: With false, a run whose only red rows are inconclusive (exit status 3) passes the verdict job.
+      default: true
+    allow-failure:
+      type: boolean
+      description: With true, a failed verdict job leaves the pipeline passed with warnings, so the badge URL keeps showing the newest run.
+      default: false
+    stage:
+      description: The stage both jobs run in.
+      default: test
+    job-name:
+      description: The name of the run job; the verdict job is this name with -verdict appended.
+      default: veredictum
+---
+"$[[ inputs.job-name ]]":
+  stage: $[[ inputs.stage ]]
+  # docker:29.9.2-cli and docker:29.9.2-dind, by the digest of each index.
+  image: docker:29.9.2-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
+  services:
+    - name: docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
+      alias: docker
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+    VEREDICTUM_IMAGE: ghcr.io/vernum-projecten/veredictum:0.3.1
+    # Every input reaches the script as a variable GitLab does not expand,
+    # never spliced into the script, so no input value is read as shell source.
+    IN_BASE_URL:
+      value: "$[[ inputs.base-url ]]"
+      expand: false
+    IN_STATEMENT:
+      value: "$[[ inputs.statement ]]"
+      expand: false
+    IN_IXIT:
+      value: "$[[ inputs.ixit ]]"
+      expand: false
+    IN_AUTH:
+      value: "$[[ inputs.auth ]]"
+      expand: false
+    IN_ADMIN_AUTH:
+      value: "$[[ inputs.admin-auth ]]"
+      expand: false
+    IN_DOCUMENTS:
+      value: "$[[ inputs.documents ]]"
+      expand: false
+    IN_PROFILE:
+      value: "$[[ inputs.profile ]]"
+      expand: false
+    IN_PLATFORM_URL:
+      value: "$[[ inputs.platform-url ]]"
+      expand: false
+    IN_OUT_DIR:
+      value: "$[[ inputs.out-dir ]]"
+      expand: false
+    IN_KEEP_RECORDING:
+      value: "$[[ inputs.keep-recording ]]"
+      expand: false
+  script:
+    - |
+      set -eu
+      out="${CI_PROJECT_DIR}/${IN_OUT_DIR}"
+      mkdir -p "$out/badges"
+      rm -f "$out/results.json" "$out/recording.har" "$out/junit.xml" "$out/ctrf.json" \
+        "$out/summary.md" "$out/exit-status" "$out"/badges/*
+      status() { printf '%s\n' "$1" > "$out/exit-status"; }
+      status 2
+      docker pull --quiet "$VEREDICTUM_IMAGE" > /dev/null
+      image="$(docker image inspect --format '{{.Id}}' "$VEREDICTUM_IMAGE")"
+      echo "image ${VEREDICTUM_IMAGE}: id ${image}"
+
+      # The credentials and the scoped tokens, by name: a non-empty variable
+      # is handed over, and a non-empty <name>_FILE is copied in.
+      set --
+      files=""
+      for name in VEREDICTUM_CDR_USER VEREDICTUM_CDR_PASSWORD VEREDICTUM_CDR_TOKEN \
+        VEREDICTUM_CDR_ADMIN_USER VEREDICTUM_CDR_ADMIN_PASSWORD VEREDICTUM_CDR_ADMIN_TOKEN \
+        $(env | sed -n 's/^\(VEREDICTUM_SCOPED_TOKEN_[A-Z0-9_]*\)=.*/\1/p' | sed 's/_FILE$//' | sort -u); do
+        if [ -n "$(printenv "$name" || true)" ]; then set -- "$@" -e "$name"; fi
+        file="$(printenv "${name}_FILE" || true)"
+        if [ -n "$file" ]; then
+          if [ ! -f "$file" ]; then echo "${name}_FILE names ${file}, which is not a file" >&2; exit 0; fi
+          set -- "$@" -e "${name}_FILE=/work/secret-${name}"
+          files="${files} ${name}"
+        fi
+      done
+      set -- "$@" "$image" test --base-url "$IN_BASE_URL" --auth "$IN_AUTH" \
+        --admin-auth "$IN_ADMIN_AUTH" --profile "$IN_PROFILE" --out /work/out
+      if [ -n "$IN_STATEMENT" ]; then set -- "$@" --statement /work/statement.json; fi
+      if [ -n "$IN_IXIT" ]; then set -- "$@" --ixit /work/ixit.json; fi
+      if [ -n "$IN_PLATFORM_URL" ]; then set -- "$@" --platform-url "$IN_PLATFORM_URL"; fi
+      for document in $IN_DOCUMENTS; do set -- "$@" --document "$document"; done
+
+      run=$(docker create --network host --user 0:0 "$@")
+      if [ -n "$IN_STATEMENT" ]; then docker cp "$IN_STATEMENT" "$run:/work/statement.json"; fi
+      if [ -n "$IN_IXIT" ]; then docker cp "$IN_IXIT" "$run:/work/ixit.json"; fi
+      for name in $files; do docker cp "$(printenv "${name}_FILE")" "$run:/work/secret-${name}"; done
+      code=0
+      docker start --attach "$run" || code=$?
+      docker cp "$run:/work/out/." "$out/" 2>/dev/null || true
+      docker rm --force "$run" > /dev/null
+      case "$code" in 0|1|2|3) ;; *) echo "the container exited ${code}, which is not an engine status" >&2; code=2 ;; esac
+      status "$code"
+      if [ ! -f "$out/results.json" ]; then
+        echo "Veredictum could not start the run (exit status ${code}); the log above says why."
+        exit 0
+      fi
+
+      # engine <args…>: the engine over this run's results.json, its writes
+      # copied back into the output directory.
+      engine() {
+        view=$(docker create --network none --user 0:0 "$image" "$@")
+        docker cp "$out/results.json" "$view:/work/results.json"
+        engine_code=0
+        docker start --attach "$view" || engine_code=$?
+        docker cp "$view:/work/out/." "$out/" 2>/dev/null || true
+        docker rm --force "$view" > /dev/null
+        return "$engine_code"
+      }
+      if ! engine export --results /work/results.json --junit /work/out/junit.xml \
+        --ctrf /work/out/ctrf.json --markdown /work/out/summary.md; then
+        echo "the export of results.json failed" >&2
+        if [ "$code" = 0 ] || [ "$code" = 3 ]; then status 2; fi
+      fi
+      if ! engine badge --results /work/results.json --out /work/out/badges; then
+        echo "the badges of results.json could not be drawn" >&2
+        if [ "$code" = 0 ] || [ "$code" = 3 ]; then status 2; fi
+      fi
+      if [ "$IN_KEEP_RECORDING" != true ]; then rm -f "$out/recording.har"; fi
+      echo "exit status $(cat "$out/exit-status"); the ${CI_JOB_NAME}-verdict job reports it"
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - $[[ inputs.out-dir ]]/results.json
+      - $[[ inputs.out-dir ]]/recording.har
+      - $[[ inputs.out-dir ]]/junit.xml
+      - $[[ inputs.out-dir ]]/ctrf.json
+      - $[[ inputs.out-dir ]]/summary.md
+      - $[[ inputs.out-dir ]]/badges/
+      - $[[ inputs.out-dir ]]/exit-status
+    reports:
+      junit: $[[ inputs.out-dir ]]/junit.xml
+
+"$[[ inputs.job-name ]]-verdict":
+  stage: $[[ inputs.stage ]]
+  image: docker:29.9.2-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
+  needs:
+    - job: "$[[ inputs.job-name ]]"
+      artifacts: true
+  allow_failure: $[[ inputs.allow-failure ]]
+  variables:
+    IN_OUT_DIR:
+      value: "$[[ inputs.out-dir ]]"
+      expand: false
+    IN_FAIL_ON_INCONCLUSIVE:
+      value: "$[[ inputs.fail-on-inconclusive ]]"
+      expand: false
+  script:
+    - |
+      set -eu
+      file="${CI_PROJECT_DIR}/${IN_OUT_DIR}/exit-status"
+      code="$(cat "$file" 2>/dev/null || echo 2)"
+      case "$code" in
+        0) echo "exit status 0: no row counts against the server, and none is inconclusive" ;;
+        1) echo "exit status 1: a row counts against the server"; exit 1 ;;
+        3)
+          if [ "$IN_FAIL_ON_INCONCLUSIVE" = false ]; then
+            echo "exit status 3: only inconclusive rows, which fail-on-inconclusive false lets pass"
+          else
+            echo "exit status 3: only inconclusive rows, which the instrument could not judge"; exit 3
+          fi
+          ;;
+        *) echo "exit status ${code}: the run could not start or finish"; exit 2 ;;
+      esac

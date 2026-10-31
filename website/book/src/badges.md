@@ -146,82 +146,30 @@ that long after a push.
 
 ## GitLab
 
-On GitLab the badges are job artifacts. The job runs the image with
-`docker run`, draws the badges after the run, and keeps them with
-`artifacts: paths:`. The image starts the console by default, so each command
-names the engine with `--entrypoint`, and it runs as your job's user so it can
-write into the project directory.
-
-GitLab serves an artifact by URL only from the latest successful pipeline of a
-branch. If a failed row failed the pipeline, the README would keep showing the
-badges of an earlier run. So the job that draws the badges always succeeds and
-saves the run's exit status, and a second job reports that status and is
-allowed to fail: a run with a failed row then shows as passed with warnings,
-and the badges show the failure.
-
-```yaml
-variables:
-  VEREDICTUM_IMAGE: ghcr.io/vernum-projecten/veredictum:X.Y.Z
-  DOCKER_TLS_CERTDIR: /certs
-
-conformance:
-  image: docker:28
-  services: [docker:28-dind]
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  script:
-    - mkdir -p conformance-results
-    - status=0
-    - >-
-      docker run --rm --user "$(id -u):$(id -g)" -e VEREDICTUM_CDR_TOKEN
-      -v "$PWD/conformance:/work/in:ro" -v "$PWD/conformance-results:/work/out"
-      --entrypoint /usr/local/bin/veredictum "$VEREDICTUM_IMAGE"
-      test --base-url "$CDR_BASE_URL" --auth bearer --profile released
-      --statement /work/in/statement.json --out /work/out || status=$?
-    - echo "$status" > conformance-results/exit-status
-    - >-
-      docker run --rm --user "$(id -u):$(id -g)"
-      -v "$PWD/conformance-results:/work/out"
-      --entrypoint /usr/local/bin/veredictum "$VEREDICTUM_IMAGE"
-      badge --results /work/out/results.json --out /work/out/badges
-  artifacts:
-    paths:
-      - conformance-results/badges/
-      - conformance-results/exit-status
-    expire_in: 30 days
-
-conformance-verdict:
-  image: alpine:3
-  needs: [conformance]
-  allow_failure: true
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  script:
-    - exit "$(cat conformance-results/exit-status)"
-```
-
-`VEREDICTUM_CDR_TOKEN` is a masked CI/CD variable, handed to the container by
-name. Keep `expire_in` longer than the time between two runs. GitLab also keeps
-the artifacts of the latest successful pipeline of a branch whatever
-`expire_in` says, unless that is turned off in the project's CI/CD settings.
-`recording.har` is left out of the artifacts on purpose: it holds the server's
-response bodies verbatim.
-
-The badge URL of a public project is
+[The GitLab CI template](gitlab-ci.md) draws the badges after every run into
+`badges/` in its `out-dir` and keeps them as job artifacts. GitLab serves an
+artifact by URL from the latest successful pipeline of a branch, so the badge
+URL of a public project is
 
 ```text
-https://gitlab.com/<namespace>/<project>/-/jobs/artifacts/<branch>/raw/conformance-results/badges/<name>.svg?job=conformance
+https://gitlab.com/<namespace>/<project>/-/jobs/artifacts/<branch>/raw/veredictum-results/badges/<name>.svg?job=veredictum
 ```
 
-Use it either in the README:
+with the template's default `out-dir` and `job-name`. Use it in the README:
 
 ```markdown
-[![openEHR BASE](https://gitlab.com/<namespace>/<project>/-/jobs/artifacts/main/raw/conformance-results/badges/base.svg?job=conformance)](https://gitlab.com/<namespace>/<project>/-/pipelines?ref=main)
+[![openEHR BASE](https://gitlab.com/<namespace>/<project>/-/jobs/artifacts/main/raw/veredictum-results/badges/base.svg?job=veredictum)](https://gitlab.com/<namespace>/<project>/-/pipelines?ref=main)
 ```
 
 or under **Settings → General → Badges**, with the same URL as the badge image
-and the project's pipelines as its link, where
-`%{default_branch}` can stand for the branch.
+and the project's pipelines as its link, where `%{default_branch}` can stand
+for the branch.
+
+The template's verdict job fails the pipeline exactly as the GitHub Action
+fails its step, and a failed pipeline leaves that URL on the badges of the
+last successful one. To keep the badges on the newest run, set the
+template's `allow-failure` input to `true`: a run with a failed row then
+leaves the pipeline passed with warnings, and the badges show the failure.
 
 ## Any other CI
 

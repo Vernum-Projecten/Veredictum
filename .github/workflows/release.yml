@@ -199,6 +199,13 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
         run: bash scripts/release/check-console-pin.sh "$VERSION"
 
+      # A vendor includes the GitLab CI template from this tag, so the image it
+      # names is what the tag runs (#920).
+      - name: The GitLab CI template runs the version being released
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: bash scripts/release/check-gitlab-template.sh "$VERSION"
+
       - name: CITATION.cff version matches the released version
         env:
           VERSION: ${{ steps.tag.outputs.version }}

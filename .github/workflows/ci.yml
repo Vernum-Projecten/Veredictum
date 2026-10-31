@@ -149,7 +149,9 @@ jobs:
           # (#55); no code lives at the root any more. The legend generator is
           # named individually (#189) because the test job runs its --check and
           # the rest of scripts/render/ has nothing to do with that job.
-          if echo "$changed" | grep -qE '^(app/|catalogue/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
+          # ci/gitlab/ is in it because the test job validates the GitLab CI
+          # template against GitLab's own schema (#920).
+          if echo "$changed" | grep -qE '^(app/|catalogue/|ci/gitlab/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -346,6 +348,14 @@ jobs:
       # its seeded trees prove each disagreement is refused.
       - name: The console's engine pin — seeded self-test
         run: bash scripts/release/check-console-pin.sh --self-test
+
+      # The GitLab CI template (#920) runs the release image of the version it
+      # is tagged with, and reads only the inputs it declares. GitLab's own
+      # schema validates it in the test job (`gitlab_template`).
+      - name: The GitLab CI template runs this tree's engine
+        run: bash scripts/release/check-gitlab-template.sh
+      - name: The GitLab CI template check refuses its seeded violations
+        run: bash scripts/release/check-gitlab-template.sh --self-test
 
       # CITATION.cff and the generated .zenodo.json carry the workspace engine
       # version (#812). The release `plan` compares CITATION.cff with the tag,
