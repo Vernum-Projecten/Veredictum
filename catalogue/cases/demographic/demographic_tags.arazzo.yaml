@@ -21,7 +21,9 @@ workflows:
     description: >-
       Creates a PERSON and tags its container with a key unique to this run,
       then lists the Demographic tags filtered by that key. The answer is 200
-      and holds the tag, whose target is the PERSON's container.
+      and holds the tag, whose target is the PERSON's container, as a bare
+      UID_BASED_ID or as the id of an OBJECT_REF, the two shapes the release
+      gives (upstream report #750).
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
       section: description
@@ -107,13 +109,15 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
               section: description
               quote: "Retrieves the list of ITEM_TAG resources associated with any target VERSION or VERSIONED_PARTY within the Demographic space."
-          - context: $response.body#/0/target/id/value
-            type: regex
-            condition: '^{$steps.create.outputs.versioned_object_uid}$'
-            x-veredictum-cite: &tag_target
-              source: specs/openehr/ITS-REST/specifications/schemas/common/ItemTag.yaml
-              section: /properties/target/$ref
-              quote: "../base_types/UObjectRefOfUidBasedId.yaml"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.target.id.value == '{$steps.create.outputs.versioned_object_uid}' || @.target.value == '{$steps.create.outputs.versioned_object_uid}']"
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
+              section: ITEM_TAG Class
+              quote: "Identifier of target, which may be a `VERSIONED_OBJECT<T>` or a `VERSION<T>`."
+              level: must
+              report: 750
           - condition: $response.body#/1 == null
             x-veredictum-cite: &demographic_tags_filter
               source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml

@@ -61,6 +61,8 @@ gate guard "release tags after smoke" "bash scripts/checks/release-tags-after-sm
 gate guard "tags after smoke self-test" "bash scripts/checks/release-tags-after-smoke.sh --self-test" yq
 gate guard "JUnit schemas"            "bash scripts/checks/junit-schema.sh" xmllint
 gate guard "JUnit schemas self-test"  "bash scripts/checks/junit-schema.sh --self-test" xmllint
+gate guard "XML write bodies"         "bash scripts/checks/xml-write-bodies.sh" xmllint
+gate guard "XML write bodies self-test" "bash scripts/checks/xml-write-bodies.sh --self-test" xmllint
 gate guard "changelog structure"      "bash scripts/checks/changelog-structure.sh"
 gate guard "changelog entry"          "bash scripts/checks/changelog-entry.sh"
 gate guard "changelog entry self-test" "bash scripts/checks/changelog-entry.sh --self-test"

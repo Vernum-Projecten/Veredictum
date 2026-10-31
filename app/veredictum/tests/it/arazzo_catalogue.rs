@@ -6,9 +6,15 @@
 //! every operation resolves in its released source, and every condition is
 //! inside the profile.
 
+use std::collections::BTreeMap;
+use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 
+use regex::Regex;
+use serde_json::{Value, json};
+use veredictum::arazzo::cite::{Level, citation_of};
 use veredictum::arazzo::document::ArazzoDocument;
+use veredictum::arazzo::expr::{JsonPathCriterion, RequestView, ResponseView, Scope};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -60,10 +66,10 @@ struct MapEntry {
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct IdMap {
-    cases: std::collections::BTreeMap<String, MapEntry>,
+    cases: BTreeMap<String, MapEntry>,
     /// The cases of a query collection maintained elsewhere, by its name.
     #[serde(default)]
-    corpora: std::collections::BTreeMap<String, Corpus>,
+    corpora: BTreeMap<String, Corpus>,
 }
 
 /// One collection under `corpora` in `catalogue/id-map.yaml`.
@@ -72,7 +78,7 @@ struct IdMap {
 struct Corpus {
     source: String,
     commit: String,
-    cases: std::collections::BTreeMap<String, MapEntry>,
+    cases: BTreeMap<String, MapEntry>,
 }
 
 #[test]
@@ -228,5 +234,190 @@ fn every_committed_floor_is_the_workflow_count_of_its_folder()
         capabilities.floors, counts,
         "re-derive the floors in capabilities.yaml from the catalogue"
     );
+    Ok(())
+}
+/// The seven workflows whose criterion judges the served shape of
+/// `ITEM_TAG.target`, by document under `catalogue/cases`.
+const TARGET_SHAPE: [(&str, &str); 7] = [
+    (
+        "demographic/person_tags.arazzo.yaml",
+        "person_tags_get-version_target_shape",
+    ),
+    (
+        "demographic/person_tags.arazzo.yaml",
+        "person_tags_get-container_target_shape",
+    ),
+    (
+        "item_tags/composition_tags.arazzo.yaml",
+        "composition_tags_get-version_target_shape",
+    ),
+    (
+        "item_tags/composition_tags.arazzo.yaml",
+        "composition_tags_get-container_target_shape",
+    ),
+    (
+        "item_tags/ehr_status_tags.arazzo.yaml",
+        "ehr_status_tags_get-version_target_shape",
+    ),
+    (
+        "item_tags/ehr_status_tags.arazzo.yaml",
+        "ehr_status_tags_get-container_target_shape",
+    ),
+    (
+        "demographic/demographic_tags.arazzo.yaml",
+        "demographic_tags_get-filter_key",
+    ),
+];
+
+/// The identifier every step output reads as in [`target_shape_holds`].
+const TARGET_UID: &str = "8f0d61a4-3c1e-4b9f-9a57-0c2f4d7e5b11::veredictum.test::1";
+
+/// Judges the target criterion against one served tag list, with every
+/// `{$steps.…}` output it embeds read as [`TARGET_UID`].
+fn target_shape_holds(
+    criterion: &JsonPathCriterion,
+    outputs: &BTreeMap<String, BTreeMap<String, Value>>,
+    body: Value,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let request = RequestView {
+        method: "GET".to_owned(),
+        url: "http://sut.invalid/".to_owned(),
+        headers: BTreeMap::new(),
+        query: BTreeMap::new(),
+        path: BTreeMap::new(),
+    };
+    let response = ResponseView {
+        status: 200,
+        headers: BTreeMap::new(),
+        body: Ok(Some(body)),
+    };
+    let inputs = BTreeMap::new();
+    let workflows = BTreeMap::new();
+    let scope = Scope {
+        inputs: &inputs,
+        outputs,
+        workflows: &workflows,
+        exchange: Some((&request, &response)),
+    };
+    Ok(criterion.judge(&scope)?.holds)
+}
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_item_tag_target_criterion_holds_for_both_released_shapes()
+-> Result<(), Box<dyn std::error::Error>> {
+    // NOTE: RM item_tag.adoc types `target` as UID_BASED_ID; ITS-REST ItemTag.yaml wraps it
+    // in UObjectRefOfUidBasedId; upstream report #750 leaves the shape to the SEC.
+    let root = repo_root();
+    let output = Regex::new(r"\{\$steps\.([A-Za-z0-9_-]+)\.outputs\.([A-Za-z0-9_]+)\}")?;
+    for (file, id) in TARGET_SHAPE {
+        let document = ArazzoDocument::load(&root.join("catalogue/cases").join(file))?;
+        let workflow = document
+            .description()
+            .workflows
+            .iter()
+            .find(|w| w.workflow_id == id)
+            .ok_or_else(|| format!("{file}: no workflow {id}"))?;
+        let inherited = citation_of(workflow.extensions.as_ref())?;
+        let mut found = Vec::new();
+        for step in &workflow.steps {
+            for criterion in &step.success_criteria {
+                if criterion.condition.contains("@.target") {
+                    let cite = citation_of(criterion.extensions.as_ref())?
+                        .or_else(|| citation_of(step.extensions.as_ref()).ok().flatten())
+                        .or_else(|| inherited.clone())
+                        .ok_or_else(|| format!("{id}: the target criterion has no citation"))?;
+                    found.push((criterion.clone(), cite));
+                }
+            }
+        }
+        let [(criterion, cite)] = found.as_slice() else {
+            return Err(format!("{id}: {} target criteria, expected one", found.len()).into());
+        };
+        assert_eq!(cite.report.map(NonZeroU64::get), Some(750), "{id}");
+        let context = criterion.context.as_deref().ok_or("no context")?;
+        let judged = JsonPathCriterion::parse(context, &criterion.condition)?;
+        let mut outputs: BTreeMap<String, BTreeMap<String, Value>> = BTreeMap::new();
+        for capture in output.captures_iter(&criterion.condition) {
+            let (Some(step), Some(name)) = (capture.get(1), capture.get(2)) else {
+                continue;
+            };
+            outputs
+                .entry(step.as_str().to_owned())
+                .or_default()
+                .insert(name.as_str().to_owned(), json!(TARGET_UID));
+        }
+        assert!(
+            !outputs.is_empty(),
+            "{id}: the criterion embeds no step output"
+        );
+        let bare = |uid: &str| json!([{ "key": "k", "target": { "_type": "OBJECT_VERSION_ID", "value": uid } }]);
+        let wrapped = |uid: &str| {
+            json!([{ "key": "k", "target": {
+                "id": { "_type": "OBJECT_VERSION_ID", "value": uid },
+                "namespace": "local",
+                "type": "VERSION"
+            } }])
+        };
+        let other = "1d6b0a77-9e0e-4c58-8a0b-2f0e3b6c9d42::veredictum.test::1";
+        assert!(
+            target_shape_holds(&judged, &outputs, bare(TARGET_UID))?,
+            "{id}: the RM shape"
+        );
+        assert!(
+            target_shape_holds(&judged, &outputs, wrapped(TARGET_UID))?,
+            "{id}: the OAS shape"
+        );
+        assert!(
+            !target_shape_holds(&judged, &outputs, bare(other))?,
+            "{id}: another uid, RM shape"
+        );
+        assert!(
+            !target_shape_holds(&judged, &outputs, wrapped(other))?,
+            "{id}: another uid, OAS shape"
+        );
+    }
+    Ok(())
+}
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_empty_folders_refusal_rests_on_a_should_and_is_a_warning()
+-> Result<(), Box<dyn std::error::Error>> {
+    // NOTE: ITS-REST Resources.md §JSON Format: a request payload "SHOULD be valid against
+    // published JSON-Schemas", so a server that takes the body fails no `must` criterion.
+    let path = repo_root().join("catalogue/cases/directory/directory_create_refused.arazzo.yaml");
+    let document = ArazzoDocument::load(&path)?;
+    let workflow = document
+        .description()
+        .workflows
+        .iter()
+        .find(|w| w.workflow_id == "create_directory-folders_empty")
+        .ok_or("no workflow create_directory-folders_empty")?;
+    let inherited = citation_of(workflow.extensions.as_ref())?;
+    let mut judged = 0;
+    for step in workflow.steps.iter().filter(|s| s.step_id != "create-ehr") {
+        let step_cite = citation_of(step.extensions.as_ref())?.or_else(|| inherited.clone());
+        for criterion in &step.success_criteria {
+            let cite = citation_of(criterion.extensions.as_ref())?
+                .or_else(|| step_cite.clone())
+                .ok_or_else(|| format!("{}: a criterion has no citation", step.step_id))?;
+            assert_eq!(
+                cite.level(),
+                Level::Should,
+                "{}: {}",
+                step.step_id,
+                criterion.condition
+            );
+            assert!(cite.quote.contains("SHOULD"), "{}", cite.quote);
+            judged += 1;
+        }
+    }
+    assert_eq!(judged, 2, "the create and the no-directory read");
     Ok(())
 }

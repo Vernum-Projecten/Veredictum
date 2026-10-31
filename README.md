@@ -39,7 +39,7 @@
 
 **The catalogue**<br>
 the released openEHR specifications, version-aware per case ·
-1673 spec-cited cases · 215 Arazzo documents
+1689 spec-cited cases · 219 Arazzo documents
 
 </div>
 
@@ -155,7 +155,7 @@ complete workflow, every input, and what to keep out of an uploaded artifact.
 
 ### Conformance
 
-- [The Arazzo catalogue](https://veredictum.eu/docs/introduction.html#what-is-in-the-box): 1673 spec-cited cases in 15 capability folders, one behaviour per case, with a refusal case for every invalid shape
+- [The Arazzo catalogue](https://veredictum.eu/docs/introduction.html#what-is-in-the-box): 1689 spec-cited cases in 15 capability folders, one behaviour per case, with a refusal case for every invalid shape
 - [`validate`](https://veredictum.eu/docs/commands.html#validate): every gate over the catalogue, plus the static review of a party's statement
 - [`test`](https://veredictum.eu/docs/running.html#4-drive-the-catalogue): drives the catalogue over the server's own wire and records every exchange as HAR
 - [`test --rejudge`](https://veredictum.eu/docs/running.html#re-judging-a-recording): judges a recording again with no server, byte for byte

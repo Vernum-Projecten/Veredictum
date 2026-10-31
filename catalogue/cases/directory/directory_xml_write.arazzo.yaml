@@ -1,0 +1,152 @@
+# The directory FOLDER written in canonical XML, for a service that
+# processes XML request payloads on it: the accepting arm of the
+# `directory-xml-write` option, whose refused arm is
+# `directory_xml_write_refused`. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory writes in canonical XML
+  version: 0.1.0
+  description: >-
+    Creating and updating the directory FOLDER with a body sent as canonical
+    XML, then reading it back as JSON. Each body is the global `items`
+    element (LOCATABLE) of the published ITS-XML ALL/Structure.xsd typed
+    FOLDER with xsi:type, which that schema validates, but no released
+    sentence requires a service to accept that root for a FOLDER, so each
+    workflow rests on upstream report #759.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_directory-xml
+    summary: A directory FOLDER sent as canonical XML is created and reads back as sent
+    description: >-
+      Creates an EHR, then creates its directory FOLDER from a canonical XML
+      body holding one sub-folder, and reads the directory back as JSON. It
+      is the FOLDER sent: named root, with the sub-folder named episodes.
+    x-veredictum-cite: &xml_conforms
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+      report: 759
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the directory FOLDER from canonical XML.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <items xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="FOLDER" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.0.2</rm_version></archetype_details><folders archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>episodes</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.0.2</rm_version></archetype_details></folders></items>
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+      - stepId: get
+        description: Retrieve the latest directory FOLDER as JSON.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &folder_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+          - context: $response.body#/folders/0/name/value
+            type: regex
+            condition: '^episodes$'
+
+  - workflowId: update_directory-xml
+    summary: A directory FOLDER updated from canonical XML reads back as sent
+    description: >-
+      Creates an EHR and its directory FOLDER in canonical JSON, then updates
+      the directory with a canonical XML body that renames it, under the
+      current version in If-Match, and reads the directory back as JSON. It
+      is the FOLDER sent, named archive.
+    x-veredictum-cite: *xml_conforms
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER in canonical JSON and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the directory from canonical XML and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <items xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="FOLDER" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>archive</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.0.2</rm_version></archetype_details></items>
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the latest directory FOLDER as JSON.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *folder_retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^archive$'
