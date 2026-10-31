@@ -86,10 +86,15 @@ jiff = { version = "0.2.31", features = ["serde"] }
 # element name and the namespace its prefix resolves to. A namespace-aware
 # parser is required — a regex cannot tell the root from a descendant, nor
 # relate a prefix to the URI in scope for it.
-quick-xml = { version = "0.42.0", features = ["serialize"] }
+quick-xml = "0.42.0"
 # Percent-encode path/query segments — never hand-roll a percent codec.
 urlencoding = "2.1.3"
 thiserror = "2"
+# `wrap_help` stays off: without it clap wraps help at a fixed width, which is
+# what lets `scripts/render/commands-md.sh` render the book's command reference
+# byte-identically on every machine. With it the page wraps at the width the
+# rendering terminal reports and the `cli-surface` gate drifts on unrelated
+# machines; that gate refuses the feature.
 clap = { version = "4", features = ["derive", "env"] }
 # The measurement machinery: coordinated-omission-corrected latency with the
 # standard V2 serialization so thresholds are re-checkable from the artifact.

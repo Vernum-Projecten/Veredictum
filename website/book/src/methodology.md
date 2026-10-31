@@ -25,6 +25,48 @@ never happens. Every failure is attributed before anything is changed, and the
 instrument itself is a suspect ahead of the server
 ([below](#when-a-run-goes-red)).
 
+## What the instrument does not test
+
+Veredictum tests platform CDRs over ITS-REST: servers that hold openEHR EHRs
+and demographic records and expose them through the released openEHR REST API.
+Every case is an Arazzo workflow whose steps call the operations of the
+released ITS-REST OpenAPI documents (`docs/ARCHITECTURE.md` §15.2), and the
+capability folders under `catalogue/cases/` are the parts of that API a
+statement can claim. A product the instrument can test is one it can drive
+over that wire.
+
+Some products in the openEHR ecosystem are out of scope, each for a stated
+reason:
+
+- **Integration brokers and middleware.** A broker moves and transforms data
+  between systems. It exposes no openEHR platform service of its own, and no
+  released openEHR specification defines what a broker must do on the wire,
+  so there is nothing for a case to cite.
+- **Analytics platforms.** The instrument tests AQL where the released text
+  places it: the Query API of a platform CDR, against data the run committed
+  (the `query` capability). A separate analytics product that reads openEHR
+  data has no released wire contract of its own to test.
+- **Clinical applications.** A form, a dashboard or a patient app is a
+  client of a CDR. The instrument is itself a client and judges servers;
+  judging a client needs a test server that grades the requests it receives,
+  which is a different instrument.
+- **CKM and other knowledge repositories.** The Clinical Knowledge Manager
+  curates archetypes and templates through its own API, which is no part of
+  the released openEHR specifications. The Definition API of a CDR, which
+  stores templates for the CDR's own use, is tested (the `definition`
+  capability).
+- **Conformance of archetypes and templates as artefacts.** Whether an
+  archetype is valid ADL or a template a valid OPT is a property of the model
+  file, judged by modelling tools against the AM specifications. The
+  instrument uploads templates as test material and judges how the CDR
+  handles them and the data committed against them; it never grades a
+  template itself.
+
+A platform that offers the openEHR services over another protocol than REST
+is out of scope as well, until a second ITS has its own Arazzo documents
+(`docs/ARCHITECTURE.md` §15.2). [Reading a result](reading-results.md) lists
+what a result can and cannot say about the products that are in scope.
+
 ## The oracle is the released specification text
 
 The vendored openEHR specification text is the oracle, and it is never a

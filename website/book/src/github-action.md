@@ -295,7 +295,7 @@ repository. Set `annotations: false` to write none.
 
 ## Badges
 
-The step draws five badges from every run into `badges/` in `out-dir`. With
+The step draws four badges from every run into `badges/` in `out-dir`. With
 `badge-branch: <branch>` it also pushes them to that branch of your
 repository, but only from a run on your default branch that is not a pull
 request, so your README can show them. [Badges](badges.md) covers what each

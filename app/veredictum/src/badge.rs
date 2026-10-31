@@ -6,7 +6,7 @@
 //! One badge per fact, each written as a flat two-part SVG and as a
 //! Shields.io endpoint JSON document
 //! (<https://shields.io/badges/endpoint-badge>). An Arazzo [`Results`]
-//! document draws five badges ([`BadgeName::CONFORMANCE`]); a [`PerfResult`]
+//! document draws four badges ([`BadgeName::CONFORMANCE`]); a [`PerfResult`]
 //! draws one, its knee as the record states it ([`perf_badge`]).
 //!
 //! Every badge is a pure function of the document, so drawing the same
@@ -36,14 +36,13 @@ use crate::perf_result::view::format_rate;
 /// One badge the instrument draws, by the file name it is written under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BadgeName {
-    /// The BASE rows: passed out of every BASE row and every row the outline
-    /// places nowhere.
+    /// The BASE rows and every row the outline places nowhere: passed out of
+    /// the rows that bear on the verdict, then their warnings.
     Base,
     /// The rows of the selected option arms, with the BASE cases resting on
-    /// TRIAL text, which are read with the options.
+    /// TRIAL text, which are read with the options, counted as on
+    /// [`BadgeName::Base`].
     Options,
-    /// The count of warning rows: a SHOULD the server did not follow.
-    Warnings,
     /// The specification profile the run was judged against.
     Profile,
     /// The instrument and its version, and that the run is the vendor's own.
@@ -54,13 +53,7 @@ pub enum BadgeName {
 
 impl BadgeName {
     /// Every badge of a conformance result, in the order they are drawn.
-    pub const CONFORMANCE: [Self; 5] = [
-        Self::Base,
-        Self::Options,
-        Self::Warnings,
-        Self::Profile,
-        Self::Instrument,
-    ];
+    pub const CONFORMANCE: [Self; 4] = [Self::Base, Self::Options, Self::Profile, Self::Instrument];
 
     /// The file stem the badge is written under (`base` for `base.svg` and
     /// `base.json`).
@@ -69,7 +62,6 @@ impl BadgeName {
         match self {
             Self::Base => "base",
             Self::Options => "options",
-            Self::Warnings => "warnings",
             Self::Profile => "profile",
             Self::Instrument => "instrument",
             Self::Perf => "perf",
@@ -92,8 +84,6 @@ pub enum BadgeColour {
     /// Nothing passed and nothing failed or errored (no rows, or every row
     /// skipped): grey.
     Empty,
-    /// At least one warning row: yellow.
-    Warned,
     /// The released profile: blue.
     Released,
     /// The development profile: purple.
@@ -113,7 +103,6 @@ impl BadgeColour {
             Self::Failing => "e05d44",
             Self::Errored => "fe7d37",
             Self::Empty => "9f9f9f",
-            Self::Warned => "dfb317",
             Self::Released => "007ec6",
             Self::Development => "8250df",
             Self::Instrument => "1b6e92",
@@ -124,7 +113,7 @@ impl BadgeColour {
     /// The colour of a tally: red when any row counts against the server
     /// (failed, or errored with the server or no one named), orange when none
     /// does but one is inconclusive, grey when nothing passed, and green
-    /// otherwise.
+    /// otherwise. A warning row enters none of these rules.
     #[must_use]
     pub const fn of(tally: Tally) -> Self {
         if tally.against_server() > 0 {
@@ -340,18 +329,37 @@ impl Badge {
     }
 }
 
-/// The message of a counting badge: passed out of every row, then the failed
-/// and errored counts when there are any.
+/// The message of a counting badge: passed out of the rows that bear on the
+/// verdict (passed, failed and errored), then the failed, errored and warning
+/// counts when there are any.
+///
+/// A warning row is a SHOULD the server did not follow: it is neither a pass
+/// nor a failure, so it stays out of the ratio and is named after it.
 fn tally_message(tally: Tally) -> String {
     if tally.tests == 0 {
         return String::from("no rows");
     }
-    let mut message = format!("{}/{} passed", tally.passed, tally.tests);
+    let judged = tally
+        .passed
+        .saturating_add(tally.failed)
+        .saturating_add(tally.errored);
+    let mut message = if judged == 0 {
+        String::from("none judged")
+    } else {
+        format!("{}/{judged} passed", tally.passed)
+    };
     if tally.failed > 0 {
         let _ = write!(message, " \u{b7} {} failed", tally.failed);
     }
     if tally.errored > 0 {
         let _ = write!(message, " \u{b7} {} errored", tally.errored);
+    }
+    match tally.warning {
+        0 => {}
+        1 => message.push_str(" \u{b7} 1 warning"),
+        n => {
+            let _ = write!(message, " \u{b7} {n} warnings");
+        }
     }
     message
 }
@@ -395,7 +403,6 @@ pub fn badges(results: &Results) -> Vec<Badge> {
     // nowhere counts on the BASE badge, so a red unplaced row never leaves it green.
     let (base_message, base_colour) = counted(reading.base_total.plus(reading.unplaced_total));
     let (options_message, options_colour) = counted(reading.options.selected_tally());
-    let warnings = reading.total.warning;
     BadgeName::CONFORMANCE
         .into_iter()
         .map(|name| {
@@ -409,15 +416,6 @@ pub fn badges(results: &Results) -> Vec<Badge> {
                     format!("openEHR options \u{b7} {profile}"),
                     options_message.clone(),
                     options_colour,
-                ),
-                BadgeName::Warnings => (
-                    format!("openEHR warnings \u{b7} {profile}"),
-                    warnings.to_string(),
-                    if warnings > 0 {
-                        BadgeColour::Warned
-                    } else {
-                        BadgeColour::Passing
-                    },
                 ),
                 BadgeName::Profile => (
                     String::from("specification"),
@@ -506,6 +504,14 @@ mod tests {
         }
     }
 
+    fn warned(tally: Tally, warning: usize) -> Tally {
+        Tally {
+            tests: tally.tests + warning,
+            warning,
+            ..tally
+        }
+    }
+
     #[test]
     fn a_failed_or_errored_row_is_never_green() {
         assert_eq!(BadgeColour::of(tally(9, 1, 0, 0)), BadgeColour::Failing);
@@ -526,13 +532,46 @@ mod tests {
     }
 
     #[test]
+    fn a_warning_never_changes_the_colour() {
+        for base in [
+            tally(9, 0, 0, 0),
+            tally(9, 1, 0, 0),
+            tally(9, 0, 1, 0),
+            tally(0, 0, 0, 3),
+        ] {
+            assert_eq!(BadgeColour::of(warned(base, 2)), BadgeColour::of(base));
+        }
+    }
+
+    #[test]
     fn a_tally_message_names_failed_and_errored_rows() {
-        assert_eq!(tally_message(tally(9, 0, 0, 1)), "9/10 passed");
+        assert_eq!(tally_message(tally(9, 0, 0, 1)), "9/9 passed");
         assert_eq!(
             tally_message(tally(7, 2, 1, 0)),
             "7/10 passed \u{b7} 2 failed \u{b7} 1 errored"
         );
         assert_eq!(tally_message(tally(0, 0, 0, 0)), "no rows");
+        assert_eq!(tally_message(tally(0, 0, 0, 2)), "none judged");
+    }
+
+    #[test]
+    fn a_warning_is_named_after_the_ratio_and_never_inside_it() {
+        assert_eq!(
+            tally_message(warned(tally(3, 0, 0, 0), 1)),
+            "3/3 passed \u{b7} 1 warning"
+        );
+        assert_eq!(
+            tally_message(warned(tally(2, 1, 1, 0), 1)),
+            "2/4 passed \u{b7} 1 failed \u{b7} 1 errored \u{b7} 1 warning"
+        );
+        assert_eq!(
+            tally_message(warned(tally(5, 0, 0, 1), 2)),
+            "5/5 passed \u{b7} 2 warnings"
+        );
+        assert_eq!(
+            tally_message(warned(tally(0, 0, 0, 0), 1)),
+            "none judged \u{b7} 1 warning"
+        );
     }
 
     #[test]

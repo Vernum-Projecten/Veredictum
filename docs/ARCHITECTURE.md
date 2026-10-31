@@ -212,6 +212,32 @@ its author's permission first. And its demographic tests target his own
 demographic-API proposal rather than the demographic API openEHR has since
 published, so they do not transfer to master10 unread.
 
+The reuse licence was re-read first-hand on 2026-10-31 (#217), and public
+text does not settle it. GitHub reports no licence for the repository, its
+tree holds no LICENSE file, and its last push was on 2024-03-24. The one
+licence statement in it is the last slide of
+`openEHR Conformance (SEC presentation 2019).pdf`: "Code and documents will
+be available soon! With Apache 2 license". That announces an intention and
+grants nothing. What is missing is a grant: a licence file in the repository,
+or a written permission from its author recorded beside any material taken
+from it. Until one exists nothing is imported, each import is re-adjudicated
+against a released component, and its provenance names him.
+
+The QUERY test-case document was followed up the same day. The 2019 slides
+introduce it as "Test cases for QUERY (a complex one)" and count "76
+different alternatives until now" over 24 of its query cases; it is the Google
+document they link, `13TuxEX1T0ZBlguLBfMkulP-3iFUFFyBejbM2aUTxb1M`, and that
+document now answers HTTP 410, as does the OPT test-case document linked
+beside it. Its public successor is
+`conformance_testing_specification/datasets/query/` in the framework
+repository: 121 valid queries in four groups (EHRs, COMPOSITIONs, ENTRYs,
+DATA_VALUEs), where "Some queries are the same query written in different
+ways, trying to cover what is allowed by the AQL syntax". Its README says the
+expected results were made "by using EHRSCAPE as the reference
+implementation", so they record one server's behaviour and ground no
+expectation here (§7), and the queries carry the same missing licence. The
+master11 expansion therefore stays grounded on the released AQL text (§15.11).
+
 ## 4. History distilled — what carries forward, and why it stalled
 
 The 2021–2022 community design era (Discourse threads 1616/1851/2239/2285/

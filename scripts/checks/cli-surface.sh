@@ -26,6 +26,22 @@ cd "$(dirname "$0")/../.."
 
 BOOK=website/book/src/commands.md
 
+# The page is only deterministic while clap is built without `wrap_help` (#517).
+# With the feature, clap_builder sizes help to the terminal or `$COLUMNS`
+# (`output/help_template.rs`, `dimensions`), so the rendered bytes depend on
+# the machine. The resolved graph is read, not the manifest, so a feature
+# switched on by another workspace member through unification is caught too.
+clap_features="$(cargo metadata --format-version 1 --locked 2>/dev/null |
+  jq -r '.resolve.nodes[] | select(.id | test("#clap(_builder)?@")) | .features[]')"
+if [[ -z "$clap_features" ]]; then
+  echo "::error::cli-surface: could not read clap's resolved features from cargo metadata" >&2
+  exit 1
+fi
+if grep -qx 'wrap_help' <<<"$clap_features"; then
+  echo "::error::clap is built with \`wrap_help\`: ${BOOK} would wrap at the rendering terminal's width — remove the feature (app/veredictum/Cargo.toml, the clap line)" >&2
+  exit 1
+fi
+
 rendered="$(mktemp)"
 trap 'rm -f "$rendered"' EXIT
 
