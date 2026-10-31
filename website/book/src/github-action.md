@@ -113,6 +113,7 @@ document left by an earlier run is never exported as this one.
 | `auth` | `none` | `none`, `basic` or `bearer` |
 | `admin-auth` | `none` | the same, for the administrative principal; with `none` the administrative workflows are skipped |
 | `documents` | none | document ids separated by white space; a narrowed run is a working tool, never the record you submit |
+| `profile` | `development` | the specification text the citations are read against: `development` (the pinned `master` of each openEHR repository) or `released` (the frozen release); only a `released` run backs a released claim or a certificate |
 | `platform-url` | none | the SMART Platform base URL ([below](#smart-on-openehr)); without it every workflow sent to the Platform is skipped as `not-declared` |
 | `out-dir` | `veredictum-results` | where the five files are written |
 | `image` | the release image | the image to run ([below](#which-image-runs)) |
