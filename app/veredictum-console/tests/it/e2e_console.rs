@@ -1416,13 +1416,22 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
         .await;
 
     // No run may outlive the journey: the instance has two slots, and the
-    // queued one is dropped first so freeing a slot promotes nothing. Every
-    // run is ended by ADDRESS rather than through the screen's own control,
-    // because documentation capture mode pins the id the live view carries
-    // and that control would dispatch the pinned one.
+    // queued one is dropped first so freeing a slot promotes nothing.
     h.wait_xpath("//h1[contains(., 'Live run')]").await;
     third.stop(&waiting).await;
-    second.stop(&first).await;
+    // The browser's own run ends through the screen's own control (#404).
+    // Under documentation capture mode the page DISPLAYS a pinned id, and the
+    // control still posts the run's real one, so the cancel is accepted and
+    // the console gate below stays clean.
+    h.goto(&first).await;
+    h.wait_xpath("//button[contains(., 'Cancel run')]")
+        .await
+        .click()
+        .await
+        .expect("cancel the browser's run");
+    h.wait_xpath("//body[contains(., 'Cancel requested')]")
+        .await;
+    h.wait_xpath("//span[normalize-space()='cancelled']").await;
     second.stop(&other).await;
 
     h.assert_console_clean(&[]).await;

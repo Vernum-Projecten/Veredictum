@@ -190,7 +190,12 @@ pub fn pin_run_screen(screen: RunScreen) -> RunScreen {
 
 /// The live run as a capture shows it.
 ///
-/// The clock, the estimate and the run's own address are stand-ins. The
+/// Capture mode changes only what a surface DISPLAYS. The run's id is both a
+/// displayed fact and the address every control on the screen posts back, so
+/// the view carries the two apart: [`JobView::shown_id`] is pinned, and
+/// [`JobView::id`] stays the run's own, so Cancel reaches the run it names.
+///
+/// The clock, the estimate and the displayed id are stand-ins. The
 /// counter, the case now driving, the engine's output and the finished tally
 /// are the run's own, with the minted id every path in them names rewritten
 /// to the pinned one: the output directory carries that id, so the tail and
@@ -199,7 +204,7 @@ pub fn pin_run_screen(screen: RunScreen) -> RunScreen {
 pub fn pin_job(view: JobView) -> JobView {
     let minted = view.id.to_string();
     JobView {
-        id: PINNED_RUN_ID,
+        shown_id: PINNED_RUN_ID,
         elapsed_ms: PINNED_ELAPSED_MS,
         eta_ms: view.eta_ms.map(|_| PINNED_ELAPSED_MS),
         tail: view
@@ -349,6 +354,7 @@ mod tests {
     fn driving() -> JobView {
         JobView {
             id: RunId::NIL,
+            shown_id: RunId::NIL,
             sut_name: String::from("example-cdr"),
             sut_version: String::from("1.0.0"),
             status: JobStatus::Running,
@@ -374,17 +380,42 @@ mod tests {
         let minted: RunId = MINTED.parse()?;
         let pinned = pin_job(JobView {
             id: minted,
+            shown_id: minted,
             ..driving()
         });
         assert_eq!(pinned.elapsed_ms, PINNED_ELAPSED_MS);
         assert_eq!(pinned.eta_ms, Some(PINNED_ELAPSED_MS));
-        assert_eq!(pinned.id, PINNED_RUN_ID, "the address is a fresh UUID");
+        assert_eq!(
+            pinned.shown_id, PINNED_RUN_ID,
+            "the displayed id is a fresh UUID"
+        );
         assert_eq!(pinned.completed, 7);
         assert_eq!(pinned.total, 11);
         assert_eq!(
             pinned.current_case.as_deref(),
             Some("I_EHR_SERVICE.create_ehr-main")
         );
+        Ok(())
+    }
+
+    /// Capture mode changes what is displayed, never an address a control
+    /// posts back: the pinned view still names the run, so its Cancel reaches
+    /// it (#404).
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn a_pinned_job_keeps_the_address_its_controls_post() -> Result<(), crate::run_job::RunIdError>
+    {
+        let minted: RunId = MINTED.parse()?;
+        let pinned = pin_job(JobView {
+            id: minted,
+            shown_id: minted,
+            ..driving()
+        });
+        assert_eq!(pinned.id, minted, "Cancel posts the run's own id");
+        assert_ne!(pinned.id, pinned.shown_id, "only the display is pinned");
         Ok(())
     }
 

@@ -1551,15 +1551,20 @@ fn ephemeral_note() -> impl IntoView + use<> {
 }
 
 /// The run's own address: what a reader copies to come back or to share.
+///
+/// The link and the copy carry the run's real address; the text is what the
+/// screen displays, which capture mode pins.
 #[component]
 fn Permalink(
     /// The run's path under this console.
     #[prop(into)]
     path: String,
+    /// The path as the screen prints it.
+    #[prop(into)]
+    shown: String,
 ) -> impl IntoView {
     let UseClipboardReturn { copy, copied, .. } = use_clipboard();
     let source = path.clone();
-    let shown = path.clone();
     view! {
         <div class="mt-2 flex flex-wrap items-center gap-2">
             <span class="text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -1661,7 +1666,7 @@ fn recorded_view(run: &RecordedRun) -> impl IntoView + use<> {
             </p>
             <div class="mt-3">{outcome}</div>
             <p class="mt-2 font-mono text-xs text-ink-muted">{format!("artifacts: {}", run.dir)}</p>
-            <Permalink path=path />
+            <Permalink path=path.clone() shown=path />
         </section>
     }
 }
@@ -1772,7 +1777,7 @@ fn live_view(job: &JobView, cancel: Action<RunId, ()>) -> impl IntoView + use<> 
                 <div class="flex items-center gap-2">
                     <h2 class="text-sm font-semibold text-ink-heading">
                         <span id="live-sut">{format!("{} {}", job.sut_name, job.sut_version)}</span>
-                        {format!(" · {}", job.id)}
+                        {format!(" · {}", job.shown_id)}
                     </h2>
                     {status_line}
                 </div>
@@ -1791,7 +1796,7 @@ fn live_view(job: &JobView, cancel: Action<RunId, ()>) -> impl IntoView + use<> 
                         }
                     })}
             </div>
-            <Permalink path=live_path(id) />
+            <Permalink path=live_path(id) shown=live_path(job.shown_id) />
             {note}
             <div class="mt-3 h-2 w-full overflow-hidden rounded-control bg-sunken">
                 <div
