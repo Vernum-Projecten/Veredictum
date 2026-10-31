@@ -224,39 +224,33 @@ pub fn pin_job(view: JobView) -> JobView {
 ///
 /// Its directory and the document inside it are named by the run's own id, so
 /// both are re-derived from the pinned one; the tally the record carries is
-/// the record's own.
+/// the record's own. As for [`pin_job`], only the displayed id is pinned: the
+/// permalink still links to and copies the run's own address.
 #[must_use]
 pub fn pin_recorded(run: RecordedRun) -> RecordedRun {
     let minted = run.id.to_string();
     RecordedRun {
-        id: PINNED_RUN_ID,
+        shown_id: PINNED_RUN_ID,
         dir: pin_run_paths(&run.dir, &minted),
         results: run.results.map(|results| RecordedResults {
             base_url: String::from(PINNED_ENDPOINT),
             results_path: pin_run_paths(&results.results_path, &minted),
             ..results
         }),
+        ..run
     }
 }
 
 /// The results screen as a capture shows it.
 ///
 /// The screen prints the address the run drove, which is the fixture
-/// server's ephemeral port, and a certificate's download path names the
-/// run's id; the tallies and the rows are the run's own.
+/// server's ephemeral port; the tallies and the rows are the run's own. A
+/// certificate's download path is an address the link follows and the screen
+/// never prints, so it stays the run's own.
 #[must_use]
 pub fn pin_results(screen: ResultsScreen) -> ResultsScreen {
-    let certificate = match screen.certificate {
-        crate::record_api::CertificateNotice::Issued(_) => {
-            crate::record_api::CertificateNotice::Issued(crate::certificates::download_href(
-                &PINNED_RUN_ID.to_string(),
-            ))
-        }
-        other => other,
-    };
     ResultsScreen {
         base_url: String::from(PINNED_ENDPOINT),
-        certificate,
         ..screen
     }
 }
@@ -477,6 +471,7 @@ mod tests {
         let RunScreen::Recorded(pinned) =
             pin_run_screen(RunScreen::Recorded(Box::new(RecordedRun {
                 id: minted,
+                shown_id: minted,
                 dir: format!("target/out/console-job-{MINTED}"),
                 results: Some(RecordedResults {
                     base_url: String::from("http://cdr.test/openehr/v1"),
@@ -490,7 +485,8 @@ mod tests {
         else {
             panic!("a recorded run stays recorded");
         };
-        assert_eq!(pinned.id, PINNED_RUN_ID);
+        assert_eq!(pinned.shown_id, PINNED_RUN_ID, "the displayed id is pinned");
+        assert_eq!(pinned.id, minted, "the permalink links to the run itself");
         assert_eq!(
             pinned.dir,
             format!("target/out/console-job-{PINNED_RUN_ID}")

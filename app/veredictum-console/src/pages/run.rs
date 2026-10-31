@@ -1719,15 +1719,16 @@ fn recorded_view(run: &RecordedRun) -> impl IntoView + use<> {
         },
     );
     let path = live_path(run.id);
+    let shown = live_path(run.shown_id);
     view! {
         <section class=CARD_PAD>
-            <h2 class=CARD_TITLE>{format!("Run {}", run.id)}</h2>
+            <h2 class=CARD_TITLE>{format!("Run {}", run.shown_id)}</h2>
             <p class="text-sm text-ink-muted">
                 "This console did not drive this run. Everything below is read from the artifacts it left in the mounted output tree."
             </p>
             <div class="mt-3">{outcome}</div>
             <p class="mt-2 font-mono text-xs text-ink-muted">{format!("artifacts: {}", run.dir)}</p>
-            <Permalink path=path.clone() shown=path />
+            <Permalink path=path shown=shown />
         </section>
     }
 }

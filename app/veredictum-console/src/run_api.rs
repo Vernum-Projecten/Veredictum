@@ -728,8 +728,12 @@ pub enum StartOutcome {
 /// A run read back from its own directory, never from this process's memory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedRun {
-    /// The run this directory belongs to.
+    /// The run this directory belongs to, and the address its permalink
+    /// links to.
     pub id: crate::run_job::RunId,
+    /// The id the screen prints: the run's own, or the capture stand-in
+    /// (`crate::capture::pin_recorded`). Display only, never linked to.
+    pub shown_id: crate::run_job::RunId,
     /// The artifacts directory, as the screen shows it.
     pub dir: String,
     /// What the results document says; `None` when the directory holds none.
@@ -1451,6 +1455,7 @@ pub mod read {
         if !results_path.is_file() {
             return Ok(RunScreen::Recorded(Box::new(RecordedRun {
                 id,
+                shown_id: id,
                 dir: dir.display().to_string(),
                 results: None,
             })));
@@ -1462,6 +1467,7 @@ pub mod read {
         let (passed, failed, errored, skipped) = crate::run_job::tally(&results);
         Ok(RunScreen::Recorded(Box::new(RecordedRun {
             id,
+            shown_id: id,
             dir: dir.display().to_string(),
             results: Some(RecordedResults {
                 base_url: results.base_url.clone(),
