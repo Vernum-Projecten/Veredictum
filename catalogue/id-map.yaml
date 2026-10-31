@@ -495,26 +495,37 @@ cases:
   CONT-DV_QUANTITY-validate_property:
     new:
       - dv_quantity/dv_quantity-validate_property-accepted
-      - dv_quantity/dv_quantity-validate_property-c_dv_quantity_property
       - dv_quantity/dv_quantity-validate_property-magnitude_units_missing
       - dv_quantity/dv_quantity-validate_property-magnitude_missing
       - dv_quantity/dv_quantity-validate_property-units_missing
+    open: &quantity_property >-
+      No case refuses units of another property than the C_DV_QUANTITY
+      names: the released RM DV_QUANTITY has no property (RM
+      data_types master00-amendment_record.adoc, "SPEC-95. Remove
+      `_property_` attribute from `quantity` package."), AOM 1.4
+      masterAppA-domain_extension.adoc says its C_QUANTITY model "does not
+      try to define any normative semantics", and no vendored released
+      sentence relates a DV_QUANTITY's units to a constrained property. The
+      openEHR Archetype Profile, which the AM manifest links as a Release
+      1.0.2 PDF and this repository does not vendor, gives
+      C_DV_QUANTITY.property only as "Optional constraint on units
+      property", so no case can quote it.
   CONT-DV_QUANTITY-validate_property_units:
     new:
       - dv_quantity/dv_quantity-validate_property_units-accepted
-      - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_property
       - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_list
       - dv_quantity/dv_quantity-validate_property_units-magnitude_units_missing
       - dv_quantity/dv_quantity-validate_property_units-magnitude_missing
       - dv_quantity/dv_quantity-validate_property_units-units_missing
+    open: *quantity_property
   CONT-DV_QUANTITY-validate_property_units_mag:
     new:
       - dv_quantity/dv_quantity-validate_property_units_mag-accepted
-      - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_property
       - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_list
       - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_units_missing
       - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_missing
       - dv_quantity/dv_quantity-validate_property_units_mag-units_missing
+    open: *quantity_property
   CONT-DV_SCALE-validate_constraint:
     new:
       - dv_scale/dv_scale-validate_constraint-accepted

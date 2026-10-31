@@ -7,7 +7,7 @@ the openEHR specification that server implements.
 > **Status:** Veredictum is on 0.x and is not yet approved by the openEHR SEC.
 > Version 1.0.0 will mark that approval.
 
-It executes a machine-readable catalogue of 1788 spec-cited test cases against
+It executes a machine-readable catalogue of 1785 spec-cited test cases against
 the server's own wire, records every exchange, and computes verdicts as pure
 functions over what it recorded. Functional conformance and measured
 performance, a single run or two servers compared on one host, come from the
@@ -89,7 +89,7 @@ disagrees with the catalogue.
 
 | | |
 |---|---|
-| **The catalogue** | `catalogue/cases/`: 1788 spec-cited cases as [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over the released openEHR REST API OpenAPI documents, in 246 Arazzo documents. One small isolated case per behaviour, so a red row names one defect. Every invalid shape is kept as its own refusal case, so a lenient server fails it. Every criterion carries the released sentence it enforces |
+| **The catalogue** | `catalogue/cases/`: 1785 spec-cited cases as [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over the released openEHR REST API OpenAPI documents, in 246 Arazzo documents. One small isolated case per behaviour, so a red row names one defect. Every invalid shape is kept as its own refusal case, so a lenient server fails it. Every criterion carries the released sentence it enforces |
 | **15 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. A statement claims folders |
 | **The options** | `catalogue/capabilities.yaml`: the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
 | **The id map** | `catalogue/id-map.yaml`: every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
