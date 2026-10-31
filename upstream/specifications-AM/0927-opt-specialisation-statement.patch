@@ -1,0 +1,19 @@
+diff --git a/docs/OPT2/master03-opt_raw.adoc b/docs/OPT2/master03-opt_raw.adoc
+--- a/docs/OPT2/master03-opt_raw.adoc
++++ b/docs/OPT2/master03-opt_raw.adoc
+@@ -4,12 +4,14 @@ A 'raw' OPT is the first stage of OPT processing from a master source template,
+ 
+ == Artefact Structure
+ 
+-Since an OPT is considered a 'top-level' standalone artefact, there is no specialisation statement. There are no other differences to the 'outer' structure of the artefact, so its structure is the same as any top-level archetype, i.e. in ADL terms, it obeys the following Antlr4 rule:
++An OPT is generated from a template, and a template is a specialised archetype, so an OPT keeps the specialisation statement of the template it is generated from, naming the template's parent archetype; accordingly, `OPERATIONAL_TEMPLATE` has the invariant `Specialisation_validity: is_specialised`. Since an OPT is otherwise considered a 'top-level' standalone artefact, there are no other differences to the 'outer' structure of the artefact, so its structure is the same as any specialised archetype, i.e. in ADL terms, it obeys the following Antlr4 rule:
+ 
+ [source, antlr-java]
+ --------
+ adl_operational_template: 'operational_template' '(' qualifiers? ')'
+         ARCHETYPE_HRID
++    'specialize'
++        ARCHETYPE_REF
+     'language'
+         odin_text
+     'description'

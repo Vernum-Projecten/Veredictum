@@ -195,6 +195,7 @@ workflows:
                 <template_id><value>cnf.tpl.dv_coded_text_constraint_ref</value></template_id>
                 <term_definitions code="at0000"><items id="description">unknown</items><items id="text">Minimal</items></term_definitions>
               </definition>
+              <component_ontologies archetype_id="openEHR-EHR-OBSERVATION.minimal.v1"><term_definitions language="en"/><constraint_definitions language="en"><items code="ac0001"><items id="text">Coded value</items><items id="description">A term from the value set the SNOMED-CT binding queries</items></items></constraint_definitions><constraint_bindings terminology="SNOMED-CT"><items code="ac0001"><value>http://terminology.org?query_id=12345</value></items></constraint_bindings></component_ontologies>
             </template>
         successCriteria:
           - context: $statusCode
