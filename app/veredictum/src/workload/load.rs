@@ -84,9 +84,9 @@ pub const PINNED: &[PinnedWorkload] = &[
     },
     PinnedWorkload {
         id: "clinical-mix",
-        version: 1,
+        version: 2,
         file: "clinical-mix.yaml",
-        sha256: "cba7c50a44816151b007844df5bd2df48b8bcaab297511951c2b50bf1fb476cf",
+        sha256: "451becd97b546915f35ef74eb7b40c39c80931b0d53d9e29e44e1a686ed4f517",
     },
     PinnedWorkload {
         id: "community-vitals",

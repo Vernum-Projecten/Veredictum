@@ -88,7 +88,65 @@ fn the_reference_workload_loads_clean_and_matches_its_pin() {
         "perf/workloads/clinical-mix.yaml changed: raise its version and its pin"
     );
     assert_eq!(loaded.identity, WorkloadIdentity::Pinned(pin));
-    assert_eq!(loaded.identity.label(), "clinical-mix@1");
+    assert_eq!(loaded.identity.label(), "clinical-mix@2");
+}
+
+/// Whether `text` reads as whole sentences: it ends with a full stop and
+/// every parenthesis it opens is closed.
+fn is_whole(text: &str) -> bool {
+    let opened = text.matches('(').count();
+    let closed = text.matches(')').count();
+    text.trim_end().ends_with('.') && opened == closed
+}
+
+/// A plain YAML scalar ends at ` #` (YAML 1.2.2 §6.6,
+/// <https://yaml.org/spec/1.2.2/#66-comments>), so a derivation written as
+/// `… (removed in #892): …` without a block scalar loads cut mid-sentence;
+/// every pinned workload's description and derivations load whole.
+#[test]
+fn every_pinned_derivation_loads_whole() {
+    let ctx = context();
+    for pin in PINNED {
+        let path = repo().join("perf/workloads").join(pin.file);
+        let loaded = load_file(&path, &ctx).unwrap_or_else(|e| panic!("{e}"));
+        assert!(
+            is_whole(&loaded.workload.description),
+            "{}: the description is cut: {:?}",
+            pin.file,
+            loaded.workload.description
+        );
+        for (name, interaction) in &loaded.workload.interactions {
+            assert!(
+                is_whole(&interaction.derivation),
+                "{}: {name}: the derivation is cut: {:?}",
+                pin.file,
+                interaction.derivation
+            );
+        }
+    }
+}
+
+/// The wholeness check refuses the cut a ` #` comment makes in a plain
+/// scalar, so the test above cannot pass on a truncated document.
+#[test]
+fn a_derivation_cut_by_a_comment_is_not_whole() {
+    let text = std::fs::read_to_string(committed()).expect("the reference workload");
+    let whole = "derivation: >-\n      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read.";
+    assert!(text.contains(whole), "the seed is not in the document");
+    let seeded = text.replacen(
+        whole,
+        "derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read.",
+        1,
+    );
+    let loaded = load_text(&seeded).expect("a cut derivation still loads");
+    let cut = loaded
+        .workload
+        .interactions
+        .values()
+        .map(|interaction| interaction.derivation.as_str())
+        .find(|derivation| derivation.ends_with("(removed in"))
+        .expect("the plain scalar is cut at the comment");
+    assert!(!is_whole(cut), "{cut:?}");
 }
 
 #[test]

@@ -413,11 +413,11 @@
     },
     {
       "id": "clinical-mix",
-      "version": 1,
-      "label": "clinical-mix@1",
+      "version": 2,
+      "label": "clinical-mix@2",
       "status": "provisional",
       "file": "clinical-mix.yaml",
-      "sha256": "cba7c50a44816151b007844df5bd2df48b8bcaab297511951c2b50bf1fb476cf",
+      "sha256": "451becd97b546915f35ef74eb7b40c39c80931b0d53d9e29e44e1a686ed4f517",
       "description": "A hospital front end at its busy hour: clinicians opening charts (a partly-open session of subject lookup, summary query, document reads and an observation trend), ward boards and problem lists polling AQL, the monitoring, order, result and correction writes of ward work, and the definition, folder, tag, demographic and bootstrap traffic around them. Carried over from the 24 class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892) without their minute-scale offsets. Provisional, for SEC ratification.",
       "seed": 20261030,
       "arrival": "poisson",
@@ -689,7 +689,7 @@
             "directory"
           ],
           "description": "The episode folder tree read.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge and chart_review, their directory reads."
         },
         {
           "name": "directory_update",
@@ -702,7 +702,7 @@
             "directory"
           ],
           "description": "The episode folder tree updated.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge (0.8%), its directory update, held at half."
         },
         {
           "name": "ehr_read",
@@ -715,7 +715,7 @@
             "ehr"
           ],
           "description": "The EHR a contribution belongs to read by id.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read."
         },
         {
           "name": "flat_commit",
@@ -819,7 +819,7 @@
             "demographic"
           ],
           "description": "A registered person read back.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its read."
         },
         {
           "name": "party_update",
@@ -832,7 +832,7 @@
             "demographic"
           ],
           "description": "A registered identity amended as a new version.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its update, held at half."
         },
         {
           "name": "problem_list",
@@ -924,7 +924,7 @@
             "ehr_status"
           ],
           "description": "The EHR_STATUS read at admission or discharge.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status reads."
         },
         {
           "name": "status_update",
@@ -937,7 +937,7 @@
             "ehr_status"
           ],
           "description": "The EHR_STATUS updated at admission or discharge.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status updates."
         },
         {
           "name": "system_options",
@@ -963,7 +963,7 @@
             "item_tags"
           ],
           "description": "The tag set of a hot composition replaced.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its write half."
         },
         {
           "name": "tags_read",
@@ -976,7 +976,7 @@
             "item_tags"
           ],
           "description": "The tag set of a composition read.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its read half."
         },
         {
           "name": "template_adl2_list",
@@ -989,7 +989,7 @@
             "definition"
           ],
           "description": "The ADL 2 template store listed.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter."
         },
         {
           "name": "template_example",
@@ -1002,7 +1002,7 @@
             "definition"
           ],
           "description": "The generated example of one template fetched.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter."
         },
         {
           "name": "template_get",
@@ -1015,7 +1015,7 @@
             "definition"
           ],
           "description": "One ADL 1.4 template fetched.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter."
         },
         {
           "name": "template_list",
@@ -1028,7 +1028,7 @@
             "definition"
           ],
           "description": "The ADL 1.4 template store listed.",
-          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in"
+          "derivation": "From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter each to its four released reads."
         },
         {
           "name": "version_read",
