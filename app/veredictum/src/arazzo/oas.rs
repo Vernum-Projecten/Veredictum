@@ -199,6 +199,7 @@ impl ResponseSchemas {
         }
         Ok(SchemaVerdict::Invalid {
             citation: Citation {
+                development: None,
                 source: source.file.clone(),
                 section: found.response_pointer,
                 quote: found.quote,

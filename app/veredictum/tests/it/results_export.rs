@@ -116,6 +116,7 @@ fn fixture() -> Results {
     errored.explanation = Some(instrument);
     let mut skipped = row("ehr/admin_delete", 0, Status::Skipped);
     skipped.skip = Some(Skip {
+        detail: None,
         reason: SkipReason::NotDeclared,
         why: why("The administrative principal is not declared.", None),
     });
@@ -127,6 +128,7 @@ fn fixture() -> Results {
         },
         instrument_status: InstrumentStatus::PreApproval,
         base_url: "http://sut/ehrbase/rest/openehr/v1".to_owned(),
+        specification: veredictum::arazzo::spec_profile::Specification::Released,
         server: None,
         review: Vec::new(),
         rows: vec![
@@ -153,6 +155,7 @@ fn replayed() -> Results {
             plan.skips.insert(
                 workflow.workflow_id.clone(),
                 Skip {
+                    detail: None,
                     reason: SkipReason::NotClaimed,
                     why: why("outside the recording", None),
                 },
@@ -564,6 +567,7 @@ fn outlined() -> Results {
     create_failed.row = 1;
     let mut flat = row("flat/create", 0, Status::Skipped);
     flat.skip = Some(Skip {
+        detail: None,
         reason: SkipReason::OptionNotSelected,
         why: why("The statement selects another arm.", None),
     });

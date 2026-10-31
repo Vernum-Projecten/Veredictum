@@ -92,6 +92,7 @@ fn a_job_supervises_a_run_to_its_finished_view() -> Result<(), Box<dyn std::erro
 /// tests look for.
 fn posture_draft(postures: DeclaredPostures) -> RunDraft {
     RunDraft {
+        profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
         base_url: String::from("http://cdr.example"),
         sut_name: String::from("x"),
         sut_version: String::from("y"),
@@ -391,6 +392,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
                 .map_err(|e| e.to_string()),
         ),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://unused"),
             sut_name: String::from("record-gate"),
             sut_version: String::from("0.0.0-gate"),
@@ -418,6 +420,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
             engine_gate::gate_submitter(),
             &engine,
             RunSpec {
+                profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
                 statement: Some(statement),
                 ..engine_gate::gate_spec(ixit, port, out)
             },
@@ -902,6 +905,7 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
                 .map_err(|e| e.to_string()),
         ),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: format!("http://127.0.0.1:{port}"),
             sut_name: String::from("busy-gate"),
             sut_version: String::from("0.0.0-gate"),

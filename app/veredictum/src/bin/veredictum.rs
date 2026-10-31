@@ -35,6 +35,7 @@ use clap::{Parser, Subcommand};
 
 use veredictum::arazzo::credential::AuthKind;
 use veredictum::arazzo::credential::{CredentialSource, Role};
+use veredictum::arazzo::spec_profile::SpecProfile;
 use veredictum::arazzo::terminal::{ColorChoice, ShowOptions, render, wants_color};
 use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::party::version_line;
@@ -52,6 +53,7 @@ use veredictum::pipeline::perf_workload::{
     CorpusMode, WorkloadRunRequest, WorkloadSettings, run_workload,
 };
 use veredictum::pipeline::{RenderedFile, ensure_parent_dir, to_json_document, write_file};
+use veredictum::validate::profile_report;
 
 /// What `--version` prints after the name: the version and the instrument's
 /// approval status, `0.1.7 (pre-approval: not yet approved by the openEHR SEC)`
@@ -201,6 +203,23 @@ enum Command {
         /// documents the recorded run was given.
         #[arg(long, value_name = "RECORDING", conflicts_with_all = ["base_url", "platform_url", "auth", "admin_auth"])]
         rejudge: Option<PathBuf>,
+        /// The specification text the case citations are read against.
+        ///
+        /// `development` (the default): the pinned `master` of each openEHR
+        /// specification repository under `specs/openehr-development/`, the
+        /// line that carries the newest text. A case citing text the snapshot lacks is skipped as
+        /// `cited-text-absent`, naming what is missing. The results name the
+        /// profile and every snapshot commit, and a development result never
+        /// builds a certificate and is never compared with or counted toward
+        /// a released result.
+        ///
+        /// `released`: the frozen release under `specs/openehr/`. Only a
+        /// released result backs a released claim or a certificate.
+        ///
+        /// The catalogue is gated against the release under either profile.
+        /// A re-judgement takes the profile the recorded run was given.
+        #[arg(long, value_enum, default_value_t = ProfileArg::Development)]
+        profile: ProfileArg,
     },
     /// Read a server's identity from the ITS-REST System OPTIONS operation and
     /// print it as one JSON document.
@@ -238,6 +257,21 @@ enum Command {
         /// the surface gate.
         #[arg(long)]
         specs: Option<PathBuf>,
+        /// The specification profile to report the case citations against,
+        /// beside the gates.
+        ///
+        /// `released` (the default): the gates alone, against the frozen
+        /// release. Zero findings is the only passing result.
+        ///
+        /// `development`: the gates as under `released`, then every case
+        /// citation read against the snapshot under
+        /// `specs/openehr-development/` beside `--specs`. A citation whose
+        /// file, section or quote the snapshot lacks is printed as `[info]`
+        /// and counted per component; it is never a finding. A citation
+        /// refused for any other reason is a `profile-citation` finding.
+        /// Needs `--specs`.
+        #[arg(long, value_enum, default_value_t = ProfileArg::Released)]
+        profile: ProfileArg,
         /// A submitted declaration (`statement.json`) to hold to the static
         /// review: its published schema, the capability folders it claims, the
         /// option arms it selects, and that every claimed folder holds a
@@ -450,6 +484,11 @@ enum Command {
     /// JSON and a Markdown summary. A `perf-result`, told apart by its
     /// `family`, has the Markdown summary only, so `--junit` and `--ctrf`
     /// refuse it.
+    ///
+    /// A result judged under the development profile names the profile and
+    /// every snapshot commit in each view: a `profile` property on every
+    /// JUnit suite, a `specification` member in the CTRF environment, and a
+    /// `Specification` row with a warning in the Markdown summary.
     Export {
         /// The `results.json` the Arazzo evaluator wrote, or a
         /// `perf-result.json`.
@@ -484,7 +523,9 @@ enum Command {
     /// reports they are judged by. Every mark is a glyph as well
     /// as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow),
     /// ! warning and ○ skipped (grey). A warning row is a SHOULD the
-    /// server did not follow and is never shown as a failure.
+    /// server did not follow and is never shown as a failure. A result judged
+    /// under the development profile opens with a line naming the profile
+    /// and every snapshot commit, and saying it is never a released result.
     ///
     /// A `perf-result` reads as a header naming the target, environment,
     /// host, workload (a `custom` one named so), corpus, the knee estimate,
@@ -537,6 +578,24 @@ enum Command {
         #[arg(long)]
         jwks: PathBuf,
     },
+}
+
+/// The specification profile a run or a validation reads.
+#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum ProfileArg {
+    /// The pinned `master` of each openEHR repository: the newest text.
+    Development,
+    /// The frozen release: the oracle of every released claim.
+    Released,
+}
+
+impl From<ProfileArg> for SpecProfile {
+    fn from(arg: ProfileArg) -> Self {
+        match arg {
+            ProfileArg::Released => Self::Released,
+            ProfileArg::Development => Self::Development,
+        }
+    }
 }
 
 /// When `show` colours its view.
@@ -625,12 +684,14 @@ fn main() -> ExitCode {
             documents,
             out,
             rejudge,
+            profile,
         } => test_command(
             &ArazzoRunRequest {
                 root: &root,
                 statement: statement.as_deref(),
                 ixit: ixit.as_deref(),
                 documents: &documents,
+                profile: profile.into(),
             },
             &TestTarget {
                 base_url: base_url.as_deref(),
@@ -646,7 +707,13 @@ fn main() -> ExitCode {
             root,
             specs,
             statement,
-        } => validate_command(&root, specs.as_deref(), statement.as_deref()),
+            profile,
+        } => validate_command(
+            &root,
+            specs.as_deref(),
+            statement.as_deref(),
+            profile.into(),
+        ),
         Command::Export {
             results,
             junit,
@@ -796,7 +863,12 @@ fn emit_schemas_command(out: &Path) -> ExitCode {
     }
 }
 
-fn validate_command(root: &Path, specs: Option<&Path>, declaration: Option<&Path>) -> ExitCode {
+fn validate_command(
+    root: &Path,
+    specs: Option<&Path>,
+    declaration: Option<&Path>,
+    profile: SpecProfile,
+) -> ExitCode {
     let validation = match veredictum::validate::validate(root, specs, declaration) {
         Ok(validation) => validation,
         Err(e) => return fail(&e),
@@ -805,7 +877,28 @@ fn validate_command(root: &Path, specs: Option<&Path>, declaration: Option<&Path
         println!("{finding}");
     }
     println!("{}", validation.summary());
-    if validation.is_clean() {
+    let mut clean = validation.is_clean();
+    if profile != SpecProfile::Released {
+        let Some(specs) = specs else {
+            eprintln!("--profile {profile} needs --specs, beside which the snapshot sits");
+            return ExitCode::from(2);
+        };
+        let report = match profile_report(root, &specs.join("../.."), profile) {
+            Ok(report) => report,
+            Err(e) => return fail(&e),
+        };
+        for absent in &report.absent {
+            println!("{absent}");
+        }
+        for finding in &report.findings {
+            println!("{finding}");
+        }
+        for line in report.summary() {
+            println!("{line}");
+        }
+        clean &= report.findings.is_empty();
+    }
+    if clean {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
@@ -959,6 +1052,12 @@ fn test_command(
         }
     }
     let tally = outcome.tally();
+    if !outcome.results.specification.is_released() {
+        println!(
+            "Profile  {}: never a released result",
+            outcome.results.specification.label()
+        );
+    }
     println!(
         "{} row(s): {} passed, {} failed, {} warning, {} errored, {} skipped",
         tally.tests, tally.passed, tally.failed, tally.warning, tally.errored, tally.skipped

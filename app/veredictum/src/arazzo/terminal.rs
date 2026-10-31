@@ -310,6 +310,15 @@ pub fn render(results: &Results, options: ShowOptions) -> String {
         "{} {} ({}), driven against {}.",
         results.engine.name, results.engine.version, results.instrument_status, results.base_url
     ));
+    if !results.specification.is_released() {
+        let banner = format!(
+            "Judged against the {}. This is never a released result: it builds no certificate and is never compared with or counted toward one.",
+            results.specification.label()
+        );
+        for line in wrap(&banner, NOTE_WIDTH) {
+            view.line(&view.paint(Paint::Bold, &line));
+        }
+    }
     view.line("");
     let legend: Vec<String> = ORDER
         .into_iter()

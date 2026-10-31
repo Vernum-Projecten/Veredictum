@@ -287,6 +287,9 @@ workflows:
       source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
       section: Class expressions
       quote: 'part three (optional): a standard predicate or an archetype predicate.'
+      development:
+        section: Class expressions
+        quote: 'part three (optional): a standard predicate or an archetype predicate; for `VERSION`, a <<_version_predicate,version predicate>>.'
     steps:
       - stepId: query
         description: Execute the query with POST, the identifiers of the set-up passed as query parameters.

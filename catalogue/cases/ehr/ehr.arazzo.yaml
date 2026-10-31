@@ -1023,6 +1023,9 @@ workflows:
           source: specs/openehr/BASE/docs/UML/classes/party_ref.adoc
           section: PARTY_REF Class
           quote: '__Type_validity__: `type.is_equal(“PERSON”) or type.is_equal(“ORGANISATION”) or type.is_equal(“GROUP”) or type.is_equal(“AGENT”)or type.is_equal(“ROLE”) or type.is_equal(“PARTY”) or type.is_equal(“ACTOR”)`'
+          development:
+            section: PARTY_REF Class
+            quote: '__Type_validity__: `type.is_equal("PERSON") or type.is_equal("ORGANISATION") or type.is_equal("GROUP") or type.is_equal("AGENT") or type.is_equal("ROLE") or type.is_equal("PARTY") or type.is_equal("ACTOR")`'
         operationId: $sourceDescriptions.ehr.ehr_create
         requestBody:
           contentType: application/json

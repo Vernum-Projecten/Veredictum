@@ -17,11 +17,16 @@
               exchanges), whose shapes belong to the artifacts and the SUT"
 )]
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use crate::arazzo::catalogue::Selection;
+use crate::arazzo::catalogue::{Selection, document_paths};
+use crate::arazzo::cite::QuoteChecker;
+use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::{CASES_DIR, Gate};
+use crate::arazzo::spec_profile::SpecProfile;
+use crate::arazzo::structure::workflow_citations;
 use crate::pipeline::Error;
 use crate::pipeline::listing::{self, Listing};
 
@@ -42,6 +47,9 @@ pub enum CheckId {
     ArmFormat,
     /// One of the Arazzo catalogue's gates.
     Arazzo(Gate),
+    /// A case citation is refused under a non-released specification
+    /// profile for a reason other than the absence of its text.
+    ProfileCitation,
 }
 
 impl CheckId {
@@ -53,6 +61,7 @@ impl CheckId {
             Self::ClaimCompleteness => "claim-completeness",
             Self::ArmFormat => "arm-format",
             Self::Arazzo(gate) => gate.token(),
+            Self::ProfileCitation => "profile-citation",
         }
     }
 }
@@ -143,6 +152,135 @@ pub fn validate(
         listing,
         findings,
     })
+}
+
+/// How many case citations of one component a profile holds.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CitationCount {
+    /// The citations whose text the profile holds.
+    pub resolved: usize,
+    /// The citations whose text the profile lacks.
+    pub absent: usize,
+}
+
+/// One case citation whose text a profile lacks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AbsentCitation {
+    /// The case id, `<document>/<workflowId>`.
+    pub case: String,
+    /// What the profile lacks.
+    pub reason: String,
+}
+
+impl fmt::Display for AbsentCitation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[info] {}: {}", self.case, self.reason)
+    }
+}
+
+/// What one specification profile holds of the catalogue's case citations.
+///
+/// It is information about the profile: an absent text skips the case under
+/// that profile and is never a finding. A citation refused for any other
+/// reason is a finding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileReport {
+    /// The profile read.
+    pub profile: SpecProfile,
+    /// The counts by component: the folder under `specs/openehr/`, or the
+    /// vendored root for any other source.
+    pub components: BTreeMap<String, CitationCount>,
+    /// Every citation whose text the profile lacks, in path order.
+    pub absent: Vec<AbsentCitation>,
+    /// Every citation refused for another reason.
+    pub findings: Vec<Finding>,
+}
+
+impl ProfileReport {
+    /// The per-component summary lines `validate` prints.
+    #[must_use]
+    pub fn summary(&self) -> Vec<String> {
+        let mut lines: Vec<String> = self
+            .components
+            .iter()
+            .map(|(component, count)| {
+                format!(
+                    "{} profile: {component}: {} citation(s) resolve, {} absent",
+                    self.profile, count.resolved, count.absent
+                )
+            })
+            .collect();
+        let resolved: usize = self.components.values().map(|c| c.resolved).sum();
+        lines.push(format!(
+            "{} profile: {resolved} citation(s) resolve, {} absent (the cases citing them are skipped as cited-text-absent), {} finding(s)",
+            self.profile,
+            self.absent.len(),
+            self.findings.len()
+        ));
+        lines
+    }
+}
+
+/// The component a cited source belongs to: its folder under
+/// `specs/openehr/`, or the vendored root it sits under.
+fn component_of(source: &str) -> String {
+    if let Some(rest) = source.strip_prefix("specs/openehr/") {
+        return rest.split('/').next().unwrap_or(rest).to_owned();
+    }
+    source
+        .strip_prefix("specs/")
+        .and_then(|rest| rest.split('/').next())
+        .unwrap_or(source)
+        .to_owned()
+}
+
+/// Reads every case citation of the catalogue under `root` against the text
+/// `profile` reads under `repo_root`.
+///
+/// # Errors
+/// [`Error::ArazzoCatalogue`] when a folder does not list or a document does
+/// not load.
+pub fn profile_report(
+    root: &Path,
+    repo_root: &Path,
+    profile: SpecProfile,
+) -> Result<ProfileReport, Error> {
+    let mut quotes = QuoteChecker::in_profile(repo_root, profile);
+    let mut report = ProfileReport {
+        profile,
+        components: BTreeMap::new(),
+        absent: Vec::new(),
+        findings: Vec::new(),
+    };
+    for found in document_paths(root)? {
+        let document = ArazzoDocument::load(&found.path)
+            .map_err(crate::arazzo::catalogue::CatalogueError::from)?;
+        for workflow in &document.description().workflows {
+            let case = format!("{}/{}", found.id, workflow.workflow_id);
+            for citation in workflow_citations(workflow) {
+                let count = report
+                    .components
+                    .entry(component_of(&citation.source))
+                    .or_default();
+                match quotes.check(&citation) {
+                    Ok(()) => count.resolved += 1,
+                    Err(error) if error.is_absence() => {
+                        count.absent += 1;
+                        report.absent.push(AbsentCitation {
+                            case: case.clone(),
+                            reason: format!("{profile} profile: {error}"),
+                        });
+                    }
+                    Err(error) => report.findings.push(Finding {
+                        check: CheckId::ProfileCitation,
+                        artifact: found.path.display().to_string(),
+                        message: format!("{case}: {profile} profile: {error}"),
+                    }),
+                }
+            }
+        }
+    }
+    Ok(report)
 }
 
 /// The static review of one supplied statement: its published schema, then

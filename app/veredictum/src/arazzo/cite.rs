@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::arazzo::maturity::{Maturities, Maturity, MaturityError, SpecStatus};
+use crate::arazzo::spec_profile::{DEVELOPMENT_ROOT, SpecProfile};
 
 /// The specification-extension key a citation is carried under.
 pub const CITE_KEY: &str = "x-veredictum-cite";
@@ -60,6 +61,29 @@ pub struct Citation {
     /// `None` leaves it at the default, `must`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level: Option<Level>,
+    /// Where the development snapshot states the same requirement in other
+    /// words. Read under the development profile only, in place of
+    /// `section` and `quote`; the released profile never reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development: Option<Box<DevelopmentText>>,
+}
+
+/// The development snapshot's wording of a cited requirement, for a
+/// citation whose section the snapshot rewords.
+///
+/// No openEHR spec governs this — our own design: a case cites the text of
+/// the profile it runs under.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DevelopmentText {
+    /// The snapshot file, relative to the repository root, when it is not
+    /// the file the citation's `source` maps to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// The element or the section heading in the snapshot.
+    pub section: String,
+    /// The sentence, copied verbatim from the snapshot.
+    pub quote: String,
 }
 
 impl Citation {
@@ -324,6 +348,61 @@ pub enum CiteError {
         /// The quote that was not found.
         quote: String,
     },
+    /// The profile vendors no tree for the root the source is under.
+    #[error("the {profile} specification profile holds no tree for `{file}`")]
+    NotInProfile {
+        /// The cited source.
+        file: String,
+        /// The profile.
+        profile: SpecProfile,
+    },
+    /// A citation's `development` wording does not occur in the snapshot.
+    #[error("the development wording of `{file}` does not hold: {reason}")]
+    DevelopmentTextNotFound {
+        /// The cited source.
+        file: String,
+        /// Why the wording does not hold.
+        reason: String,
+    },
+    /// A citation's `development` wording is stale: the released quote
+    /// still occurs unchanged in the snapshot.
+    #[error(
+        "the released quote of `{file}` `{section}` occurs unchanged in the development snapshot, so its `development` wording is stale"
+    )]
+    StaleDevelopmentText {
+        /// The cited source.
+        file: String,
+        /// The cited section.
+        section: String,
+    },
+    /// The profile's tree has no file where the source maps to.
+    #[error("the {profile} specification profile has no file `{path}` for `{file}`")]
+    AbsentFromProfile {
+        /// The cited source.
+        file: String,
+        /// Where the source maps to under the profile.
+        path: String,
+        /// The profile.
+        profile: SpecProfile,
+    },
+}
+
+impl CiteError {
+    /// Whether the refusal says the cited text is absent from the text read:
+    /// no tree or no file for the source, no such section, or no such quote
+    /// in it, or a document that text retires.
+    #[must_use]
+    pub fn is_absence(&self) -> bool {
+        matches!(
+            self,
+            Self::NotInProfile { .. }
+                | Self::AbsentFromProfile { .. }
+                | Self::SectionNotFound { .. }
+                | Self::AmbiguousSection { .. }
+                | Self::QuoteNotFound { .. }
+                | Self::Retired { .. }
+        )
+    }
 }
 
 /// Reads the citation an object's extension map carries, if any.
@@ -347,6 +426,18 @@ pub fn citation_of(
             "`source`, `section` and `quote` must be non-empty".to_owned(),
         ));
     }
+    if let Some(wording) = &citation.development
+        && (wording.section.trim().is_empty()
+            || wording.quote.trim().is_empty()
+            || wording
+                .source
+                .as_deref()
+                .is_some_and(|s| s.trim().is_empty()))
+    {
+        return Err(CiteError::Malformed(
+            "`development` needs a non-empty `section` and `quote`, and a non-empty `source` when it names one".to_owned(),
+        ));
+    }
     Ok(Some(citation))
 }
 
@@ -362,6 +453,8 @@ pub fn normalize_whitespace(text: &str) -> String {
 #[derive(Debug)]
 pub struct QuoteChecker<'a> {
     repo_root: &'a Path,
+    /// The profile whose text every citation is read against.
+    profile: SpecProfile,
     texts: BTreeMap<String, Result<String, String>>,
     /// What each `(source, section)` resolved so far holds, or why it does
     /// not resolve.
@@ -404,12 +497,27 @@ impl<'a> QuoteChecker<'a> {
     /// A checker over the repository whose root is `repo_root`.
     #[must_use]
     pub fn new(repo_root: &'a Path) -> Self {
+        Self::in_profile(repo_root, SpecProfile::Released)
+    }
+
+    /// A checker over the repository whose root is `repo_root`, reading every
+    /// citation against `profile`'s text: the source names the released path,
+    /// and [`SpecProfile::file_of`] gives the file read.
+    #[must_use]
+    pub fn in_profile(repo_root: &'a Path, profile: SpecProfile) -> Self {
         Self {
             repo_root,
+            profile,
             texts: BTreeMap::new(),
             sections: BTreeMap::new(),
-            maturities: Maturities::new(repo_root),
+            maturities: Maturities::in_profile(repo_root, profile),
         }
+    }
+
+    /// The profile the checker reads.
+    #[must_use]
+    pub fn profile(&self) -> SpecProfile {
+        self.profile
     }
 
     /// Checks that `citation` names an oracle file, that its section exists
@@ -429,6 +537,41 @@ impl<'a> QuoteChecker<'a> {
     /// The [`CiteError`] naming the first property that does not hold.
     pub fn check(&mut self, citation: &Citation) -> Result<(), CiteError> {
         let source = citation.source.as_str();
+        match (&citation.development, self.profile) {
+            (Some(wording), SpecProfile::Development) => {
+                if self
+                    .check_text(source, None, &citation.section, &citation.quote)
+                    .is_ok()
+                {
+                    return Err(CiteError::StaleDevelopmentText {
+                        file: source.to_owned(),
+                        section: citation.section.clone(),
+                    });
+                }
+                self.check_text(
+                    source,
+                    wording.source.as_deref(),
+                    &wording.section,
+                    &wording.quote,
+                )
+                .map_err(|error| CiteError::DevelopmentTextNotFound {
+                    file: source.to_owned(),
+                    reason: error.to_string(),
+                })
+            }
+            _ => self.check_text(source, None, &citation.section, &citation.quote),
+        }
+    }
+
+    /// Checks `quote` under `section` of `source`, read from the file this
+    /// checker's profile gives `source`, or from `file` when one is named.
+    fn check_text(
+        &mut self,
+        source: &str,
+        file: Option<&str>,
+        section: &str,
+        quote: &str,
+    ) -> Result<(), CiteError> {
         let escapes = Path::new(source)
             .components()
             .any(|c| !matches!(c, Component::Normal(_)));
@@ -437,6 +580,33 @@ impl<'a> QuoteChecker<'a> {
             || source.starts_with(EXCLUDED_ROOT)
         {
             return Err(CiteError::OutsideOracle(source.to_owned()));
+        }
+        let named = match file {
+            Some(file)
+                if file.starts_with(&format!("{DEVELOPMENT_ROOT}/"))
+                    && Path::new(file)
+                        .components()
+                        .all(|c| matches!(c, Component::Normal(_))) =>
+            {
+                Some(file.to_owned())
+            }
+            Some(file) => return Err(CiteError::OutsideOracle(file.to_owned())),
+            None => self.profile.file_of(self.repo_root, source),
+        };
+        let Some(path) = named else {
+            return Err(CiteError::NotInProfile {
+                file: source.to_owned(),
+                profile: self.profile,
+            });
+        };
+        // NOTE: no openEHR spec governs this — our own design; the released profile keeps
+        // reporting a missing file as unreadable, and only another profile names the absence.
+        if self.profile != SpecProfile::Released && !self.repo_root.join(&path).is_file() {
+            return Err(CiteError::AbsentFromProfile {
+                file: source.to_owned(),
+                path,
+                profile: self.profile,
+            });
         }
         match self.maturities.of(source) {
             Ok(Maturity::Document {
@@ -454,33 +624,40 @@ impl<'a> QuoteChecker<'a> {
             Ok(_) | Err(MaturityError::NoManifest(_)) => {}
             Err(error) => return Err(CiteError::NoStatus(error.to_string())),
         }
-        let key = (source.to_owned(), citation.section.clone());
+        let key = (path.clone(), section.to_owned());
         let resolved = if let Some(resolved) = self.sections.get(&key) {
             resolved.clone()?
         } else {
-            let resolved = self.resolve(source, &citation.section);
+            let resolved = self.resolve(source, &path, section);
             self.sections.insert(key, resolved.clone());
             resolved?
         };
         let found = match &resolved {
-            Resolved::Text(haystack) => haystack.contains(&normalize_whitespace(&citation.quote)),
-            Resolved::Leaf(leaf) => leaf_matches(leaf, &citation.quote),
+            Resolved::Text(haystack) => {
+                let quote = normalize_whitespace(quote);
+                if self.profile == SpecProfile::Released {
+                    haystack.contains(&quote)
+                } else {
+                    haystack.contains(&rendered_text(&quote))
+                }
+            }
+            Resolved::Leaf(leaf) => leaf_matches(leaf, quote),
         };
         if found {
             Ok(())
         } else {
             Err(CiteError::QuoteNotFound {
                 file: source.to_owned(),
-                section: citation.section.clone(),
-                quote: citation.quote.clone(),
+                section: section.to_owned(),
+                quote: quote.to_owned(),
             })
         }
     }
 
-    /// What `section` in `source` holds.
-    fn resolve(&mut self, source: &str, section: &str) -> Result<Resolved, CiteError> {
-        let text = self.read(source)?;
-        let extension = Path::new(source)
+    /// What `section` in `source`, read from `path`, holds.
+    fn resolve(&mut self, source: &str, path: &str, section: &str) -> Result<Resolved, CiteError> {
+        let text = self.read(source, path)?;
+        let extension = Path::new(path)
             .extension()
             .and_then(std::ffi::OsStr::to_str)
             .map(str::to_ascii_lowercase);
@@ -525,18 +702,25 @@ impl<'a> QuoteChecker<'a> {
                 },
             })?
         };
-        Ok(Resolved::Text(normalize_whitespace(&haystack)))
+        let haystack = normalize_whitespace(&haystack);
+        // NOTE: no openEHR spec governs this — our own design; only a non-released profile
+        // reads the text as rendered, so the released profile's matching stays as strict as it was.
+        Ok(Resolved::Text(if self.profile == SpecProfile::Released {
+            haystack
+        } else {
+            rendered_text(&haystack)
+        }))
     }
 
-    fn read(&mut self, source: &str) -> Result<String, CiteError> {
-        let root = self.repo_root;
-        let cached = self.texts.entry(source.to_owned()).or_insert_with(|| {
-            let text = std::fs::read_to_string(root.join(source)).map_err(|e| e.to_string())?;
+    fn read(&mut self, source: &str, path: &str) -> Result<String, CiteError> {
+        let file = self.repo_root.join(path);
+        let cached = self.texts.entry(path.to_owned()).or_insert_with(|| {
+            let text = std::fs::read_to_string(&file).map_err(|e| e.to_string())?;
             let is_adoc = Path::new(source)
                 .extension()
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("adoc"));
             Ok(if is_adoc {
-                expand_listing_includes(&text, &root.join(source))
+                expand_listing_includes(&text, &file)
             } else {
                 text
             })
@@ -591,6 +775,76 @@ fn expand_listing_includes(text: &str, path: &Path) -> String {
         out.push('\n');
     }
     out
+}
+
+/// `text` as its `AsciiDoc` markup renders it, so a quote taken from one
+/// markup of a sentence matches another markup of the same visible sentence.
+///
+/// The rules, and nothing else:
+///
+/// - `link:<target>[<label>]` and `link:<target>[<label>^]` become `<label>`
+///   (<https://docs.asciidoctor.org/asciidoc/latest/macros/link-macro/>,
+///   where `^` opens the link in a new window);
+/// - `xref:<target>[<label>]` becomes `<label>`
+///   (<https://docs.antora.org/antora/latest/page/xref/>);
+/// - `<<id,label>>` becomes `label`
+///   (<https://docs.asciidoctor.org/asciidoc/latest/macros/xref/>);
+/// - a straight double quote `"` becomes a backtick, so `"word"` and
+///   `` `word` `` read as the same emphasis.
+///
+/// A macro with an empty label, a target holding whitespace, a label
+/// holding `[`, or a `<<id>>` with no label is kept as written, because its
+/// rendering would need the target's own title. No word is ever changed:
+/// only macro syntax around a label and the two delimiter characters are.
+#[must_use]
+pub fn rendered_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while !rest.is_empty() {
+        if let Some((label, after)) = macro_label(rest, out.chars().next_back()) {
+            out.push_str(label);
+            rest = after;
+            continue;
+        }
+        let mut chars = rest.chars();
+        if let Some(c) = chars.next() {
+            out.push(if c == '"' { '`' } else { c });
+        }
+        rest = chars.as_str();
+    }
+    out
+}
+
+/// The label of the cross-reference or link macro `rest` starts with, and
+/// the text after the macro; `None` when `rest` starts with none, or with one
+/// [`rendered_text`] keeps as written. `before` is the character before
+/// `rest`: a macro name only starts a macro after a non-alphanumeric one.
+fn macro_label(rest: &str, before: Option<char>) -> Option<(&str, &str)> {
+    if let Some(inner) = rest.strip_prefix("<<") {
+        let (body, after) = inner.split_once(">>")?;
+        let (id, label) = body.split_once(',')?;
+        let label = label.trim();
+        if id.is_empty() || label.is_empty() || body.contains('<') {
+            return None;
+        }
+        return Some((label, after));
+    }
+    if before.is_some_and(char::is_alphanumeric) {
+        return None;
+    }
+    let macro_body = rest
+        .strip_prefix("link:")
+        .or_else(|| rest.strip_prefix("xref:"))?;
+    let (target, tail) = macro_body.split_once('[')?;
+    if target.is_empty() || target.chars().any(char::is_whitespace) {
+        return None;
+    }
+    let (label, after) = tail.split_once(']')?;
+    let label = label.strip_suffix('^').unwrap_or(label);
+    if label.is_empty() || label.contains('[') {
+        return None;
+    }
+    Some((label, after))
 }
 
 /// The element of a YAML or JSON `document` that `section` names: a JSON
@@ -710,6 +964,7 @@ mod tests {
 
     fn cite(source: &str, section: &str, quote: &str) -> Citation {
         Citation {
+            development: None,
             source: source.to_owned(),
             section: section.to_owned(),
             quote: quote.to_owned(),
@@ -1328,5 +1583,294 @@ mod tests {
                 "{seeded}"
             );
         }
+    }
+
+    #[test]
+    fn the_development_profile_reads_the_snapshot_at_the_same_paths() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let source = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+        dir.child(source)
+            .write_str("== Logical Deletion\n\nReleased text only.\n")
+            .unwrap();
+        dir.child(
+            "specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc",
+        )
+        .write_str("== Logical Deletion\n\nA deleted version is marked.\n\n== Next\n\nelsewhere\n")
+        .unwrap();
+        let mut released = QuoteChecker::new(dir.path());
+        let mut development = QuoteChecker::in_profile(dir.path(), SpecProfile::Development);
+        assert_eq!(
+            released.check(&cite(source, "Logical Deletion", "Released text only.")),
+            Ok(())
+        );
+        let absent = development.check(&cite(source, "Logical Deletion", "Released text only."));
+        assert!(
+            matches!(&absent, Err(e @ CiteError::QuoteNotFound { .. }) if e.is_absence()),
+            "{absent:?}"
+        );
+        assert_eq!(
+            development.check(&cite(
+                source,
+                "Logical Deletion",
+                "A deleted version is marked."
+            )),
+            Ok(())
+        );
+        assert!(
+            development
+                .check(&cite(source, "Logical Deletion", "elsewhere"))
+                .is_err(),
+            "the next heading still ends the section"
+        );
+        let missing = development.check(&cite(
+            "specs/openehr/RM/docs/ehr/master04-ehr_package.adoc",
+            "EHR",
+            "q",
+        ));
+        assert!(
+            matches!(&missing, Err(e @ CiteError::AbsentFromProfile { path, .. })
+                if e.is_absence() && path == "specs/openehr-development/specifications-RM/docs/ehr/master04-ehr_package.adoc"),
+            "{missing:?}"
+        );
+        let unmirrored = development.check(&cite(
+            "specs/its-xml-schemas/its-xml-1.0.2-nsv1/x.xsd",
+            "a",
+            "q",
+        ));
+        assert!(
+            matches!(&unmirrored, Err(e @ CiteError::NotInProfile { .. }) if e.is_absence()),
+            "{unmirrored:?}"
+        );
+    }
+
+    #[test]
+    fn a_link_macro_renders_as_its_label() {
+        assert_eq!(
+            rendered_text(
+                "`link:/releases/BASE/{base_release}/foundation_types.html#_real_class[Real^]`"
+            ),
+            "`Real`"
+        );
+        assert_eq!(
+            rendered_text("see link:https://x.org/a[the page] now"),
+            "see the page now"
+        );
+    }
+
+    #[test]
+    fn an_xref_macro_renders_as_its_label() {
+        assert_eq!(
+            rendered_text(
+                "|*data*: `xref:{class_history}[HISTORY]<xref:{class_item_structure}[ITEM_STRUCTURE]>`"
+            ),
+            "|*data*: `HISTORY<ITEM_STRUCTURE>`"
+        );
+    }
+
+    #[test]
+    fn a_labelled_cross_reference_renders_as_its_label() {
+        assert_eq!(
+            rendered_text("<<_code_phrase_class,CODE_PHRASE>>"),
+            "CODE_PHRASE"
+        );
+        assert_eq!(rendered_text("<<a, spaced label >>"), "spaced label");
+    }
+
+    #[test]
+    fn the_three_markups_of_one_reference_render_alike() {
+        let release = "|*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`";
+        let development = "|*defining_code*: `xref:{class_code_phrase}[CODE_PHRASE]`";
+        let linked = "|*defining_code*: `link:/releases/RM/{rm_release}/x.html#_c[CODE_PHRASE^]`";
+        assert_eq!(rendered_text(release), rendered_text(development));
+        assert_eq!(rendered_text(linked), rendered_text(development));
+    }
+
+    #[test]
+    fn a_double_quote_and_a_backtick_are_the_same_emphasis() {
+        assert_eq!(
+            rendered_text(r#"the code for "deleted""#),
+            rendered_text("the code for `deleted`")
+        );
+        assert_eq!(
+            rendered_text(r#"say "deleted" twice"#),
+            "say `deleted` twice"
+        );
+    }
+
+    #[test]
+    fn what_a_rendering_needs_the_target_for_is_kept_as_written() {
+        for kept in [
+            "<<_code_phrase_class>>",
+            "xref:{class_x}[]",
+            "link:a b[label]",
+            "text with no macro, 1..1 and [brackets]",
+            "unlink:x[y]",
+            "<<,label>>",
+        ] {
+            assert_eq!(rendered_text(kept), kept, "{kept}");
+        }
+    }
+
+    #[test]
+    fn a_different_sentence_never_renders_alike() {
+        let differ = |a: &str, b: &str| assert_ne!(rendered_text(a), rendered_text(b), "{a} | {b}");
+        differ(
+            "h|*1..1* |*magnitude*: `link:/r/x.html#_real_class[Real^]`",
+            "h|*0..1* |*magnitude*: `xref:{class_real}[Real]`",
+        );
+        differ(
+            "|*data*: `xref:{class_history}[HISTORY]`",
+            "|*data*: `xref:{class_history}[EVENT]`",
+        );
+        differ("<<_x,DV_TEXT>>", "<<_x,DV_CODED_TEXT>>");
+        differ(r#"the code for "deleted""#, "the code for `inactive`");
+        differ(
+            "The possible values are complete",
+            "The possible values are incomplete",
+        );
+    }
+
+    #[test]
+    fn the_released_profile_never_reads_the_rendered_text() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let source = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+        dir.child(source)
+            .write_str("== Logical Deletion\n\nthe code for `deleted`\n")
+            .unwrap();
+        dir.child("specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc")
+            .write_str("== Logical Deletion\n\nthe code for `deleted`\n")
+            .unwrap();
+        let quote = cite(source, "Logical Deletion", r#"the code for "deleted""#);
+        assert!(matches!(
+            QuoteChecker::new(dir.path()).check(&quote),
+            Err(CiteError::QuoteNotFound { .. })
+        ));
+        assert_eq!(
+            QuoteChecker::in_profile(dir.path(), SpecProfile::Development).check(&quote),
+            Ok(())
+        );
+    }
+
+    /// A repository with one released section and its reworded snapshot.
+    fn reworded_repo() -> assert_fs::TempDir {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("specs/openehr/RM/docs/common/master06-change_control_package.adoc")
+            .write_str("== Version Lifecycle\n\nThe possible values are A and B.\n")
+            .unwrap();
+        dir.child(
+            "specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc",
+        )
+        .write_str("== Version Lifecycle\n\nThe possible values are A, B and C.\n")
+        .unwrap();
+        dir
+    }
+
+    const LIFECYCLE: &str = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+
+    fn reworded(quote: &str) -> Citation {
+        Citation {
+            development: Some(Box::new(DevelopmentText {
+                source: None,
+                section: "Version Lifecycle".to_owned(),
+                quote: quote.to_owned(),
+            })),
+            ..cite(
+                LIFECYCLE,
+                "Version Lifecycle",
+                "The possible values are A and B.",
+            )
+        }
+    }
+
+    #[test]
+    fn a_development_wording_is_read_under_the_development_profile() {
+        let dir = reworded_repo();
+        let citation = reworded("The possible values are A, B and C.");
+        let mut development = QuoteChecker::in_profile(dir.path(), SpecProfile::Development);
+        assert_eq!(development.check(&citation), Ok(()));
+        let plain = cite(
+            LIFECYCLE,
+            "Version Lifecycle",
+            "The possible values are A and B.",
+        );
+        assert!(
+            development.check(&plain).is_err_and(|e| e.is_absence()),
+            "without the wording the released quote is absent from the snapshot"
+        );
+    }
+
+    #[test]
+    fn a_development_wording_is_never_read_under_the_released_profile() {
+        let dir = reworded_repo();
+        let mut released = QuoteChecker::new(dir.path());
+        assert_eq!(
+            released.check(&reworded("a wording that occurs nowhere")),
+            Ok(()),
+            "the released profile checks the released quote alone"
+        );
+    }
+
+    #[test]
+    fn a_development_wording_the_snapshot_lacks_is_refused() {
+        let dir = reworded_repo();
+        let mut development = QuoteChecker::in_profile(dir.path(), SpecProfile::Development);
+        let refused = development.check(&reworded("The possible values are A, B and D."));
+        assert!(
+            matches!(&refused, Err(e @ CiteError::DevelopmentTextNotFound { .. }) if !e.is_absence()),
+            "{refused:?}"
+        );
+        let elsewhere = Citation {
+            development: Some(Box::new(DevelopmentText {
+                source: Some(
+                    "specs/openehr/RM/docs/common/master06-change_control_package.adoc".to_owned(),
+                ),
+                section: "Version Lifecycle".to_owned(),
+                quote: "The possible values are A and B.".to_owned(),
+            })),
+            ..cite(LIFECYCLE, "Version Lifecycle", "q")
+        };
+        assert!(
+            matches!(
+                development.check(&elsewhere),
+                Err(CiteError::DevelopmentTextNotFound { .. })
+            ),
+            "a development source outside the snapshot is refused"
+        );
+    }
+
+    #[test]
+    fn a_development_wording_whose_released_quote_still_occurs_is_stale() {
+        use assert_fs::prelude::*;
+        let dir = reworded_repo();
+        dir.child(
+            "specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc",
+        )
+        .write_str("== Version Lifecycle\n\nThe possible values are A and B. Also C.\n")
+        .unwrap();
+        let mut development = QuoteChecker::in_profile(dir.path(), SpecProfile::Development);
+        assert_eq!(
+            development.check(&reworded("Also C.")),
+            Err(CiteError::StaleDevelopmentText {
+                file: LIFECYCLE.to_owned(),
+                section: "Version Lifecycle".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn a_development_wording_needs_its_section_and_quote() {
+        let mut extensions = BTreeMap::new();
+        extensions.insert(
+            CITE_KEY.to_owned(),
+            serde_json::json!({ "source": LIFECYCLE, "section": "s", "quote": "q",
+                "development": { "section": " ", "quote": "q" } }),
+        );
+        assert!(matches!(
+            citation_of(Some(&extensions)),
+            Err(CiteError::Malformed(_))
+        ));
     }
 }

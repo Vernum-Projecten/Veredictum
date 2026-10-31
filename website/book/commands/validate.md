@@ -46,3 +46,15 @@ nothing. A selected option arm one of whose documents needs a format the
 statement does not claim is refused (`arm-format`): the run would skip that
 document, so nothing would verify the arm. No openEHR specification governs the floors, the realization scope
 or the claim gates; they are this instrument's own design.
+
+`--profile development` keeps every gate above, against the release, and then
+reads every case citation against the development snapshot under
+`specs/openehr-development/` beside `--specs`. A citation whose file, section
+or sentence the snapshot lacks prints as an `[info]` line naming the case, and
+the profile's counts follow per component; neither is a finding, and the exit
+status stays `0` for them. A citation the snapshot refuses for any other
+reason is a `profile-citation` finding, and so is a citation's `development`
+wording that the snapshot does not hold, or one whose released quote still
+occurs there unchanged. The repository's own gate runs
+`--profile released`, where zero findings is the only passing result, and a
+second `--profile development` pass that reports the absences.

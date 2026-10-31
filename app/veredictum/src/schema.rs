@@ -979,6 +979,7 @@ pub fn arazzo_results_schema() -> Value {
                 }
             },
             "instrument_status": instrument_status_def(),
+            "specification": arazzo_specification_def(),
             "base_url": { "type": "string" },
             "rows": {
                 "type": "array",
@@ -998,7 +999,12 @@ pub fn arazzo_results_schema() -> Value {
                             "required": ["reason", "why"],
                             "properties": {
                                 "reason": { "enum": tokens(crate::arazzo::results::SkipReason::ALL) },
-                                "why": arazzo_why_def()
+                                "why": arazzo_why_def(),
+                                "detail": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote)."
+                                }
                             }
                         },
                         "explanation": {
@@ -1055,6 +1061,48 @@ pub fn arazzo_results_schema() -> Value {
                 }
             }
         }
+    })
+}
+
+/// The `specification` member of the Arazzo results: the profile whose text
+/// the run's citations were read against.
+fn arazzo_specification_def() -> Value {
+    use crate::arazzo::spec_profile::SpecProfile;
+    let text = || json!({ "type": "string", "minLength": 1 });
+    let profiles: Vec<&str> = SpecProfile::ALL.iter().map(|p| p.token()).collect();
+    json!({
+        "type": "object",
+        "required": ["profile"],
+        "description": "The specification text the run's citations were read against. `released` is the vendored release, the oracle of every released claim. `development` is the pinned `master` of each openEHR specification repository, the line that carries the newest text, named component by component with its repository, branch and commit; a development result builds no certificate and is never compared with or counted toward a released result. A results document without this member was judged against the release. No openEHR spec governs the profiles; they are the instrument's own design.",
+        "properties": {
+            "profile": { "enum": profiles },
+            "snapshot": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["component", "repository", "branch", "commit"],
+                    "properties": {
+                        "component": text(),
+                        "repository": text(),
+                        "branch": text(),
+                        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+                    }
+                }
+            }
+        },
+        "oneOf": [
+            {
+                "additionalProperties": false,
+                "properties": { "profile": { "const": "released" } }
+            },
+            {
+                "additionalProperties": false,
+                "required": ["snapshot"],
+                "properties": { "profile": { "const": "development" }, "snapshot": true }
+            }
+        ]
     })
 }
 

@@ -99,6 +99,7 @@ pub fn names(workflow: &Workflow, principal: Principal) -> bool {
 #[must_use]
 pub fn undeclared_citation() -> Citation {
     Citation {
+        development: None,
         source: "specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md"
             .to_owned(),
         section: "Authentication and authorization".to_owned(),
@@ -127,6 +128,7 @@ pub fn undeclared_skips(
             (
                 workflow.workflow_id.clone(),
                 Skip {
+                    detail: None,
                     reason: SkipReason::NotDeclared,
                     why: why.clone(),
                 },

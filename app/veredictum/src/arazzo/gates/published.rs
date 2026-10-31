@@ -125,6 +125,34 @@ fn check_def() -> Value {
 }
 
 /// A citation's `level`.
+/// The `development` member of a citation: the snapshot's wording of a
+/// reworded section.
+fn development_def() -> Value {
+    json!({
+        "description": "Where the development snapshot states the same requirement in other words. Read under the development specification profile only, in place of `section` and `quote`, and never under the released profile. `validate --profile development` refuses it when its quote does not occur in the snapshot, and when the released quote still occurs there unchanged.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["section", "quote"],
+        "properties": {
+            "source": {
+                "description": "The snapshot file, relative to the repository root, when it is not the file `source` maps to.",
+                "type": "string",
+                "pattern": "^specs/openehr-development/"
+            },
+            "section": {
+                "description": "The element or the section heading in the snapshot, as `section` names one.",
+                "type": "string",
+                "minLength": 1
+            },
+            "quote": {
+                "description": "The snapshot's sentence, copied verbatim.",
+                "type": "string",
+                "minLength": 1
+            }
+        }
+    })
+}
+
 fn level_def() -> Value {
     json!({
         "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and a warning, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
@@ -185,7 +213,8 @@ pub fn extensions_schema() -> Value {
                         "type": "integer",
                         "minimum": 1
                     },
-                    "level": level_def()
+                    "level": level_def(),
+                    "development": development_def()
                 }
             },
             "section": {
@@ -756,9 +785,14 @@ mod tests {
             json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q", "report": 0 }),
             json!({ "source": "specs/openehr/RM/x.adoc", "section": "s" }),
             json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q", "page": 1 }),
+            json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q", "development": { "quote": "q" } }),
+            json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q", "development": { "source": "specs/openehr/RM/y.adoc", "section": "s", "quote": "q" } }),
         ] {
             assert!(!cite.is_valid(&seeded), "{seeded}");
         }
+        let reworded = json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q",
+            "development": { "source": "specs/openehr-development/specifications-RM/docs/y.adoc", "section": "t", "quote": "r" } });
+        assert!(cite.is_valid(&reworded));
     }
 
     #[test]

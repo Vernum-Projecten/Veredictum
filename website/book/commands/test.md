@@ -27,6 +27,20 @@ whole IXIT for it. The IXIT is checked against the published IXIT schema
 before anything runs, and one that fails it, such as a misspelled member,
 stops the run with exit status 2 naming the file and the violation.
 
+**Which text.** `--profile development`, the default, reads every citation
+against the pinned `master` of each openEHR specification repository, the
+line that carries the newest text, under
+`specs/openehr-development/`; `--profile released` reads the frozen release
+under `specs/openehr/`. A case whose cited file, section or sentence the
+snapshot lacks is skipped as `cited-text-absent`, naming the profile and what
+is missing. The results record the profile under `specification`, with the
+repository, branch and commit of every snapshot directory, and the terminal
+view, `show`, every export and the console name them. A development result
+never builds a certificate and is never compared with or counted toward a
+released result, so a certificate needs a `--profile released` run. The
+catalogue is gated against the release under either profile. Pass a
+re-judgement the profile the recorded run was given.
+
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For
 this catalogue a capability is a folder under `cases/` (`ehr`, `demographic`,

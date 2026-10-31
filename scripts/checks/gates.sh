@@ -102,7 +102,8 @@ gate rust  "fmt"                      "cargo fmt --all --check"
 # script exists.
 gate rust  "rustdoc (workspace)"      "RUSTFLAGS='-D warnings' RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --no-deps --document-private-items"
 gate rust  "rustdoc (console ssr)"    "RUSTFLAGS='-D warnings' RUSTDOCFLAGS='-D warnings' cargo doc --locked -p veredictum-console --no-deps --document-private-items --features ssr"
-gate rust  "validate the Arazzo catalogue" "cargo run --quiet -- validate --root catalogue --specs specs/openehr"
+gate rust  "validate the Arazzo catalogue" "cargo run --quiet -- validate --root catalogue --specs specs/openehr --profile released"
+gate rust  "the development snapshot's absences" "cargo run --quiet -- validate --root catalogue --specs specs/openehr --profile development"
 gate rust  "the site's counts"        "bash scripts/checks/site-counts.sh"
 gate rust  "the example results"      "bash scripts/checks/example-results-drift.sh"
 

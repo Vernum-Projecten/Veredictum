@@ -205,6 +205,9 @@ COPY specs/openehr/ /work/specs/openehr/
 COPY specs/its-xml-schemas/ /work/specs/its-xml-schemas/
 COPY specs/its-json-schemas/ /work/specs/its-json-schemas/
 COPY specs/rest-oas/ /work/specs/rest-oas/
+# The pinned development snapshot `test` reads by default (its `--profile`
+# flag), one directory per upstream repository.
+COPY specs/openehr-development/ /work/specs/openehr-development/
 COPY --from=mkdirs --chown=65532:65532 /empty/ /work/
 
 # ── The hosted posture, in the image ──────────────────────────────────────────

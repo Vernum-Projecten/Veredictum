@@ -332,6 +332,7 @@ impl<'d> Evaluator<'d> {
                 version: env!("CARGO_PKG_VERSION").to_owned(),
             },
             instrument_status: crate::party::InstrumentStatus::CURRENT,
+            specification: crate::arazzo::spec_profile::Specification::Released,
             base_url: self.config.base_url.clone(),
             server: None,
             review: Vec::new(),
@@ -504,6 +505,7 @@ impl<'d> Evaluator<'d> {
                 inputs: row.clone(),
                 generated: Vec::new(),
                 skip: why.clone().map(|why| Skip {
+                    detail: None,
                     reason: SkipReason::NotDeclared,
                     why,
                 }),
@@ -2518,6 +2520,7 @@ workflows:
         plan.skips.insert(
             "setup".to_owned(),
             Skip {
+                detail: None,
                 reason: SkipReason::NotClaimed,
                 why: Why {
                     source: "s".to_owned(),
@@ -3187,6 +3190,7 @@ workflows:
             skips: BTreeMap::from([(
                 "twin".to_owned(),
                 Skip {
+                    detail: None,
                     reason: SkipReason::NotClaimed,
                     why: Why {
                         source: "s".to_owned(),
@@ -3223,6 +3227,7 @@ workflows:
                     (
                         (*id).to_owned(),
                         Skip {
+                            detail: None,
                             reason: SkipReason::OptionNotSelected,
                             why: why.clone(),
                         },

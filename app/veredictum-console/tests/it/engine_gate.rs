@@ -157,6 +157,7 @@ pub(crate) const GATE_DOCUMENT: &str = "system_options";
 /// The gate's run spec over the fixture SUT at `port`, writing into `out`.
 pub(crate) fn gate_spec(ixit: PathBuf, port: u16, out: PathBuf) -> RunSpec {
     RunSpec {
+        profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
         root: repo_root().join("catalogue"),
         base_url: format!("http://127.0.0.1:{port}"),
         auth: "basic",

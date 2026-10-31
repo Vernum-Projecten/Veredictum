@@ -40,6 +40,7 @@ use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 
 use crate::arazzo::results::{Results, Status};
+use crate::arazzo::spec_profile::NotReleased;
 use crate::party::{IdentityField, InstrumentStatus, Sut};
 
 /// The JWS `alg` every certificate carries: Ed25519 (RFC 8037 §3.1).
@@ -361,13 +362,17 @@ impl CertificatePayload {
     ///
     /// The results document must be the one this engine wrote: a run judged
     /// by another engine version is refused, so the payload's instrument is
-    /// both the engine that judged and the one that issued. The SUT's
+    /// both the engine that judged and the one that issued. It must also be
+    /// judged against the released text: a development result is never
+    /// certified. The SUT's
     /// `restapi_specs_version` is the one the server stated in that results
     /// document's `server` member, and absent when it stated none.
     ///
     /// # Errors
     /// [`IssueError::Results`] when the results document does not parse,
     /// [`IssueError::EngineMismatch`] when another engine wrote it,
+    /// [`IssueError::NotReleased`] when it was judged under the development
+    /// profile,
     /// [`IssueError::MissingIdentity`] when the SUT's name or version is
     /// blank, and the [`catalogue_digest`] failures.
     pub fn of_run(run: &RecordedRun<'_>) -> Result<Self, IssueError> {
@@ -380,6 +385,7 @@ impl CertificatePayload {
                 issuing: format!("{} {version}", env!("CARGO_PKG_NAME")),
             });
         }
+        results.specification.ensure_released()?;
         if run.sut.name.value.trim().is_empty() || run.sut.version.value.trim().is_empty() {
             return Err(IssueError::MissingIdentity);
         }
@@ -679,6 +685,10 @@ pub enum IssueError {
     /// The SUT's name or version is blank.
     #[error("the server's name and version are both required, and one is blank")]
     MissingIdentity,
+    /// The results were judged under the development profile, which never
+    /// builds a certificate.
+    #[error(transparent)]
+    NotReleased(#[from] NotReleased),
     /// The catalogue tree could not be read.
     #[error("the catalogue cannot be read at {path}: {source}")]
     Catalogue {
@@ -1624,6 +1634,46 @@ mod tests {
             CertificatePayload::of_run(&blank),
             Err(IssueError::MissingIdentity)
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn a_development_result_is_never_certified() -> TestResult {
+        let development = results_text().replacen(
+            "\"base_url\":",
+            r#""specification": { "profile": "development", "snapshot": [
+      { "component": "RM", "repository": "https://github.com/openEHR/specifications-RM",
+        "branch": "master", "commit": "654296bb027b03b4b076101e7171f3359f44cebc" } ] },
+  "base_url":"#,
+            1,
+        );
+        let catalogue = repo().join("fixtures/declaration");
+        let refused = CertificatePayload::of_run(&RecordedRun {
+            results: development.as_bytes(),
+            recording: RECORDING,
+            sut: sut(),
+            catalogue: &catalogue,
+            issued_at: issued_at()?,
+        });
+        assert!(
+            matches!(&refused, Err(IssueError::NotReleased(NotReleased { label })) if label.contains("RM master@654296bb027b")),
+            "{refused:?}"
+        );
+        let released = results_text().replacen(
+            "\"base_url\":",
+            "\"specification\": { \"profile\": \"released\" },\n  \"base_url\":",
+            1,
+        );
+        assert!(
+            CertificatePayload::of_run(&RecordedRun {
+                results: released.as_bytes(),
+                recording: RECORDING,
+                sut: sut(),
+                catalogue: &catalogue,
+                issued_at: issued_at()?,
+            })
+            .is_ok()
+        );
         Ok(())
     }
 

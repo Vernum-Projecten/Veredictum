@@ -177,6 +177,7 @@ fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
                 .map_err(|e| e.to_string()),
         ),
         draft: Arc::new(Mutex::new(engine_gate::drafts_of(RunDraft {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: format!("http://127.0.0.1:{port}"),
             sut_name: String::from("start-gate"),
             sut_version: String::from("0.0.0-gate"),
@@ -362,6 +363,7 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
         out: scratch.path().to_path_buf(),
         catalogue: Arc::new(Err(String::from("unused by the start seam"))),
         draft: Arc::new(Mutex::new(engine_gate::drafts_of(RunDraft {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://127.0.0.1:8080/ehrbase/rest/openehr/v1"),
             sut_name: String::from("start-gate"),
             sut_version: String::from("0.0.0-gate"),

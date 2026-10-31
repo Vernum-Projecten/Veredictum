@@ -26,7 +26,7 @@ use crate::components::toast;
 use crate::identity::{FieldEntry, IdentityAnswer, resolve};
 use crate::run_api::fns::{
     cancel_run, compose_claim, fetch_capability_rows, fetch_draft, fetch_run, fetch_scope_preview,
-    probe_and_save, save_identity, save_scope, start_run,
+    probe_and_save, save_identity, save_profile, save_scope, start_run,
 };
 use crate::run_api::{
     AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, CredentialForm, DigestEncoding,
@@ -647,6 +647,22 @@ pub fn Scope() -> impl IntoView {
     });
     let filter = RwSignal::new(String::new());
     let postures = PostureSignals::new();
+    let profile = RwSignal::new(DEVELOPMENT_PROFILE);
+    let set_profile = Action::new(move |token: &&'static str| {
+        let token = *token;
+        async move {
+            match save_profile(token.to_owned()).await {
+                Ok(()) => toast::success(
+                    "Specification saved",
+                    &format!("The run is judged against the {token} text."),
+                ),
+                Err(e) => toast::error(
+                    "The specification was refused",
+                    &format!("{e}. Choose the development snapshot or the release again."),
+                ),
+            }
+        }
+    });
     // Every mutation below reports BOTH outcomes as a toast and keeps its
     // inline pane. The answers land in each action's own async continuation,
     // so no signal-writing Effect mediates
@@ -800,7 +816,8 @@ pub fn Scope() -> impl IntoView {
                         prop:value=move || filter.get()
                         on:input:target=move |ev| filter.set(ev.target().value())
                     />
-                </div> {posture_picker(postures)} <div class="flex items-center gap-2">
+                </div> {profile_picker(profile)} {posture_picker(postures)}
+                <div class="flex items-center gap-2">
                     <button
                         type="button"
                         class=BTN_SECONDARY
@@ -819,6 +836,7 @@ pub fn Scope() -> impl IntoView {
                                 filter: filter.get(),
                                 postures: postures.read(),
                             });
+                            set_profile.dispatch(profile.get());
                             preview.dispatch(filter.get());
                         }
                     >
@@ -1309,6 +1327,46 @@ fn posture_picker(postures: PostureSignals) -> impl IntoView + use<> {
     let profile = posture_profile(postures).into_any();
     let gaps = posture_gaps().into_any();
     view! { <div class="space-y-4">{scalars}{signing}{profile}{gaps}</div> }.into_any()
+}
+
+/// The token of the development specification profile, the default.
+const DEVELOPMENT_PROFILE: &str = "development";
+
+/// The token of the frozen release's specification profile.
+const RELEASED_PROFILE: &str = "released";
+
+/// The specification text the run is judged against: the development
+/// snapshot by default, or the frozen release, which alone backs a
+/// certificate.
+fn profile_picker(profile: RwSignal<&'static str>) -> AnyView {
+    let buttons = [
+        (
+            "profile-development",
+            DEVELOPMENT_PROFILE,
+            "development snapshot",
+        ),
+        ("profile-released", RELEASED_PROFILE, "release"),
+    ]
+    .into_iter()
+    .map(|(id, token, label)| {
+        choice_button(
+            id,
+            label,
+            move || profile.get() == token,
+            move || profile.set(token),
+        )
+    })
+    .collect_view();
+    view! {
+        <div class="space-y-2">
+            <h3 class="text-sm font-semibold text-ink-heading">"Specification text"</h3>
+            <p class="text-sm text-ink-muted">
+                "The development snapshot is the latest openEHR text. Only a run against the release backs a released claim or a certificate."
+            </p>
+            <div class="flex flex-wrap items-center gap-2">{buttons}</div>
+        </div>
+    }
+    .into_any()
 }
 
 /// What one Save-scope dispatch carries: the pasted claim, the filter, and

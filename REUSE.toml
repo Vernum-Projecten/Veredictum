@@ -43,6 +43,31 @@ precedence = "override"
 SPDX-FileCopyrightText = "openEHR Foundation"
 SPDX-License-Identifier = "CC-BY-SA-3.0"
 
+# ── The pinned openEHR development snapshot ─────────────────────────────────
+# One directory per upstream repository, under that repository's own terms:
+# the specification documents carry CC-BY-SA-3.0, the ITS repositories
+# Apache-2.0. Each directory vendors its upstream LICENSE beside the files.
+[[annotations]]
+path = [
+  "specs/openehr-development/specifications-AM/**",
+  "specs/openehr-development/specifications-BASE/**",
+  "specs/openehr-development/specifications-QUERY/**",
+  "specs/openehr-development/specifications-RM/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "openEHR Foundation"
+SPDX-License-Identifier = "CC-BY-SA-3.0"
+
+[[annotations]]
+path = [
+  "specs/openehr-development/specifications-ITS-JSON/**",
+  "specs/openehr-development/specifications-ITS-REST/**",
+  "specs/openehr-development/specifications-ITS-XML/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "openEHR Foundation"
+SPDX-License-Identifier = "Apache-2.0"
+
 # ── The vendored machine-readable openEHR artifacts ─────────────────────────
 # The XSD bundles, the ITS-JSON schemas and the ITS-REST OpenAPI documents come
 # from the specification repositories, which carry Apache-2.0 at their root.
@@ -169,6 +194,7 @@ path = [
   "specs/its-xml-schemas/PROVENANCE.md",
   "specs/its-json-schemas/PROVENANCE.md",
   "specs/rest-oas/PROVENANCE.md",
+  "specs/openehr-development/*/PROVENANCE.md",
   "perf/payloads/ckm/PROVENANCE.md",
 ]
 precedence = "override"

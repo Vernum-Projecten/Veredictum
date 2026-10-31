@@ -35,5 +35,6 @@ pub mod results;
 pub mod rows;
 pub mod scope;
 pub mod source;
+pub mod spec_profile;
 pub mod structure;
 pub mod terminal;

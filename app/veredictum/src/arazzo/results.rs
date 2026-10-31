@@ -9,14 +9,16 @@
 //! from a clock, so re-judging a recording writes the same bytes. No openEHR
 //! spec governs the format — our own design.
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::num::NonZeroU64;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::arazzo::cite::Citation;
+use crate::arazzo::cite::{Citation, DevelopmentText};
 use crate::arazzo::rows::Row;
+use crate::arazzo::spec_profile::{DEVELOPMENT_ROOT, SpecProfile, Specification};
 use crate::arazzo::structure::Outline;
 use crate::identity::IdentityRead;
 use crate::party::InstrumentStatus;
@@ -68,6 +70,9 @@ pub enum SkipReason {
     /// A value the case needs from the party's IXIT or statement is not
     /// declared.
     NotDeclared,
+    /// A text the case cites is absent from the specification profile the
+    /// run reads.
+    CitedTextAbsent,
 }
 
 impl SkipReason {
@@ -79,6 +84,7 @@ impl SkipReason {
         Self::FormatNotClaimed,
         Self::ExtensionNotOffered,
         Self::NotDeclared,
+        Self::CitedTextAbsent,
     ];
 }
 
@@ -91,6 +97,7 @@ impl fmt::Display for SkipReason {
             Self::FormatNotClaimed => "format-not-claimed",
             Self::ExtensionNotOffered => "extension-not-offered",
             Self::NotDeclared => "not-declared",
+            Self::CitedTextAbsent => "cited-text-absent",
         })
     }
 }
@@ -162,6 +169,59 @@ impl Why {
     }
 }
 
+/// Points every link of `rows` at the upstream file of the tree `profile`
+/// reads, or drops it when the profile holds no such file.
+///
+/// A citation names the released path under every profile, so a row judged
+/// under another profile links to the commit that profile's text was taken
+/// from, never to the release. Under the development profile a citation of
+/// `citations` that carries its `development` wording is shown in that
+/// wording: the case cites the text of the profile it runs under.
+pub fn relink(
+    rows: &mut [ResultRow],
+    repo_root: &Path,
+    profile: SpecProfile,
+    citations: &[Citation],
+) {
+    let reworded: BTreeMap<(&str, &str, &str), &DevelopmentText> = citations
+        .iter()
+        .filter(|_| profile == SpecProfile::Development)
+        .filter_map(|c| {
+            c.development.as_deref().map(|wording| {
+                (
+                    (c.source.as_str(), c.section.as_str(), c.quote.as_str()),
+                    wording,
+                )
+            })
+        })
+        .collect();
+    let set = |why: &mut Why| {
+        let wording = reworded
+            .get(&(
+                why.source.as_str(),
+                why.section.as_str(),
+                why.quote.as_str(),
+            ))
+            .copied();
+        if let Some(wording) = wording {
+            if let Some(source) = &wording.source {
+                why.source.clone_from(source);
+            }
+            why.section.clone_from(&wording.section);
+            why.quote.clone_from(&wording.quote);
+        }
+        why.link = upstream_link_in(&why.source, repo_root, profile);
+    };
+    for row in rows {
+        if let Some(skip) = row.skip.as_mut() {
+            set(&mut skip.why);
+        }
+        if let Some(why) = row.explanation.as_mut().and_then(|e| e.why.as_mut()) {
+            set(why);
+        }
+    }
+}
+
 /// The exchange a red row was judged on.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeRef {
@@ -203,6 +263,10 @@ pub struct Skip {
     pub reason: SkipReason,
     /// The citation that makes the case not apply.
     pub why: Why,
+    /// What the reason leaves to say: for `cited-text-absent`, the profile
+    /// and what of the cited text it lacks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 /// One row of the results.
@@ -247,6 +311,11 @@ pub struct Results {
     pub engine: Engine,
     /// The approval status of the instrument that produced the results.
     pub instrument_status: InstrumentStatus,
+    /// The specification text the run was judged against.
+    // NOTE: no openEHR spec governs this — our own design; a record that predates the profiles
+    // was judged against the release, so a record without the member reads as released.
+    #[serde(default)]
+    pub specification: Specification,
     /// The base URL the run was driven against.
     pub base_url: String,
     /// What the server stated about itself through System OPTIONS, on a
@@ -407,6 +476,9 @@ impl fmt::Display for ResultRow {
         let status = self.status.to_string();
         if let Some(skip) = &self.skip {
             writeln!(f, "{status:<8} {}   {}", self.case, skip.reason)?;
+            if let Some(detail) = &skip.detail {
+                writeln!(f, "Missing  {detail}")?;
+            }
             return write_why(f, Some(&skip.why));
         }
         let Some(why) = &self.explanation else {
@@ -461,6 +533,38 @@ fn write_why(f: &mut fmt::Formatter<'_>, why: Option<&Why>) -> fmt::Result {
 /// the provenance names neither.
 #[must_use]
 pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
+    upstream_link_in(source, repo_root, SpecProfile::Released)
+}
+
+/// The upstream URL of the file `profile` reads for the cited `source`, at
+/// the commit that profile's tree was taken from.
+///
+/// Under [`SpecProfile::Released`] it is [`upstream_link`]. Under another
+/// profile the source maps onto that profile's tree
+/// ([`SpecProfile::file_of`]), whose provenance names the commit; `None`
+/// when the profile holds no such file.
+#[must_use]
+pub fn upstream_link_in(source: &str, repo_root: &Path, profile: SpecProfile) -> Option<String> {
+    if profile != SpecProfile::Released {
+        let path = if source.starts_with(&format!("{DEVELOPMENT_ROOT}/")) {
+            source.to_owned()
+        } else {
+            profile.file_of(repo_root, source)?
+        };
+        if !repo_root.join(&path).is_file() {
+            return None;
+        }
+        let (directory, inner) = path
+            .strip_prefix(DEVELOPMENT_ROOT)?
+            .strip_prefix('/')?
+            .split_once('/')?;
+        return provenance_link(
+            repo_root,
+            &format!("{DEVELOPMENT_ROOT}/{directory}"),
+            inner,
+            "",
+        );
+    }
     let (tree, inner, upstream_prefix) = if let Some(rest) = source.strip_prefix("specs/openehr/") {
         let (component, inner) = rest.split_once('/')?;
         (format!("specs/openehr/{component}"), inner, String::new())
@@ -478,9 +582,20 @@ pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
             "computable/OAS/".to_owned(),
         )
     };
+    provenance_link(repo_root, &tree, inner, &upstream_prefix)
+}
+
+/// The upstream URL of `inner` in the vendored `tree`, read from the tree's
+/// `PROVENANCE.md`, with `upstream_prefix` before it upstream.
+fn provenance_link(
+    repo_root: &Path,
+    tree: &str,
+    inner: &str,
+    upstream_prefix: &str,
+) -> Option<String> {
     // NOTE: no openEHR spec governs this — our own design; a tree without a
     // readable PROVENANCE.md has no upstream to link, so the link is absent.
-    let provenance = std::fs::read_to_string(repo_root.join(&tree).join("PROVENANCE.md")).ok()?;
+    let provenance = std::fs::read_to_string(repo_root.join(tree).join("PROVENANCE.md")).ok()?;
     let field = |names: &[&str]| {
         provenance.lines().find_map(|line| {
             let line = line.trim_start_matches("- ");
@@ -636,5 +751,61 @@ mod tests {
         };
         let text = row.to_string();
         assert!(text.starts_with("FAILED   ehr/w   step create-again\nWhat     Create it again.\nWhy      s, d:\n         \"q\"\nExpected status 409\nReceived status 201\nExchange PUT http://sut/ehr/1 -> 201   (recording entry 1)\nWhose    the server"), "{text}");
+    }
+
+    #[test]
+    fn a_development_row_shows_the_development_wording_of_its_citation() {
+        let source = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+        let released_quote =
+            "The possible values are `532|complete|`, `553|incomplete|` and `523|deleted|`.";
+        let citation = Citation {
+            source: source.to_owned(),
+            section: "Version Lifecycle".to_owned(),
+            quote: released_quote.to_owned(),
+            report: None,
+            level: None,
+            development: Some(Box::new(DevelopmentText {
+                source: None,
+                section: "Version Lifecycle".to_owned(),
+                quote: "the snapshot's wording".to_owned(),
+            })),
+        };
+        let row = || ResultRow {
+            case: "c/w".to_owned(),
+            row: 0,
+            status: Status::Skipped,
+            inputs: Row::new(),
+            generated: Vec::new(),
+            skip: Some(Skip {
+                reason: SkipReason::NotClaimed,
+                why: Why::of(&citation, &root()),
+                detail: None,
+            }),
+            explanation: None,
+        };
+        let mut development = [row()];
+        relink(
+            &mut development,
+            &root(),
+            SpecProfile::Development,
+            std::slice::from_ref(&citation),
+        );
+        let why = &development[0].skip.as_ref().unwrap().why;
+        assert_eq!(why.quote, "the snapshot's wording");
+        assert_eq!(why.source, source);
+        assert!(
+            why.link
+                .as_deref()
+                .is_some_and(|l| l.contains("specifications-RM/blob/654296bb027b")),
+            "{why:?}"
+        );
+        let mut released = [row()];
+        relink(
+            &mut released,
+            &root(),
+            SpecProfile::Released,
+            std::slice::from_ref(&citation),
+        );
+        assert_eq!(released[0].skip.as_ref().unwrap().why.quote, released_quote);
     }
 }

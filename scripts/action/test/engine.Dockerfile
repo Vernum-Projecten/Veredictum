@@ -46,4 +46,5 @@ COPY specs/openehr/ /work/specs/openehr/
 COPY specs/its-xml-schemas/ /work/specs/its-xml-schemas/
 COPY specs/its-json-schemas/ /work/specs/its-json-schemas/
 COPY specs/rest-oas/ /work/specs/rest-oas/
+COPY specs/openehr-development/ /work/specs/openehr-development/
 ENTRYPOINT ["/usr/local/bin/veredictum"]

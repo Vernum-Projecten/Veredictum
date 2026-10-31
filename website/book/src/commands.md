@@ -100,6 +100,21 @@ Options:
       --rejudge <RECORDING>
           Re-judge this HAR recording instead of driving a server: every request is answered from the recording, so the results are the bytes the recorded run wrote. Pass the root, statement, IXIT and documents the recorded run was given
 
+      --profile <PROFILE>
+          The specification text the case citations are read against.
+          
+          `development` (the default): the pinned `master` of each openEHR specification repository under `specs/openehr-development/`, the line that carries the newest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
+          
+          `released`: the frozen release under `specs/openehr/`. Only a released result backs a released claim or a certificate.
+          
+          The catalogue is gated against the release under either profile. A re-judgement takes the profile the recorded run was given.
+
+          Possible values:
+          - development: The pinned `master` of each openEHR repository: the newest text
+          - released:    The frozen release: the oracle of every released claim
+          
+          [default: development]
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -132,6 +147,20 @@ names the server, so `{ "environment": { "exclusive_server": true } }` is a
 whole IXIT for it. The IXIT is checked against the published IXIT schema
 before anything runs, and one that fails it, such as a misspelled member,
 stops the run with exit status 2 naming the file and the violation.
+
+**Which text.** `--profile development`, the default, reads every citation
+against the pinned `master` of each openEHR specification repository, the
+line that carries the newest text, under
+`specs/openehr-development/`; `--profile released` reads the frozen release
+under `specs/openehr/`. A case whose cited file, section or sentence the
+snapshot lacks is skipped as `cited-text-absent`, naming the profile and what
+is missing. The results record the profile under `specification`, with the
+repository, branch and commit of every snapshot directory, and the terminal
+view, `show`, every export and the console name them. A development result
+never builds a certificate and is never compared with or counted toward a
+released result, so a certificate needs a `--profile released` run. The
+catalogue is gated against the release under either profile. Pass a
+re-judgement the profile the recorded run was given.
 
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For
@@ -361,6 +390,19 @@ Options:
       --specs <SPECS>
           The vendored openEHR spec tree; enables citation resolution and the surface gate
 
+      --profile <PROFILE>
+          The specification profile to report the case citations against, beside the gates.
+          
+          `released` (the default): the gates alone, against the frozen release. Zero findings is the only passing result.
+          
+          `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. Needs `--specs`.
+
+          Possible values:
+          - development: The pinned `master` of each openEHR repository: the newest text
+          - released:    The frozen release: the oracle of every released claim
+          
+          [default: released]
+
       --statement <STATEMENT>
           A submitted declaration (`statement.json`) to hold to the static review: its published schema, the capability folders it claims, the option arms it selects, and that every claimed folder holds a workflow its declarations let run.
           
@@ -418,6 +460,18 @@ nothing. A selected option arm one of whose documents needs a format the
 statement does not claim is refused (`arm-format`): the run would skip that
 document, so nothing would verify the arm. No openEHR specification governs the floors, the realization scope
 or the claim gates; they are this instrument's own design.
+
+`--profile development` keeps every gate above, against the release, and then
+reads every case citation against the development snapshot under
+`specs/openehr-development/` beside `--specs`. A citation whose file, section
+or sentence the snapshot lacks prints as an `[info]` line naming the case, and
+the profile's counts follow per component; neither is a finding, and the exit
+status stays `0` for them. A citation the snapshot refuses for any other
+reason is a `profile-citation` finding, and so is a citation's `development`
+wording that the snapshot does not hold, or one whose released quote still
+occurs there unchanged. The repository's own gate runs
+`--profile released`, where zero findings is the only passing result, and a
+second `--profile development` pass that reports the absences.
 
 ## perf
 
@@ -731,6 +785,8 @@ Write the views of a result document a vendor's CI shows, each a byte-determinis
 
 An Arazzo results document has three views: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary. A `perf-result`, told apart by its `family`, has the Markdown summary only, so `--junit` and `--ctrf` refuse it.
 
+A result judged under the development profile names the profile and every snapshot commit in each view: a `profile` property on every JUnit suite, a `specification` member in the CTRF environment, and a `Specification` row with a warning in the Markdown summary.
+
 Usage: veredictum export [OPTIONS] --results <RESULTS>
 
 Options:
@@ -862,7 +918,7 @@ it with exit status 2, since a performance record has no test cases to list.
 ```text
 Show a result document in the terminal: an Arazzo results document one line per chapter, band and option, each with its counts and a bar, or a `perf-result` one line per plateau.
 
-A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure.
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure. A result judged under the development profile opens with a line naming the profile and every snapshot commit, and saying it is never a released result.
 
 A `perf-result` reads as a header naming the target, environment, host, workload (a `custom` one named so), corpus, the knee estimate, the between-run noise and the record's scope; one line per plateau with offered and achieved rates, p50 to max, the error share and a ✓ or ✕ qualification mark, with `unsteady` where recorded; the operations at the knee and at the lowest plateau with the quantile each is judged at (`n/r` where a quantile does not resolve); the knee, peak, population and fit sentences; a sparkline of p99 against the offered rate; and the server-side readings as context. It fits 80 columns. `--failed` does not apply to it.
 

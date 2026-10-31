@@ -28,6 +28,7 @@ use crate::arazzo::reading::{
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
+use crate::arazzo::spec_profile::Specification;
 use crate::arazzo::structure::{Outline, Place, SPEC_DIVERGE_TAG, Standing, Tier};
 use crate::party::InstrumentStatus;
 
@@ -261,7 +262,10 @@ pub fn junit(results: &Results) -> Result<String, ExportError> {
         push_tally(&mut suite, Tally::of(rows.iter().copied()));
         suite.push_attribute(("time", NO_TIME));
         writer.write_event(Event::Start(suite))?;
-        let named = placement(results.outline.as_ref(), case);
+        let mut named = placement(results.outline.as_ref(), case);
+        if !results.specification.is_released() {
+            named.insert(0, ("profile", vec![results.specification.label()]));
+        }
         if !named.is_empty() {
             writer.write_event(Event::Start(BytesStart::new("properties")))?;
             for (name, values) in named {
@@ -469,6 +473,10 @@ struct CtrfEnvironment<'a> {
 #[serde(rename_all = "camelCase")]
 struct CtrfEnvironmentExtra<'a> {
     base_url: &'a str,
+    /// The development profile and its snapshot; absent for the released
+    /// profile.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    specification: Option<&'a Specification>,
 }
 
 /// The CTRF status and raw status of a row.
@@ -618,6 +626,8 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
                 extra: Extra {
                     veredictum: CtrfEnvironmentExtra {
                         base_url: &results.base_url,
+                        specification: (!results.specification.is_released())
+                            .then_some(&results.specification),
                     },
                 },
             },
@@ -1199,6 +1209,15 @@ pub fn markdown(results: &Results) -> String {
         md_inline(&results.instrument_status.to_string()),
         md_code(&results.document),
     );
+    if !results.specification.is_released() {
+        let _ = writeln!(
+            out,
+            "| **Specification** | {} |\n\n> [!WARNING]\n> Judged against the pinned master of each openEHR repository, the newest text, not the release. \
+             This is never a released result: it builds no certificate and is never compared with \
+             or counted toward one.",
+            md_inline(&results.specification.label()),
+        );
+    }
     md_summary(&mut out, &reading, outline.is_some());
     if let Some(outline) = outline {
         md_base(&mut out, outline, &reading);

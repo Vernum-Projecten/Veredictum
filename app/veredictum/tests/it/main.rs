@@ -40,5 +40,6 @@ mod perf_views;
 mod pipeline_seams;
 mod results_export;
 mod schema_drift;
+mod spec_profile;
 mod workload_gates;
 mod workload_wire;

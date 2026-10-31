@@ -43,6 +43,32 @@
             "should",
             "may"
           ]
+        },
+        "development": {
+          "description": "Where the development snapshot states the same requirement in other words. Read under the development specification profile only, in place of `section` and `quote`, and never under the released profile. `validate --profile development` refuses it when its quote does not occur in the snapshot, and when the released quote still occurs there unchanged.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "section",
+            "quote"
+          ],
+          "properties": {
+            "source": {
+              "description": "The snapshot file, relative to the repository root, when it is not the file `source` maps to.",
+              "type": "string",
+              "pattern": "^specs/openehr-development/"
+            },
+            "section": {
+              "description": "The element or the section heading in the snapshot, as `section` names one.",
+              "type": "string",
+              "minLength": 1
+            },
+            "quote": {
+              "description": "The snapshot's sentence, copied verbatim.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     },

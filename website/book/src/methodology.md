@@ -46,6 +46,38 @@ not settle what the correct answer is, and in places it contradicts a released
 component. Its Robot test suites are in the same position. Where any of those
 disagrees with a released component, the released component wins.
 
+## Two specification profiles
+
+A run reads its citations against one of two profiles.
+
+- **`development`:** the default run profile and the latest text. It is a
+  pinned snapshot of the `master` of each openEHR specification repository,
+  the line that carries the newest text,
+  vendored under `specs/openehr-development/` with one directory per
+  repository and a `PROVENANCE.md` naming the repository, the branch and the
+  commit. Every patch this project proposes upstream is written against it.
+- **`released`:** selectable and frozen. It is the vendored release under
+  `specs/openehr/`, where nothing is ever patched, and it is the oracle of
+  every released claim.
+
+A case cites the same section under both profiles, and only the text it is
+checked against changes. Where the snapshot rewords a cited sentence and the
+requirement is unchanged in substance, the citation carries a `development`
+member quoting the snapshot's sentence, which the development profile reads in
+place of the released one and the released profile never reads. A development run computes real verdicts against the
+development text. A case whose cited file, section or sentence the snapshot
+lacks is skipped as `cited-text-absent`, and the skip names the profile and
+what is missing. The results, `show`, every export and the console name the
+profile and every snapshot commit.
+
+Released results alone back a released claim or a certificate. A development
+result is never mixed with, compared as, or counted toward a released result,
+a certificate or the released BASE and OPTIONS tally: certificate issuance
+refuses a development record, so a certificate needs an explicit
+`--profile released` run. `validate` gates the catalogue against the release,
+and zero findings stays the only passing result; `validate --profile
+development` adds the snapshot's absences as information.
+
 ## The catalogue's shape: one behaviour, one case
 
 A case is an Arazzo workflow: its steps call the operations of the released

@@ -134,6 +134,10 @@ pub enum Error {
     /// An Arazzo document cannot be run, or a recording cannot be replayed.
     #[error("{0}")]
     ArazzoRun(#[from] crate::arazzo::evaluate::RunError),
+    /// The development snapshot a run under the development profile reads
+    /// is missing or names no commit.
+    #[error("{0}")]
+    Snapshot(#[from] crate::arazzo::spec_profile::SnapshotError),
     /// A HAR recording cannot be read or written.
     #[error("{0}")]
     Recording(#[from] crate::arazzo::har::HarError),

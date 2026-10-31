@@ -262,6 +262,7 @@ impl Capabilities {
                 && !selected.contains(name)
             {
                 return Some(Skip {
+                    detail: None,
                     reason: SkipReason::OptionNotSelected,
                     why: Why::of(&option.cite, repo_root),
                 });
@@ -285,6 +286,7 @@ impl Capabilities {
         needs.applies.iter().find_map(|(component, range)| {
             let version = declared.get(component)?;
             (!range.contains(*version)).then(|| Skip {
+                detail: None,
                 reason: SkipReason::VersionOutOfRange,
                 why: Why::of(&range.cite, repo_root),
             })
