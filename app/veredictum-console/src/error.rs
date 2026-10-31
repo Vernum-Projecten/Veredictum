@@ -9,7 +9,7 @@
 //! raised is the variant the browser decodes
 //! (<https://book.leptos.dev/server/25_server_functions.html>). The refusal
 //! layer in the router reads the same encoding back to give each variant its
-//! HTTP status ([`ConsoleError::status`]).
+//! HTTP status (`ConsoleError::status`, compiled with the `ssr` feature).
 //!
 //! The wording a screen shows around a refusal lives here too: what the
 //! refused act left unchanged ([`Act`]) and what to do next
