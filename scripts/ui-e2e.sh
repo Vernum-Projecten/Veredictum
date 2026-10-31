@@ -8,6 +8,11 @@
 # Usage:
 #   scripts/ui-e2e.sh [FILTER]      # FILTER = a nextest -E test(...) substring
 #
+# Leave the working tree alone while a pass runs. The pass compares the tree
+# before and after (step 4) and fails on any change outside the capture
+# directory, naming every changed path: it cannot tell its own residue from an
+# edit made beside it, so it reports the paths and says both are possible.
+#
 # The browser: ONE primary path, a digest-pinned `selenium/standalone-chromium`
 # container, because it locks the Chromium and driver versions to bytes rather
 # than to whatever the host happens to have installed. Its browser lives in the
@@ -356,10 +361,15 @@ UI_E2E_HOST_URL="$PROBE_URL" \
 # ── 4. Nothing may have leaked into the checkout ────────────────────────────
 TREE_STATE_AFTER="$(git_tree_state)"
 if [[ "$TREE_STATE_AFTER" != "$TREE_STATE_BEFORE" ]]; then
-  echo "FATAL: the harness left residue in the working tree:" >&2
-  diff <(printf '%s\n' "$TREE_STATE_BEFORE") <(printf '%s\n' "$TREE_STATE_AFTER") >&2 || true
+  # The paths whose status line appeared, vanished or changed, each once.
+  CHANGED="$({ diff <(printf '%s\n' "$TREE_STATE_BEFORE") <(printf '%s\n' "$TREE_STATE_AFTER") || true; } \
+    | sed -nE 's/^[<>] .{3}//p' | LC_ALL=C sort -u)"
+  echo "FATAL: the working tree changed during the pass. Either the harness left these" >&2
+  echo "behind, or something edited them while it ran (the tree must stay untouched" >&2
+  echo "for a pass's duration). The changed paths:" >&2
+  while IFS= read -r path; do printf '  %s\n' "$path" >&2; done <<<"$CHANGED"
   exit 1
 fi
-echo "── working tree clean of run residue"
+echo "── working tree unchanged by the pass"
 
 echo "── journeys complete; failure evidence would be in $SHOTS_DIR"
