@@ -1,0 +1,158 @@
+# COMPOSITIONs created from the Simplified Flat JSON format against a stored
+# ADL 2 operational template, for a service that processes the format: part
+# of the accepting arm of the `composition-flat-write` option, as Arazzo
+# 1.1.0 workflows over the released ITS-REST `-validation` OAS. The template
+# is openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0, uploaded by
+# the setup each workflow names, whose ITEM_TREE.items has cardinality
+# matches {1..2}. Its flat paths follow the Node ID Generation Rules over the
+# node names of its terminologies: the COMPOSITION id1 "CNF ADL 2
+# items_cardinality", and, inside the OBSERVATION archetype root, the
+# component terminology's id1 "Minimal observation", id3 "Any event" and id5
+# "Value"; the HISTORY and the ITEM_TREE collapse, and the OBSERVATION, the
+# EVENT and the ELEMENT, each with occurrences 0..*, are indexed. Every
+# criterion resolves to an `x-veredictum-cite` (its own, else its step's,
+# else its workflow's), and every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: Flat commits against an ADL 2 template
+  version: 0.1.0
+  description: >-
+    Flat documents of the ADL 2 template
+    openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0: one whose
+    ITEM_TREE holds the two ELEMENTs the cardinality admits is created, and
+    one that gives a third ELEMENT is refused.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: templates
+    url: ../_setup/content_templates_adl2.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-adl2
+    summary: A flat document of an ADL 2 template is created with the elements it gives
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0 from a flat
+      document giving two Value elements, value:0 "one" and value:1 "two",
+      which the cardinality {1..2} of ITEM_TREE.items admits, and reads the
+      COMPOSITION back in canonical JSON. The ITEM_TREE holds both ELEMENTs,
+      each carrying the DV_TEXT its flat field gave. This is the valid twin
+      of create_composition-flat-adl2-cardinality.
+    dependsOn: [$sourceDescriptions.templates.upload_template-adl2_items_cardinality]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master02-overview.adoc
+      section: Relationship to Other Specifications
+      quote: "__Operational Templates (OPT)__: field identifiers are generated from OPT definitions"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document with two Value elements and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - &ehr_id
+            { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - &template
+            { name: openehr-template-id, in: header, value: openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0 }
+          - { name: Prefer, in: header, value: return=representation }
+          - &json
+            { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            cnf_adl_2_items_cardinality/minimal_observation:0/any_event:0/value:0: one
+            cnf_adl_2_items_cardinality/minimal_observation:0/any_event:0/value:1: two
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - *ehr_id
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - *json
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0'].data.events[*].data.items[?@.archetype_node_id == 'id5' && @.value.value == 'one']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Flat format
+              quote: "There is no distinction between ELEMENT and its value - elements ARE their values"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0'].data.events[*].data.items[?@.archetype_node_id == 'id5' && @.value.value == 'two']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Flat format
+              quote: "Instance indices MUST be zero-based"
+
+  - workflowId: create_composition-flat-adl2-cardinality
+    x-veredictum-control: create_composition-flat-adl2
+    summary: A flat document of an ADL 2 template that breaks a cardinality is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0 from a flat
+      document giving three Value elements, value:0 to value:2, one more than
+      the cardinality {1..2} of ITEM_TREE.items admits. The create is
+      answered 422 Unprocessable Entity. The release recommends this
+      validation, so the row is a warning.
+    dependsOn: [$sourceDescriptions.templates.upload_template-adl2_items_cardinality]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL2/master04.3-cadl_complex_types.adoc
+      section: Cardinality
+      quote: "The integer range indicates the valid membership of the container"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document with three Value elements in one ITEM_TREE.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *template]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            cnf_adl_2_items_cardinality/minimal_observation:0/any_event:0/value:0: one
+            cnf_adl_2_items_cardinality/minimal_observation:0/any_event:0/value:1: two
+            cnf_adl_2_items_cardinality/minimal_observation:0/any_event:0/value:2: three
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Validation
+              quote: "Implementations SHOULD validate: * Get the WT for the target template and map input fields to the identifiers * Check the final segment for the pipe to identify attribute suffix * Mandatory context fields (language, territory) are present * Field identifiers match WT metadata structure * Data types match expected types from the Operational Template * Cardinality constraints are satisfied"
+              level: should

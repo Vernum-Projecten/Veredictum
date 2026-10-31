@@ -2256,9 +2256,11 @@ cases:
     new:
       - composition_read_xml/get_composition-at_time-xml
       - composition_read_xml_not_acceptable/get_composition-at_time-xml_not_acceptable
-    open: &xml_part >-
-      The root element of the XML document is not judged: no workflow asserts
-      the `composition` document element of the ITS-XML Composition.xsd yet.
+    open: &xml_root >-
+      Which namespace the document element is in is not judged beyond the two
+      the published ITS-XML schemas declare, v1 (Release-1.0.2) and v2
+      (Release-2.0.0): Resources.md §XML Format requires only that the
+      document "MUST conform to the published XSDs".
   I_EHR_COMPOSITION.get_composition_at_times:
     new: []
     open: >-
@@ -2287,9 +2289,7 @@ cases:
     new: [composition_read/get_composition-ehr_status_version_uid]
   I_EHR_COMPOSITION.get_composition_at_version-xml:
     new: &xml [composition_read_xml/get_composition-xml]
-    open: &xml_root >-
-      The root element of the XML document is not judged: no workflow asserts
-      the `composition` document element of the ITS-XML Composition.xsd yet.
+    open: *xml_root
   I_EHR_COMPOSITION.get_composition_latest:
     new: [composition_read_container/get_composition-latest]
   I_EHR_COMPOSITION.get_composition_latest-bad_composition:
@@ -2314,7 +2314,7 @@ cases:
     new:
       - composition_read_xml/get_composition-latest-xml
       - composition_read_xml_not_acceptable/get_composition-latest-xml_not_acceptable
-    open: *xml_part
+    open: *xml_root
   I_EHR_COMPOSITION.get_composition_latest-xml_namespace_v1:
     new: []
     open: &xml_namespace >-
@@ -2326,7 +2326,7 @@ cases:
     new: []
     open: *xml_namespace
   I_EHR_COMPOSITION.get_composition_latest-xml_root_namespace:
-    new: []
+    new: [composition_read_xml/get_composition-latest-xml]
     open: *xml_root
   I_EHR_COMPOSITION.get_composition_version:
     new: [composition_read/get_composition-by_version_uid]
@@ -2394,7 +2394,9 @@ cases:
     new:
       - composition_versioned_read_xml/get_versioned_composition-xml
       - composition_versioned_read_xml_not_acceptable/get_versioned_composition-xml_not_acceptable
-    open: *xml_root
+    open: >-
+      The root element of the XML document is not judged: no published XSD
+      declares a document element for VERSIONED_COMPOSITION.
   I_EHR_COMPOSITION.has_composition:
     new: [composition_read/get_composition-by_version_uid]
   I_EHR_COMPOSITION.has_composition-bad_composition:
@@ -4015,14 +4017,9 @@ cases:
       - flat_mapping/create_composition-flat-dv_quantity
       - flat_structure/create_composition-flat-instance_index
   SF-FLAT-adl2_commit:
-    new: []
-    open: &sf_adl2 >-
-      The stored ADL 2 operational templates exist (the setup
-      content_templates_adl2 uploads them), and no Simplified Flat workflow
-      commits against one yet.
+    new: [flat_adl2/create_composition-flat-adl2]
   SF-FLAT-adl2_reject_cardinality:
-    new: []
-    open: *sf_adl2
+    new: [flat_adl2/create_composition-flat-adl2-cardinality]
   SF-FLAT-commit_roundtrip_ctx_defaults:
     new:
       - flat_context/create_composition-flat-ctx_time_default

@@ -26,7 +26,8 @@ workflows:
     description: >-
       Creates an EHR, then creates an event COMPOSITION sent as canonical JSON
       with Prefer return=representation and Accept application/xml. The create
-      is answered 201 with Content-Type application/xml.
+      is answered 201 with Content-Type application/xml, and its document
+      element is a composition carrying the members the ITS-XML schema requires.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: &negotiation
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
@@ -125,13 +126,101 @@ workflows:
             context: $response.header.Content-Type
             type: regex
             condition: '^application/xml'
+          # NOTE: ITS-REST overview Resources.md §XML Format names no namespace, so either published
+          # ITS-XML lineage's (v1 Release-1.0.2, v2 Release-2.0.0) holds.
+          - &composition_root
+            context: $response.body
+            type: xpath
+            condition: exists(/oe:composition) or exists(/oe2:composition)
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
+              section: element composition
+              quote: '<xs:element name="composition" type="COMPOSITION"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/documents/Composition.xsd
+                section: element composition
+                quote: '<xs:element name="composition" type="COMPOSITION"/>'
+          - &composition_archetype_node_id
+            context: $response.body
+            type: xpath
+            condition: exists(/oe:composition/@archetype_node_id) or exists(/oe2:composition/@archetype_node_id)
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
+              section: complexType LOCATABLE
+              quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType LOCATABLE
+                quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
+          - &composition_name
+            context: $response.body
+            type: xpath
+            condition: count(/oe:composition/oe:name) eq 1 or count(/oe2:composition/oe2:name) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
+              section: complexType LOCATABLE
+              quote: '<xs:element name="name" type="DV_TEXT"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType LOCATABLE
+                quote: '<xs:element name="name" type="DV_TEXT"/>'
+          - &composition_language
+            context: $response.body
+            type: xpath
+            condition: count(/oe:composition/oe:language) eq 1 or count(/oe2:composition/oe2:language) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
+              section: complexType COMPOSITION
+              quote: '<xs:element name="language" type="CODE_PHRASE"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
+                section: complexType COMPOSITION
+                quote: '<xs:element name="language" type="CODE_PHRASE"/>'
+          - &composition_territory
+            context: $response.body
+            type: xpath
+            condition: count(/oe:composition/oe:territory) eq 1 or count(/oe2:composition/oe2:territory) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
+              section: complexType COMPOSITION
+              quote: '<xs:element name="territory" type="CODE_PHRASE"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
+                section: complexType COMPOSITION
+                quote: '<xs:element name="territory" type="CODE_PHRASE"/>'
+          - &composition_category
+            context: $response.body
+            type: xpath
+            condition: count(/oe:composition/oe:category) eq 1 or count(/oe2:composition/oe2:category) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
+              section: complexType COMPOSITION
+              quote: '<xs:element name="category" type="DV_CODED_TEXT"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
+                section: complexType COMPOSITION
+                quote: '<xs:element name="category" type="DV_CODED_TEXT"/>'
+          - &composition_composer
+            context: $response.body
+            type: xpath
+            condition: count(/oe:composition/oe:composer) eq 1 or count(/oe2:composition/oe2:composer) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
+              section: complexType COMPOSITION
+              quote: '<xs:element name="composer" type="PARTY_PROXY"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
+                section: complexType COMPOSITION
+                quote: '<xs:element name="composer" type="PARTY_PROXY"/>'
 
   - workflowId: update_composition-accept_xml
     summary: A COMPOSITION update that asks for canonical XML is answered in it
     description: >-
       Creates an EHR and an event COMPOSITION in canonical JSON, then updates
       it with Prefer return=representation and Accept application/xml. The
-      update is answered 200 with Content-Type application/xml.
+      update is answered 200 with Content-Type application/xml, and its
+      document element is a composition carrying the members the ITS-XML
+      schema requires.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: *negotiation
     inputs: *ehr_input
@@ -179,3 +268,10 @@ workflows:
               section: description
               quote: "`200 OK` is returned when the COMPOSITION is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
           - *negotiated
+          - *composition_root
+          - *composition_archetype_node_id
+          - *composition_name
+          - *composition_language
+          - *composition_territory
+          - *composition_category
+          - *composition_composer
