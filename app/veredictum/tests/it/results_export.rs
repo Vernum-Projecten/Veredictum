@@ -715,6 +715,36 @@ fn the_markdown_summary_by_base_and_options_is_pinned() {
 }
 
 #[test]
+fn a_failed_row_the_outline_places_nowhere_is_counted_in_the_summary_table() {
+    let mut results = outlined();
+    let mut stray = row("stray/unplaced", 0, Status::Failed);
+    stray.explanation = Some(red("create-again", "status 201", Whose::Server, None));
+    results.rows.push(stray);
+    let summary = markdown(&results);
+    let table: Vec<&str> = summary
+        .lines()
+        .skip_while(|l| *l != "## Summary")
+        .take_while(|l| !l.starts_with("> "))
+        .collect();
+    assert!(
+        table.contains(&"| Unplaced | 1 | 1 | 0 | 0 | 0 | 2 |"),
+        "{}",
+        table.join("\n")
+    );
+    let mut placed = outlined();
+    let placed_cases: Vec<String> = placed
+        .outline
+        .as_ref()
+        .map(|o| o.cases.keys().cloned().collect())
+        .unwrap_or_default();
+    placed.rows.retain(|r| placed_cases.contains(&r.case));
+    assert!(
+        !markdown(&placed).contains("| Unplaced |"),
+        "no line when every case is placed"
+    );
+}
+
+#[test]
 fn the_junit_view_with_its_placement_is_pinned() {
     insta::assert_snapshot!(junit(&outlined()).unwrap());
 }

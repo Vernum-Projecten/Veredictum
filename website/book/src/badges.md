@@ -21,7 +21,7 @@ README can show the ones it needs.
 
 | Badge | Label | Message |
 |---|---|---|
-| `base` | `openEHR BASE · <profile>` | passed out of every BASE row, then the failed and errored counts when there are any: `312/320 passed · 2 failed` |
+| `base` | `openEHR BASE · <profile>` | passed out of every BASE row and every row the outline places nowhere, then the failed and errored counts when there are any: `312/320 passed · 2 failed` |
 | `options` | `openEHR options · <profile>` | the same count over the option arms the statement selected and the cases resting on TRIAL text, which are read with the options |
 | `warnings` | `openEHR warnings · <profile>` | the number of warning rows: a SHOULD the server did not follow, never counted as failed |
 | `profile` | `specification` | `released`, or `development (master)` with the branch the snapshot was taken from |

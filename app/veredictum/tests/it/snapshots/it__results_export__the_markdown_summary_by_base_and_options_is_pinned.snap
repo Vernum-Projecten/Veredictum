@@ -1,6 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 709
+assertion_line: 714
 expression: summary
 ---
 # Veredictum results
@@ -17,6 +17,7 @@ expression: summary
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | BASE | 3 | 2 | 1 | 0 | 0 | 6 |
 | OPTIONS | 1 | 1 | 0 | 1 | 1 | 4 |
+| Unplaced | 1 | 0 | 0 | 0 | 0 | 1 |
 | **Every row** | **5** | **3** | **1** | **1** | **1** | **11** |
 
 > [!NOTE]

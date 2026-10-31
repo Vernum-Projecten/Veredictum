@@ -50,6 +50,19 @@ impl Tally {
         tally
     }
 
+    /// The counts of both tallies together.
+    #[must_use]
+    pub const fn plus(self, other: Self) -> Self {
+        Self {
+            tests: self.tests.saturating_add(other.tests),
+            passed: self.passed.saturating_add(other.passed),
+            failed: self.failed.saturating_add(other.failed),
+            warning: self.warning.saturating_add(other.warning),
+            errored: self.errored.saturating_add(other.errored),
+            skipped: self.skipped.saturating_add(other.skipped),
+        }
+    }
+
     /// Counts one more row.
     pub fn add(&mut self, row: &ResultRow) {
         self.tests += 1;
@@ -414,6 +427,10 @@ pub struct Reading<'a> {
     /// The cases the results place nowhere: every case, when the results
     /// carry no outline.
     pub unplaced: Vec<CaseRows<'a>>,
+    /// The rows of [`Reading::unplaced`], counted once. They are in neither
+    /// [`Reading::base_total`] nor the options, so a view that shows those
+    /// shows this too, and a failed or errored unplaced row never reads green.
+    pub unplaced_total: Tally,
 }
 
 /// The cases of a result that rest on released text an upstream report
@@ -489,6 +506,7 @@ pub fn read(results: &Results) -> Reading<'_> {
             },
             reports: Vec::new(),
             unplaced: all,
+            unplaced_total: total,
         };
     };
     let mut unplaced = Vec::new();
@@ -535,6 +553,7 @@ pub fn read(results: &Results) -> Reading<'_> {
             cases: trial,
         },
         reports: report_groups(outline, &all),
+        unplaced_total: tally_of(&unplaced),
         unplaced,
     }
 }
@@ -964,6 +983,43 @@ mod tests {
             reading.unplaced.len(),
             1,
             "a case the outline does not place"
+        );
+        assert_eq!(reading.unplaced_total.tests, 1);
+        assert_eq!(
+            reading.unplaced_total.errored, 1,
+            "the unplaced row is counted, outside BASE and the options"
+        );
+        assert_eq!(reading.base_total.errored, 0);
+    }
+
+    #[test]
+    fn tallies_add_count_by_count() {
+        let a = Tally {
+            tests: 3,
+            passed: 1,
+            failed: 1,
+            warning: 0,
+            errored: 1,
+            skipped: 0,
+        };
+        let b = Tally {
+            tests: 2,
+            passed: 0,
+            failed: 0,
+            warning: 1,
+            errored: 0,
+            skipped: 1,
+        };
+        assert_eq!(
+            a.plus(b),
+            Tally {
+                tests: 5,
+                passed: 1,
+                failed: 1,
+                warning: 1,
+                errored: 1,
+                skipped: 1,
+            }
         );
     }
 

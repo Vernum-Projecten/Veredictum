@@ -1164,6 +1164,15 @@ fn md_summary(out: &mut String, reading: &Reading<'_>, placed: bool) {
         ] {
             let _ = writeln!(out, "| {part} | {} | {} |", count_cells(tally), tally.tests);
         }
+        let unplaced = reading.unplaced_total;
+        if unplaced.tests > 0 {
+            let _ = writeln!(
+                out,
+                "| Unplaced | {} | {} |",
+                count_cells(unplaced),
+                unplaced.tests
+            );
+        }
     }
     let total = reading.total;
     let _ = writeln!(

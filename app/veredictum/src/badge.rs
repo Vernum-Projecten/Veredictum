@@ -36,7 +36,8 @@ use crate::perf_result::view::format_rate;
 /// One badge the instrument draws, by the file name it is written under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BadgeName {
-    /// The BASE rows: passed out of every BASE row.
+    /// The BASE rows: passed out of every BASE row and every row the outline
+    /// places nowhere.
     Base,
     /// The rows of the selected option arms, with the BASE cases resting on
     /// TRIAL text, which are read with the options.
@@ -386,7 +387,9 @@ pub fn badges(results: &Results) -> Vec<Badge> {
             (String::from("no outline"), BadgeColour::Empty)
         }
     };
-    let (base_message, base_colour) = counted(reading.base_total);
+    // NOTE: no openEHR spec governs this — our own design; a row the outline places
+    // nowhere counts on the BASE badge, so a red unplaced row never leaves it green.
+    let (base_message, base_colour) = counted(reading.base_total.plus(reading.unplaced_total));
     let (options_message, options_colour) = counted(reading.options.selected_tally());
     let warnings = reading.total.warning;
     BadgeName::CONFORMANCE
