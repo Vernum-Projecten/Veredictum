@@ -26,6 +26,6 @@ keywords:
   - healthcare
   - rust
 license: Apache-2.0
-version: 0.3.1
+version: 0.3.2
 date-released: 2026-10-31
 doi: 10.5281/zenodo.22113258

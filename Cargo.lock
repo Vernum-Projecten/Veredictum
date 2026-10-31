@@ -5679,7 +5679,7 @@ dependencies = [
 
 [[package]]
 name = "veredictum"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "assert_fs",
  "base64 0.23.1",
