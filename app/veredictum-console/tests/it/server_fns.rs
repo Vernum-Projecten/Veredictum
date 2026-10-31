@@ -682,8 +682,9 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
     assert!(!not_a_statement.is_empty(), "{not_a_statement}");
 
     // The cap is checked before the parse, so an abusive body never reaches
-    // the schema validator at all.
-    let oversized = fns::save_scope(Some("0".repeat(4 * 1024 * 1024)), None, bare)
+    // the schema validator at all. One byte past the cap the code enforces.
+    let past_the_cap = usize::try_from(veredictum_console::run_api::read::STATEMENT_CAP_BYTES)? + 1;
+    let oversized = fns::save_scope(Some("0".repeat(past_the_cap)), None, bare)
         .await
         .expect_err("a body past the cap is refused")
         .to_string();
