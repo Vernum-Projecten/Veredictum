@@ -26,6 +26,7 @@ mod arazzo_pack;
 mod arazzo_smart;
 mod badges;
 mod certificate_cli;
+mod content_payloads;
 mod defect_rejection;
 mod env_coupled;
 mod fake_sut;
