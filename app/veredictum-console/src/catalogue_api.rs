@@ -791,7 +791,7 @@ pub mod fns {
         reason = "fires only in some #[server] expansions; see the module doc"
     )]
 
-    use super::{BandRows, CaseDetail, ChapterGroup, ChapterPage, ChapterRow, InstrumentView};
+    use super::{CaseDetail, ChapterGroup, ChapterPage, InstrumentView};
     use leptos::prelude::{ServerFnError, server};
 
     #[cfg(feature = "ssr")]
@@ -808,16 +808,6 @@ pub mod fns {
         Ok(read::instrument_view(&state))
     }
 
-    /// The capability folder list.
-    ///
-    /// # Errors
-    /// The verbatim load failure when the catalogue is absent.
-    #[server]
-    pub async fn fetch_chapters() -> Result<Vec<ChapterRow>, ServerFnError> {
-        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        read::chapter_rows(&state).map_err(ServerFnError::new)
-    }
-
     /// The catalogue home: chapters in declared order, each with its folders.
     ///
     /// # Errors
@@ -827,20 +817,6 @@ pub mod fns {
     pub async fn fetch_catalogue_home() -> Result<Vec<ChapterGroup>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         read::catalogue_home(&state).map_err(ServerFnError::new)
-    }
-
-    /// One capability folder's cases, grouped by document, filtered by the
-    /// case id substring `q`.
-    ///
-    /// # Errors
-    /// The verbatim load failure when the catalogue is absent.
-    #[server]
-    pub async fn fetch_chapter_bands(
-        chapter: String,
-        q: String,
-    ) -> Result<Vec<BandRows>, ServerFnError> {
-        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        read::band_rows(&state, &chapter, &q).map_err(ServerFnError::new)
     }
 
     /// One capability folder grouped into its BASE sections and the options

@@ -89,20 +89,16 @@ async fn the_catalogue_endpoints_answer_what_their_readers_read()
         read::instrument_view(&state)
     );
     assert_eq!(
-        fns::fetch_chapters().await.map_err(|e| e.to_string())?,
-        read::chapter_rows(&state)?
-    );
-    assert_eq!(
         fns::fetch_catalogue_home()
             .await
             .map_err(|e| e.to_string())?,
         read::catalogue_home(&state)?
     );
     assert_eq!(
-        fns::fetch_chapter_bands(String::from("ehr"), String::from("create_ehr"))
+        fns::fetch_chapter_page(String::from("ehr"), String::from("create_ehr"))
             .await
             .map_err(|e| e.to_string())?,
-        read::band_rows(&state, "ehr", "create_ehr")?
+        read::chapter_page(&state, "ehr", "create_ehr")?
     );
     let id = String::from("ehr/create_ehr-same_ehr_twice-with_id");
     assert_eq!(
