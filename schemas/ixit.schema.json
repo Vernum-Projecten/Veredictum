@@ -253,7 +253,7 @@
           "minLength": 1
         }
       },
-      "description": "`exclusive_server` is all a conformance run reads. `perf`, `stress` and `aql-probe` need every other member, and refuse an IXIT lacking one, naming it."
+      "description": "`exclusive_server` is all a conformance run reads. `perf` and `perf-compare` need every other member, and refuse an IXIT lacking one, naming it."
     },
     "containers": {
       "type": "object",
@@ -270,6 +270,11 @@
         "db": {
           "type": "string",
           "minLength": 1
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The PostgreSQL database the SUT keeps its data in, inside the `db` container. `perf` reads its sizes and its `pg_stat_statements` table through it; without it those readings are recorded absent."
         }
       }
     },

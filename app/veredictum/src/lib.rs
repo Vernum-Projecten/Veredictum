@@ -13,8 +13,9 @@
 //!
 //! [`pipeline`] is the entry point for driving the instrument: one seam per
 //! whole operation — gate and list a catalogue, run it against a system under
-//! test, judge a measured record, render the published assets, measure a
-//! class — each returning typed facts rather than console text. The bundled
+//! test, run and compare a measured workload, re-judge a performance record,
+//! render the published assets — each returning typed facts rather than
+//! console text. The bundled
 //! `veredictum` binary is a command-line layer over exactly those seams, so
 //! a second consumer drives the same engine and renders its own views.
 
@@ -28,7 +29,6 @@
               carries inputs, payloads and extensions as JSON values"
 )]
 pub mod arazzo;
-pub mod bench;
 pub mod certificate;
 pub mod exec;
 pub mod identity;
@@ -38,15 +38,12 @@ pub mod literal;
 pub mod load;
 pub mod model;
 pub mod party;
-pub mod perf;
-pub mod perf_assets;
-pub mod perf_run;
-pub mod perf_schedule;
+pub mod perf_emulate;
+pub mod perf_gen;
+pub mod perf_result;
 pub mod pipeline;
-pub mod probe;
 pub mod schema;
-pub mod stress;
 pub mod transcript;
 pub mod validate;
-pub mod verdict;
 pub mod vocab;
+pub mod workload;

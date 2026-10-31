@@ -4,8 +4,8 @@
 //! Deterministic JSON-Schema emission for every document the instrument
 //! reads or writes.
 //!
-//! The party documents, the measured schedule and its records, the bench
-//! documents, and the Arazzo catalogue's own formats.
+//! The party documents, the performance workloads, host prescriptions and
+//! records, and the Arazzo catalogue's own formats.
 //!
 //! The published schema files are the norm; this module is their single
 //! source. Emission is byte-deterministic: fixed insertion order (via
@@ -24,10 +24,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::party::{
-    IdentitySource, InstrumentStatus, OutcomeStatus, SelectionBasis, TechProfileSource,
-    VerificationPackStatus,
-};
+use crate::party::{IdentitySource, InstrumentStatus};
 use crate::vocab::{FormatName, ItsName, SpecComponent, Tier};
 
 /// The schema version stamped into every `$id` (bumps with the schedule
@@ -66,7 +63,6 @@ fn urn(name: &str) -> String {
     format!("urn:openehr:cnf:schema:{name}:{SCHEMA_VERSION}")
 }
 
-const CASE_ID_PATTERN: &str = "^\\S+$";
 const IDENT_PATTERN: &str = "^[A-Za-z_][A-Za-z0-9_]*$";
 const CORPUS_KEY_PATTERN: &str = "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$";
 const OPTION_TAG_PATTERN: &str = "^[a-z0-9_-]+$";
@@ -88,24 +84,6 @@ fn tech_profile_def() -> Value {
         "properties": {
             "its": { "enum": tokens(ItsName::ALL) },
             "formats": { "type": "array", "items": { "enum": tokens(FormatName::ALL) } }
-        }
-    })
-}
-
-/// The technology profile a results document RECORDS: the declared shape plus
-/// the provenance of the recorded format list.
-fn recorded_tech_profile_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["its"],
-        "properties": {
-            "its": { "enum": tokens(ItsName::ALL) },
-            "formats": { "type": "array", "items": { "enum": tokens(FormatName::ALL) } },
-            "source": {
-                "enum": tokens(TechProfileSource::ALL),
-                "description": "Where the recorded format list came from: `declared` when the party statement's tech_profiles entry for this ITS named it, `defaulted` when no declaration named this ITS and every format the instrument speaks was recorded instead. The recorded list is what the verdict pipeline selects gating records with, so the two carry different claims: a defaulted list keeps a red row in an unlisted format from vanishing behind a pass, and it is not a party's claim about the formats it serves. Absent only in a document written before the member existed, where absence is unknown and never either source."
-            }
         }
     })
 }
@@ -168,15 +146,6 @@ pub fn statement_schema() -> Value {
                 "items": tech_profile_def()
             },
             "options": string_array(Some(OPTION_TAG_PATTERN)),
-            "performance": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["class", "environment_ref"],
-                "properties": {
-                    "class": { "enum": perf_class_tokens() },
-                    "environment_ref": { "type": "string", "minLength": 1 }
-                }
-            },
             "non_functional": { "type": "object" },
             "evidence": {
                 "type": "array",
@@ -202,44 +171,6 @@ pub fn statement_schema() -> Value {
                 }
             }
         }
-    })
-}
-
-/// One case×format outcome record, as the results document and the evidence
-/// bundle both carry it.
-fn outcome_record_def() -> Value {
-    let row_record = json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["row", "step", "reason"],
-        "properties": {
-            "row": { "type": "integer", "minimum": 0 },
-            "step": { "type": "integer", "minimum": 0 },
-            "reason": { "type": "string", "minLength": 1 }
-        }
-    });
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["case", "status", "rows_driven", "rows_total"],
-        "properties": {
-            "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-            "format": { "enum": tokens(FormatName::ALL) },
-            "status": { "enum": tokens(OutcomeStatus::ALL) },
-            "rows_driven": { "type": "integer", "minimum": 0 },
-            "rows_total": { "type": "integer", "minimum": 0 },
-            "failing_step": { "type": "integer", "minimum": 0 },
-            "reason": { "type": "string" },
-            "citation": { "type": "string" },
-            "failed_rows": { "type": "array", "items": row_record },
-            "errored_rows": { "type": "array", "items": row_record }
-        },
-        "allOf": [
-            { "if": { "properties": { "status": { "enum": ["skipped", "not_applicable"] } },
-                      "required": ["status"] },
-              "then": { "required": ["case", "status", "rows_driven", "rows_total", "citation"],
-                        "properties": { "citation": { "type": "string", "minLength": 1 } } } }
-        ]
     })
 }
 
@@ -277,79 +208,6 @@ fn instrument_status_def() -> Value {
     json!({
         "enum": tokens(InstrumentStatus::ALL),
         "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
-    })
-}
-
-/// `results.json` — the party results (the campaign outcomes).
-#[must_use]
-pub fn results_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("results"),
-        "title": "CNF 2.0 party results",
-        "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the performance measurements, and provenance (SUT/runner/ixit digest).",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sut", "runner", "instrument_status", "schedule_release", "tech_profile", "ixit_digest"],
-        "properties": {
-            "sut": sut_def(),
-            "runner": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name", "version", "verification_pack_status"],
-                "properties": {
-                    "name": { "type": "string", "minLength": 1 },
-                    "version": { "type": "string", "minLength": 1 },
-                    "verification_pack_status": { "enum": tokens(VerificationPackStatus::ALL) }
-                }
-            },
-            "instrument_status": instrument_status_def(),
-            "schedule_release": { "type": "string", "minLength": 1 },
-            "tech_profile": recorded_tech_profile_def(),
-            "ixit_digest": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{16}$",
-                "description": "The leading 8 bytes of the SHA-256 over the ixit declaration this campaign was driven under, lowercase hex, computed over the document's bytes with nothing canonicalized first. A reader holding that declaration re-derives it with `sha256sum ixit.json | cut -c1-16`."
-            },
-            "statement_digest": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{16}$",
-                "description": "The leading 8 bytes of the SHA-256 over the party statement this campaign was selected under, lowercase hex, computed over the document's bytes with nothing canonicalized first. A reader holding that statement re-derives it with `sha256sum statement.json | cut -c1-16`, which is what tells one claim from another claim declaring the same its-rest formats. Absent for a campaign no statement selected (selection_basis statement_blind), and absent in a document written before the member existed, where the identity is unknown and never a match."
-            },
-            "selection_basis": {
-                "enum": tokens(SelectionBasis::ALL),
-                "description": "What ISO/IEC 9646 test selection had to select this campaign with: `statement` when a party statement (ICS) was supplied, `statement_blind` when none was. A blind campaign is a sweep of the whole catalogue rather than a party-scoped record — nothing selected the party's option arms, extension routes, claimed capabilities or release floors, and the cases whose failure that absence would manufacture (an unselected arm of a mutually exclusive option_select branch, an extension route no released text governs) are recorded not_applicable with their citation. Absent only in a document written before the member existed, where absence is unknown and never either basis."
-            },
-            "outcomes": {
-                "type": "array",
-                "items": outcome_record_def()
-            },
-            "measurements": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["case", "class", "environment", "offered_load_sustained",
-                                  "warmup_s", "duration_s", "operations", "verdict"],
-                    "properties": {
-                        "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-                        "class": { "enum": perf_class_tokens() },
-                        "environment": environment_def(),
-                        "offered_load_sustained": { "type": "number", "minimum": 0.0 },
-                        "warmup_s": { "type": "integer", "minimum": 0 },
-                        "duration_s": { "type": "integer", "minimum": 1 },
-                        "operations": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": operation_measurement_def()
-                        },
-                        "verdict": { "enum": ["earned", "not-earned"] },
-                        "violations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-                        "resources": resources_def()
-                    }
-                }
-            }
-        }
     })
 }
 
@@ -439,7 +297,8 @@ pub fn ixit_schema() -> Value {
                 "required": ["sut", "db"],
                 "properties": {
                     "sut": { "type": "string", "minLength": 1 },
-                    "db": { "type": "string", "minLength": 1 }
+                    "db": { "type": "string", "minLength": 1 },
+                    "database": { "type": "string", "minLength": 1, "description": "The PostgreSQL database the SUT keeps its data in, inside the `db` container. `perf` reads its sizes and its `pg_stat_statements` table through it; without it those readings are recorded absent." }
                 }
             },
             "system_id": {
@@ -597,68 +456,6 @@ fn ixit_smart_def() -> Value {
     })
 }
 
-/// The resource-telemetry block of one measurement record or stress step
-/// — measured CONTEXT, never verdict-bearing: per-container CPU/RSS/I/O
-/// series on a fixed cadence (run-clock offsets, phase-stamped) plus, on
-/// measured class runs only, the database volume's four disk anchors
-/// (stress steps stay anchor-free — exploration stays light). Optional:
-/// absent when the ixit declares no `containers` block or the container
-/// runtime was unreachable.
-fn resources_def() -> Value {
-    let byte_counter = json!({ "type": "integer", "minimum": 0 });
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sample_interval_s", "containers"],
-        "properties": {
-            "sample_interval_s": { "type": "integer", "minimum": 1 },
-            "containers": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["role", "name", "samples"],
-                    "properties": {
-                        "role": { "enum": tokens(crate::perf::ContainerRole::ALL) },
-                        "name": { "type": "string", "minLength": 1 },
-                        "samples": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["offset_s", "phase", "cpu_pct", "rss_bytes",
-                                              "blk_read_bytes", "blk_write_bytes",
-                                              "net_rx_bytes", "net_tx_bytes"],
-                                "properties": {
-                                    "offset_s": { "type": "integer", "minimum": 0 },
-                                    "phase": { "enum": tokens(crate::perf::ResourcePhase::ALL) },
-                                    "cpu_pct": { "type": "number", "minimum": 0.0 },
-                                    "rss_bytes": byte_counter.clone(),
-                                    "blk_read_bytes": byte_counter.clone(),
-                                    "blk_write_bytes": byte_counter.clone(),
-                                    "net_rx_bytes": byte_counter.clone(),
-                                    "net_tx_bytes": byte_counter.clone()
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "disk": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                    "before_scale_seed_bytes": byte_counter.clone(),
-                    "after_scale_seed_bytes": byte_counter.clone(),
-                    "after_ward_seed_bytes": byte_counter.clone(),
-                    "after_window_bytes": byte_counter.clone(),
-                    "seed_compositions": { "type": "integer", "minimum": 1 }
-                }
-            }
-        }
-    })
-}
-
 /// The ixit environment block as a party declares it: a conformance run
 /// reads only `exclusive_server`, and a measured run refuses an IXIT lacking
 /// any other member, naming it.
@@ -668,7 +465,7 @@ fn declared_environment_def() -> Value {
         block.remove("required");
         block.insert(
             "description".to_owned(),
-            json!("`exclusive_server` is all a conformance run reads. `perf`, `stress` and `aql-probe` need every other member, and refuse an IXIT lacking one, naming it."),
+            json!("`exclusive_server` is all a conformance run reads. `perf` and `perf-compare` need every other member, and refuse an IXIT lacking one, naming it."),
         );
     }
     def
@@ -692,210 +489,6 @@ fn environment_def() -> Value {
     })
 }
 
-/// One per-operation measurement record (shared by the results.json
-/// `measurements` block and the stress report's steps): counts, summary
-/// percentiles, and the re-checkable base64 HDR V2 histogram.
-fn operation_measurement_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["operation", "requests", "errors",
-                      "latency_ms_p50", "latency_ms_p90",
-                      "latency_ms_p99", "hdr_v2_base64"],
-        "properties": {
-            "operation": { "type": "string", "minLength": 1 },
-            "requests": { "type": "integer", "minimum": 0 },
-            "errors": { "type": "integer", "minimum": 0 },
-            "latency_ms_p50": { "type": "number", "minimum": 0.0 },
-            "latency_ms_p90": { "type": "number", "minimum": 0.0 },
-            "latency_ms_p99": { "type": "number", "minimum": 0.0 },
-            "hdr_v2_base64": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// `stress.json` — the step-load stress report (exploration only: the
-/// maximum sustainable throughput, never a conformance record).
-#[must_use]
-pub fn stress_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("stress"),
-        "title": "CNF 2.0 stress report",
-        "description": "The step-load stress instrument's exploration artifact: geometric load steps (each with re-checkable HDR V2 records) to the maximum sustainable throughput — where the system breaks — run on a class-scale corpus, environment-bound; never a conformance record, and floor-free by design.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["corpus", "environment", "step_warmup_s", "step_hold_s",
-                      "p99_budget_ms", "error_budget", "steps",
-                      "max_sustainable_throughput_per_s", "ladder_capped",
-                      "generator_bound", "remark"],
-        "properties": {
-            "corpus": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-            "environment": environment_def(),
-            "step_warmup_s": { "type": "integer", "minimum": 0 },
-            "step_hold_s": { "type": "integer", "minimum": 1 },
-            "p99_budget_ms": { "type": "number", "exclusiveMinimum": 0.0 },
-            "error_budget": { "type": "number", "minimum": 0.0 },
-            "steps": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["rate", "offered_load_sustained", "operations",
-                                  "stable", "generator_bound"],
-                    "properties": {
-                        "rate": { "type": "number", "exclusiveMinimum": 0.0 },
-                        "offered_load_sustained": { "type": "number", "minimum": 0.0 },
-                        "operations": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": operation_measurement_def()
-                        },
-                        "stable": { "type": "boolean" },
-                        "breaches": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-                        "generator_bound": { "type": "boolean" },
-                        "resources": resources_def()
-                    }
-                }
-            },
-            "max_sustainable_throughput_per_s": { "type": "number", "minimum": 0.0 },
-            "ladder_capped": { "type": "boolean" },
-            "generator_bound": { "type": "boolean" },
-            "remark": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// `aql-probe.json` — the AQL optimization probe report (exploration
-/// evidence: wire percentiles + per-statement DB attribution over the
-/// seeded corpus; never a conformance record).
-#[must_use]
-pub fn aql_probe_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("aql-probe"),
-        "title": "CNF 2.0 AQL probe report",
-        "description": "The seeded-corpus AQL optimization probe: per-probe wire-latency percentiles and pg_stat_statements attribution through the container runtime, environment-bound. Exploration evidence for the optimization loop — never a conformance record; results.json is never touched.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["corpus", "environment", "requests_per_probe", "maintenance_settled",
-                      "attribution", "probes", "remark"],
-        "properties": {
-            "corpus": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-            "environment": environment_def(),
-            "requests_per_probe": { "type": "integer", "minimum": 1 },
-            "maintenance_settled": { "type": "boolean" },
-            "attribution": { "type": "string", "minLength": 1 },
-            "probes": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["name", "aql", "failures", "wire_ms"],
-                    "properties": {
-                        "name": { "type": "string", "minLength": 1 },
-                        "aql": { "type": "string", "minLength": 1 },
-                        "failures": { "type": "integer", "minimum": 0 },
-                        "wire_ms": {
-                            "type": "object",
-                            "additionalProperties": false,
-                            "required": ["min_ms", "p50_ms", "p95_ms", "max_ms"],
-                            "properties": {
-                                "min_ms": { "type": "number", "minimum": 0.0 },
-                                "p50_ms": { "type": "number", "minimum": 0.0 },
-                                "p95_ms": { "type": "number", "minimum": 0.0 },
-                                "max_ms": { "type": "number", "minimum": 0.0 }
-                            }
-                        },
-                        "statements": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["sql", "calls", "mean_ms", "total_ms",
-                                              "shared_blks_hit", "shared_blks_read"],
-                                "properties": {
-                                    "sql": { "type": "string", "minLength": 1 },
-                                    "calls": { "type": "integer", "minimum": 0 },
-                                    "mean_ms": { "type": "number", "minimum": 0.0 },
-                                    "total_ms": { "type": "number", "minimum": 0.0 },
-                                    "shared_blks_hit": { "type": "integer", "minimum": 0 },
-                                    "shared_blks_read": { "type": "integer", "minimum": 0 }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "remark": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// The published performance-class tokens, ladder order.
-fn perf_class_tokens() -> Vec<&'static str> {
-    crate::perf::PerfClass::ALL
-        .iter()
-        .map(|c| c.token())
-        .collect()
-}
-
-/// The performance cases under the performance schedule's `classes/`
-/// (conformance-by-measurement).
-#[must_use]
-pub fn performance_case_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("performance-case"),
-        "title": "CNF 2.0 performance case",
-        "description": "A kind: performance case — open-loop offered load against class thresholds; verdicts are measured (earned | not-earned), bound to the ixit environment block.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "component", "description", "test_purpose", "spec_refs", "class", "corpus", "workload", "thresholds"],
-        "properties": {
-            "id": { "type": "string", "pattern": CASE_ID_PATTERN },
-            "kind": { "const": "performance" },
-            "component": { "const": "PERFORMANCE" },
-            "description": { "type": "string", "minLength": 1 },
-            "test_purpose": { "type": "string", "minLength": 1 },
-            "spec_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "class": { "enum": ["POC", "S", "L", "R"] },
-            "corpus": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-            "workload": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["arrival_rate", "warmup", "duration", "journeys"],
-                "properties": {
-                    "arrival_rate": { "type": "string", "pattern": "^[0-9.]+/s$" },
-                    "warmup": { "type": "string", "pattern": "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$" },
-                    "duration": { "type": "string", "pattern": "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$" },
-                    "arrival_curve": { "enum": ["uniform", "diurnal"] },
-                    "journeys": { "type": "object", "minProperties": 1,
-                              "propertyNames": { "pattern": IDENT_PATTERN },
-                              "additionalProperties": { "type": "string", "pattern": "^[0-9.]+%$" } }
-                }
-            },
-            "thresholds": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["metric"],
-                    "properties": {
-                        "metric": { "enum": ["latency_p50", "latency_p90", "latency_p99", "error_rate", "offered_load_sustained"] },
-                        "operation": { "type": "string" },
-                        "max": { "type": "number" },
-                        "min": { "type": "number" }
-                    }
-                }
-            }
-        }
-    })
-}
-
 /// The performance schedule's `payloads.yaml` — every request body and
 /// operational template the measured instruments send.
 #[must_use]
@@ -904,7 +497,7 @@ pub fn perf_payloads_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("perf-payloads"),
         "title": "Performance schedule payload manifest",
-        "description": "Every payload the measured instruments send, keyed by the name a journey stage or the seeder uses: its file under payloads/, the operational template's wire identifier where it has one, and its provenance. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design.",
+        "description": "Every payload a workload sends, keyed by the name a workload or the seeder reads it by: its file under payloads/, the operational template's wire identifier where it has one, the digest a reproduced payload is pinned at, and its provenance. A template's `.example` skeleton and `.invalid_twin` sit beside it under the template's key. No openEHR spec governs measured performance (CNF guide master03-overview.adoc: \"Non-functional conformance (performance, etc) is not addressed by this guide\") — our own design.",
         "type": "object",
         "minProperties": 1,
         "propertyNames": { "pattern": CORPUS_KEY_PATTERN },
@@ -915,517 +508,337 @@ pub fn perf_payloads_schema() -> Value {
             "properties": {
                 "source": { "type": "string", "minLength": 1 },
                 "template_id": { "type": "string", "minLength": 1 },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The lowercase hex sha256 the file's bytes are pinned at, for a payload reproduced from a published source; loading refuses bytes that hash otherwise." },
                 "provenance": { "type": "string", "minLength": 1 }
             }
         }
     })
 }
 
-/// The published journey-operation tokens, vocabulary order.
-fn perf_op_tokens() -> Vec<&'static str> {
-    crate::perf::PerfOp::ALL
-        .iter()
-        .map(|op| op.as_str())
-        .collect()
-}
+/// A share of a whole, written as a percentage with at most four decimals.
+const SHARE_PATTERN: &str = "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$";
 
-/// The performance schedule's `journeys.yaml` — the hospital-simulation
-/// journey vocabulary the performance workloads decompose into.
-#[must_use]
-pub fn journey_catalogue_schema() -> Value {
-    let duration_pattern = "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$";
-    let offset = json!({
-        "oneOf": [
-            { "type": "string", "pattern": duration_pattern },
-            { "type": "object", "additionalProperties": false,
-              "required": ["uniform"],
-              "properties": { "uniform": {
-                  "type": "array", "minItems": 2, "maxItems": 2,
-                  "items": { "type": "string", "pattern": duration_pattern } } } },
-            { "type": "object", "additionalProperties": false,
-              "required": ["periodic"],
-              "properties": { "periodic": {
-                  "type": "object", "additionalProperties": false,
-                  "required": ["interval", "count"],
-                  "properties": {
-                      "interval": { "type": "string", "pattern": duration_pattern },
-                      "count": { "type": "integer", "minimum": 1 } } } } }
-        ]
-    });
+/// A map of names to shares.
+fn share_map(name_pattern: &str) -> Value {
     json!({
-        "$schema": DRAFT,
-        "$id": urn("journey-catalogue"),
-        "title": "CNF 2.0 journey catalogue",
-        "description": "The hospital-simulation vocabulary: clinical journeys as ordered, time-offset operation sequences over the closed operation vocabulary; commit/update stages name their payload in perf/payloads.yaml; each journey cites its activity-statistics derivation. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design/extension.",
         "type": "object",
         "minProperties": 1,
-        "propertyNames": { "pattern": IDENT_PATTERN },
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["description", "derivation", "stages"],
-            "properties": {
-                "description": { "type": "string", "minLength": 1 },
-                "derivation": { "type": "string", "minLength": 1 },
-                "stages": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["op", "at"],
-                        "properties": {
-                            "op": { "enum": perf_op_tokens() },
-                            "template": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                            "at": offset
-                        }
-                    }
-                }
-            }
-        }
+        "propertyNames": { "pattern": name_pattern },
+        "additionalProperties": { "type": "string", "pattern": SHARE_PATTERN }
     })
 }
 
-/// The tokens of a closed bench vocabulary, as a JSON array.
-fn bench_tokens(tokens: &[&'static str]) -> Value {
-    Value::Array(tokens.iter().map(|token| json!(token)).collect())
-}
-
-/// One operation's per-repetition statistics inside a bench result.
-fn bench_operation_stats_def() -> Value {
+/// One stage of a workload interaction.
+fn workload_stage_def() -> Value {
+    let ops: Vec<&str> = crate::workload::ops::WorkloadOp::ALL
+        .iter()
+        .map(|op| op.token())
+        .collect();
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["count", "errors", "errors_by_class", "throughput_ops_s",
-                      "p50_us", "p75_us", "p90_us", "p99_us", "p999_us", "max_us",
-                      "hdr_v2_base64"],
+        "required": ["op"],
         "properties": {
-            "count": { "type": "integer", "minimum": 0 },
-            "errors": { "type": "integer", "minimum": 0 },
-            "errors_by_class": {
-                "type": "object",
-                "propertyNames": {
-                    "enum": bench_tokens(&crate::bench::result::ErrorClass::ALL
-                        .iter().map(|class| class.as_str()).collect::<Vec<_>>())
-                },
-                "additionalProperties": { "type": "integer", "minimum": 0 }
-            },
-            "throughput_ops_s": { "type": "number", "minimum": 0.0 },
-            "p50_us": { "type": "integer", "minimum": 0 },
-            "p75_us": { "type": "integer", "minimum": 0 },
-            "p90_us": { "type": "integer", "minimum": 0 },
-            "p99_us": { "type": "integer", "minimum": 0 },
-            "p999_us": { "type": "integer", "minimum": 0 },
-            "max_us": { "type": "integer", "minimum": 0 },
-            "hdr_v2_base64": { "type": "string", "minLength": 1 }
+            "op": { "enum": ops },
+            "payload": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
+            "query": { "type": "string", "pattern": IDENT_PATTERN }
         }
     })
 }
 
-/// A cross-repetition median plus inter-quartile range.
-fn bench_cross_stat_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["median", "iqr"],
-        "properties": {
-            "median": { "type": "number" },
-            "iqr": { "type": "number", "minimum": 0.0 }
-        }
-    })
-}
-
-/// The bench operation vocabulary, as the property names every per-operation
-/// map is keyed by.
-fn bench_operation_names() -> Value {
-    json!({
-        "enum": bench_tokens(&crate::bench::pack::BenchOp::ALL
-            .iter().map(|op| op.as_str()).collect::<Vec<_>>())
-    })
-}
-
-/// One phase's cross-repetition summary, reused by the target's `cross` block
-/// and by every baseline's.
-fn bench_cross_phase_def(regimes: &Value) -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["regime", "operations"],
-            "properties": {
-                "regime": { "enum": regimes },
-                "operations": {
-                    "type": "object",
-                    "propertyNames": bench_operation_names(),
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["repetitions", "p50_us", "p75_us", "p90_us",
-                                      "p99_us", "p999_us", "throughput_ops_s"],
-                        "properties": {
-                            "repetitions": { "type": "integer", "minimum": 1 },
-                            "p50_us": bench_cross_stat_def(),
-                            "p75_us": bench_cross_stat_def(),
-                            "p90_us": bench_cross_stat_def(),
-                            "p99_us": bench_cross_stat_def(),
-                            "p999_us": bench_cross_stat_def(),
-                            "throughput_ops_s": bench_cross_stat_def()
-                        }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// One same-machine baseline block: a full per-operation summary beside the
-/// provenance a submitter must disclose for it to be re-composable.
-fn bench_baseline_def(regimes: &Value, repetitions: &Value, seed_phases: &Value) -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["cdr", "display_name", "images", "recipe", "resources", "base_url",
-                      "started_at", "finished_at", "seed_phases", "repetitions", "cross",
-                      "posture"],
-        "properties": {
-            "cdr": {
-                "enum": bench_tokens(&crate::bench::baselines::ReferenceCdr::ALL
-                    .iter().map(|cdr| cdr.as_str()).collect::<Vec<_>>())
-            },
-            "display_name": { "type": "string", "minLength": 1 },
-            "images": {
-                "type": "object",
-                "minProperties": 1,
-                "additionalProperties": {
-                    "type": "string",
-                    "pattern": "^[^@]+@sha256:[0-9a-f]{64}$"
-                }
-            },
-            "recipe": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["repository", "git_ref", "file"],
-                "properties": {
-                    "repository": { "type": "string", "minLength": 1 },
-                    "git_ref": { "type": "string", "minLength": 1 },
-                    "file": { "type": "string", "minLength": 1 }
-                }
-            },
-            "resources": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["server_cpus", "server_memory", "database_cpus",
-                              "database_memory", "database_shm_size"],
-                "properties": {
-                    "server_cpus": { "type": "string", "minLength": 1 },
-                    "server_memory": { "type": "string", "minLength": 1 },
-                    "database_cpus": { "type": "string", "minLength": 1 },
-                    "database_memory": { "type": "string", "minLength": 1 },
-                    "database_shm_size": { "type": "string", "minLength": 1 }
-                }
-            },
-            "base_url": { "type": "string", "minLength": 1 },
-            "sut_version": { "type": "string", "minLength": 1 },
-            "started_at": { "type": "string", "minLength": 1 },
-            "finished_at": { "type": "string", "minLength": 1 },
-            "seed_phases": seed_phases,
-            "repetitions": repetitions,
-            "cross": bench_cross_phase_def(regimes),
-            "posture": bench_posture_def()
-        }
-    })
-}
-
-/// The target measured against one baseline: the dimensionless ratio, its two
-/// inputs, and every place no ratio could be formed.
-fn bench_relative_def(regimes: &Value) -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["baseline", "display_name", "derivation", "phases", "gaps"],
-        "properties": {
-            "baseline": {
-                "enum": bench_tokens(&crate::bench::baselines::ReferenceCdr::ALL
-                    .iter().map(|cdr| cdr.as_str()).collect::<Vec<_>>())
-            },
-            "display_name": { "type": "string", "minLength": 1 },
-            "derivation": { "const": crate::bench::relative::RELATIVE_DERIVATION },
-            "phases": {
-                "type": "object",
-                "additionalProperties": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["regime", "operations"],
-                    "properties": {
-                        "regime": { "enum": regimes },
-                        "operations": {
-                            "type": "object",
-                            "propertyNames": bench_operation_names(),
-                            "additionalProperties": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["metrics"],
-                                "properties": {
-                                    "metrics": {
-                                        "type": "object",
-                                        "propertyNames": {
-                                            "enum": bench_tokens(&crate::bench::compare::Metric::ALL
-                                                .iter().map(|metric| metric.as_str())
-                                                .collect::<Vec<_>>())
-                                        },
-                                        "additionalProperties": {
-                                            "type": "object",
-                                            "additionalProperties": false,
-                                            "required": ["target_median", "baseline_median", "index"],
-                                            "properties": {
-                                                "target_median": { "type": "number" },
-                                                "baseline_median": { "type": "number", "exclusiveMinimum": 0.0 },
-                                                "index": { "type": "number", "minimum": 0.0 }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "gaps": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["phase", "operation", "reason"],
-                    "properties": {
-                        "phase": { "type": "string", "minLength": 1 },
-                        "operation": { "type": "string", "minLength": 1 },
-                        "metric": {
-                            "enum": bench_tokens(&crate::bench::compare::Metric::ALL
-                                .iter().map(|metric| metric.as_str()).collect::<Vec<_>>())
-                        },
-                        "reason": {
-                            "enum": bench_tokens(&crate::bench::relative::GapReason::ALL
-                                .iter().map(|reason| reason.as_str()).collect::<Vec<_>>())
-                        }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// `bench-result.json` — one universal-benchmark run's record.
-///
-/// A comparative SPEED record, and nothing else: [`crate::bench::BOUNDARY_STATEMENT`]
-/// is a schema-required constant, so a document that drops it is invalid.
+/// A workload document under `perf/workloads/`: the traffic a measured run
+/// offers.
 #[must_use]
 #[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
-pub fn bench_result_schema() -> Value {
-    let regimes = bench_tokens(
-        &crate::bench::result::LoopRegime::ALL
-            .iter()
-            .map(|regime| regime.as_str())
-            .collect::<Vec<_>>(),
-    );
-    let seed_phases = json!({
-        "type": "array",
-        "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["name", "regime", "ehrs", "compositions_per_ehr", "workers",
-                          "elapsed_s", "bulk_load_writes_per_s",
-                          "whole_loop_ms_per_composition"],
-            "properties": {
-                "name": { "type": "string", "minLength": 1 },
-                "regime": { "enum": regimes },
-                "ehrs": { "type": "integer", "minimum": 0 },
-                "compositions_per_ehr": { "type": "integer", "minimum": 0 },
-                "workers": { "type": "integer", "minimum": 1 },
-                "elapsed_s": { "type": "number", "minimum": 0.0 },
-                "bulk_load_writes_per_s": { "type": "number", "minimum": 0.0 },
-                "whole_loop_ms_per_composition": { "type": "number", "minimum": 0.0 }
-            }
+pub fn perf_workload_schema() -> Value {
+    let ops: Vec<&str> = crate::workload::ops::WorkloadOp::ALL
+        .iter()
+        .map(|op| op.token())
+        .collect();
+    let transports: Vec<&str> = crate::workload::ops::QueryTransport::ALL
+        .iter()
+        .map(|t| t.token())
+        .collect();
+    let transport_pattern = format!("^({})$", transports.join("|"));
+    let text = json!({ "type": "string", "minLength": 1 });
+    let session = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["think_time_mean_ms", "stages"],
+        "properties": {
+            "think_time_mean_ms": { "type": "integer", "minimum": 0 },
+            "stages": { "type": "array", "minItems": 2, "items": workload_stage_def() }
         }
     });
-    let repetitions = json!({
-        "type": "array",
-        "minItems": 1,
-        "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["repetition", "phases"],
-            "properties": {
-                "repetition": { "type": "integer", "minimum": 1 },
-                "phases": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["regime", "rate_per_s", "warmup_s", "duration_s",
-                                      "planned_measured_arrivals",
-                                      "dispatched_measured_arrivals", "warmup_arrivals",
-                                      "offered_load_sustained_per_s", "generator_bound",
-                                      "operations"],
-                        "properties": {
-                            "regime": { "enum": regimes },
-                            "rate_per_s": { "type": "number", "minimum": 0.0 },
-                            "warmup_s": { "type": "integer", "minimum": 0 },
-                            "duration_s": { "type": "integer", "minimum": 0 },
-                            "planned_measured_arrivals": { "type": "integer", "minimum": 0 },
-                            "dispatched_measured_arrivals": { "type": "integer", "minimum": 0 },
-                            "warmup_arrivals": { "type": "integer", "minimum": 0 },
-                            "offered_load_sustained_per_s": { "type": "number", "minimum": 0.0 },
-                            "generator_bound": { "type": "boolean" },
-                            "operations": {
-                                "type": "object",
-                                "propertyNames": bench_operation_names(),
-                                "additionalProperties": bench_operation_stats_def()
-                            }
-                        }
-                    }
-                },
-                "sweeps": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["name", "regime", "workers", "compositions",
-                                      "requests_per_composition", "requests", "elapsed_s",
-                                      "whole_loop_us_per_request", "operations"],
-                        "properties": {
-                            "name": { "type": "string", "minLength": 1 },
-                            "regime": { "enum": regimes },
-                            "workers": { "type": "integer", "minimum": 1 },
-                            "compositions": { "type": "integer", "minimum": 0 },
-                            "requests_per_composition": { "type": "integer", "minimum": 0 },
-                            "requests": { "type": "integer", "minimum": 0 },
-                            "elapsed_s": { "type": "number", "minimum": 0.0 },
-                            "whole_loop_us_per_request": { "type": "number", "minimum": 0.0 },
-                            "operations": {
-                                "type": "object",
-                                "propertyNames": bench_operation_names(),
-                                "additionalProperties": bench_operation_stats_def()
-                            }
-                        }
-                    }
-                }
-            }
+    let interaction = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["share", "description", "derivation"],
+        "properties": {
+            "share": { "type": "string", "pattern": SHARE_PATTERN },
+            "description": text,
+            "derivation": text,
+            "op": { "enum": ops },
+            "payload": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
+            "query": { "type": "string", "pattern": IDENT_PATTERN },
+            "session": session
+        },
+        "oneOf": [
+            { "required": ["op"], "not": { "required": ["session"] } },
+            { "required": ["session"], "not": { "anyOf": [
+                { "required": ["op"] }, { "required": ["payload"] }, { "required": ["query"] } ] } }
+        ]
+    });
+    let parameter = json!({
+        "oneOf": [
+            { "enum": ["ehr", "other_ehr", "composition"] },
+            { "type": "object", "additionalProperties": false, "required": ["int_range"],
+              "properties": { "int_range": {
+                  "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer" } } } }
+        ]
+    });
+    let query = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "text", "scope", "tier", "transport", "on_refusal", "derivation"],
+        "properties": {
+            "description": text,
+            "text": text,
+            "scope": { "enum": ["single_subject", "population"] },
+            "tier": { "enum": ["metadata", "content"] },
+            "parameters": { "type": "object",
+                            "propertyNames": { "pattern": "^[A-Za-z0-9_]+$" },
+                            "additionalProperties": parameter },
+            "transport": share_map(&transport_pattern),
+            "fetch": { "type": "integer", "minimum": 1 },
+            "requires": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9_-]+$" } },
+            "on_refusal": { "enum": ["error", "count_apart"] },
+            "derivation": text
         }
     });
     json!({
         "$schema": DRAFT,
-        "$id": urn("bench-result"),
-        "title": "Veredictum bench result",
-        "description": "One universal-benchmark run: an embedded pack with pinned fixtures, driven against a base URL, seeded once and measured N times open-loop with latency taken from the planned arrival instant. Comparative speed only — never a conformance record, a certificate, or a performance-class rating.",
+        "$id": urn("perf-workload"),
+        "title": "Performance workload",
+        "description": "The traffic a measured run offers: a seed, a corpus recipe, an arrival process, the plateau qualification limits, the per-plateau sample target, the interactions with their shares of interaction arrivals (one operation, or a partly-open session on one EHR), and the AQL query classes with their transport mix. Every operation token names a released ITS-REST operation. Loading enforces the gates no schema can: shares summing to exactly 100 %, payloads present in perf/payloads.yaml, AQL that parses, requires tokens that resolve against the catalogue, the 10:1 to 50:1 read band, limits no looser than the ruled default, and a planned run of at most 600 s after seeding. No openEHR spec governs measured performance (CNF guide master03-overview.adoc: \"Non-functional conformance (performance, etc) is not addressed by this guide\") — our own design.",
         "type": "object",
         "additionalProperties": false,
-        "required": ["schema_version", "boundary_statement", "pack", "target", "environment",
-                      "started_at", "finished_at", "scale", "seed_phases", "repetitions", "cross",
-                      "methodology", "submittable", "posture"],
+        "required": ["id", "version", "status", "description", "seed", "corpus", "interactions"],
         "properties": {
-            "schema_version": { "type": "string", "minLength": 1 },
-            "boundary_statement": { "const": crate::bench::BOUNDARY_STATEMENT },
-            "label": { "type": "string", "minLength": 1 },
-            "pack": {
+            "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "version": { "type": "integer", "minimum": 1 },
+            "status": { "enum": ["provisional", "ratified"] },
+            "description": text,
+            "reproduces": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The published harness or benchmark the workload reproduces. Its mix is the harness's, so the population model's read band does not gate it, and every rendering says so."
+            },
+            "seed": { "type": "integer", "minimum": 0 },
+            "corpus": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "version", "description", "max_failed_share", "seed",
-                              "fixtures"],
+                "required": ["scale", "compositions_per_ehr", "templates"],
                 "properties": {
-                    "id": { "type": "string", "pattern": OPTION_TAG_PATTERN },
-                    "version": { "type": "string", "minLength": 1 },
-                    "description": { "type": "string", "minLength": 1 },
-                    "max_failed_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-                    "seed": { "type": "integer", "minimum": 0 },
-                    "fixtures": {
+                    "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
+                    "ehrs": { "type": "integer", "minimum": 1, "description": "The EHRs to create when a reproduced harness pins a count other than the scale's." },
+                    "compositions_per_ehr": { "type": "integer", "minimum": 1 },
+                    "templates": share_map(CORPUS_KEY_PATTERN),
+                    "commit": { "enum": ["stamped", "verbatim"], "description": "`stamped` (the default) varies event times, composer and the numeric leaves the template allows; `verbatim` commits the example as it is." },
+                    "seed_workers": { "type": "integer", "minimum": 1, "description": "The closed-loop seeding workers a reproduced harness pins." },
+                    "walk": {
                         "type": "object",
-                        "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+                        "additionalProperties": false,
+                        "required": ["reads"],
+                        "description": "A closed-loop walk after seeding: these reads against every seeded composition, each sent after the previous answer, reported apart and labelled closed-loop.",
+                        "properties": {
+                            "reads": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": { "enum": crate::workload::ops::WorkloadOp::ALL.iter().map(|op| op.token()).collect::<Vec<_>>() }
+                            }
+                        }
                     }
                 }
             },
-            "target": {
+            "arrival": { "enum": tokens(crate::perf_gen::arrivals::ArrivalProcess::ALL) },
+            "sample_target": { "type": "integer", "minimum": 1 },
+            "qualification": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["base_url"],
                 "properties": {
-                    "base_url": { "type": "string", "minLength": 1 },
-                    "sut_version": { "type": "string", "minLength": 1 }
+                    "operation_p99_ms": { "type": "integer", "minimum": 1 },
+                    "population_aql_p99_ms": { "type": "integer", "minimum": 1 },
+                    "max_error_share": { "type": "string", "pattern": SHARE_PATTERN },
+                    "min_achieved_share": { "type": "string", "pattern": SHARE_PATTERN }
                 }
             },
-            "environment": {
+            "interactions": {
                 "type": "object",
-                "additionalProperties": false,
-                "required": ["arch", "os"],
-                "properties": {
-                    "arch": { "type": "string", "minLength": 1 },
-                    "os": { "type": "string", "minLength": 1 },
-                    "available_parallelism": { "type": "integer", "minimum": 1 },
-                    "cpu_model": { "type": "string", "minLength": 1 },
-                    "total_memory_bytes": { "type": "integer", "minimum": 1 }
-                }
+                "minProperties": 1,
+                "propertyNames": { "pattern": IDENT_PATTERN },
+                "additionalProperties": interaction
             },
-            "started_at": { "type": "string", "minLength": 1 },
-            "finished_at": { "type": "string", "minLength": 1 },
-            "scale": {
+            "queries": {
                 "type": "object",
-                "additionalProperties": false,
-                "required": ["factor", "declared_workers", "reference_configuration"],
-                "properties": {
-                    "factor": { "type": "number", "exclusiveMinimum": 0.0 },
-                    "declared_workers": { "type": "boolean" },
-                    "reference_configuration": { "type": "boolean" }
-                }
-            },
-            "version_at_time": { "type": "string", "minLength": 1 },
-            "seed_phases": seed_phases,
-            "repetitions": repetitions,
-            "cross": bench_cross_phase_def(&regimes),
-            "baselines": {
-                "type": "array",
-                "items": bench_baseline_def(&regimes, &repetitions, &seed_phases)
-            },
-            "relative": {
-                "type": "array",
-                "items": bench_relative_def(&regimes)
-            },
-            "methodology": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["statement", "open_loop", "coordinated_omission_free",
-                              "seed_once_measure_n", "repetitions"],
-                "properties": {
-                    "statement": { "const": crate::bench::METHODOLOGY },
-                    "open_loop": { "const": true },
-                    "coordinated_omission_free": { "const": true },
-                    "seed_once_measure_n": { "const": true },
-                    "repetitions": { "type": "integer", "minimum": 1 }
-                }
-            },
-            "submittable": { "type": "boolean" },
-            "submittable_unmet": {
-                "type": "array",
-                "uniqueItems": true,
-                "items": {
-                    "enum": bench_tokens(&crate::bench::result::SubmissionRequirement::ALL
-                        .iter().map(|requirement| requirement.as_str()).collect::<Vec<_>>())
-                }
-            },
-            "posture": bench_posture_def()
+                "propertyNames": { "pattern": IDENT_PATTERN },
+                "additionalProperties": query
+            }
         }
     })
+}
+
+/// The manifest `perf-workloads` writes: every pinned workload described.
+#[must_use]
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+pub fn perf_workloads_schema() -> Value {
+    let text = json!({ "type": "string" });
+    let share = json!({ "type": "string", "pattern": SHARE_PATTERN });
+    let percent = json!({ "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}%$" });
+    let sha = json!({ "type": "string", "pattern": "^[0-9a-f]{64}$" });
+    let released = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation_id", "method", "path", "citation"],
+        "properties": {
+            "operation_id": text, "method": text, "path": text, "citation": text
+        }
+    });
+    let object = |required: &[&str], properties: Value| {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": required,
+            "properties": properties
+        })
+    };
+    let workload = object(
+        &[
+            "id",
+            "version",
+            "label",
+            "status",
+            "file",
+            "sha256",
+            "description",
+            "seed",
+            "arrival",
+            "sample_target",
+            "qualification",
+            "corpus",
+            "planned_run",
+            "read_write_ratio",
+            "mean_operations_per_interaction",
+            "interactions",
+            "operations",
+            "queries",
+            "payloads",
+        ],
+        json!({
+            "id": text,
+            "version": { "type": "integer", "minimum": 1 },
+            "label": text,
+            "status": { "enum": ["provisional", "ratified"] },
+            "file": text,
+            "sha256": sha,
+            "description": text,
+            "reproduces": text,
+            "seed": { "type": "integer", "minimum": 0 },
+            "arrival": { "enum": tokens(crate::perf_gen::arrivals::ArrivalProcess::ALL) },
+            "sample_target": { "type": "integer", "minimum": 1 },
+            "qualification": object(
+                &["operation_p99_ms", "population_aql_p99_ms", "max_error_share", "min_achieved_share"],
+                json!({
+                    "operation_p99_ms": { "type": "integer" },
+                    "population_aql_p99_ms": { "type": "integer" },
+                    "max_error_share": share,
+                    "min_achieved_share": share
+                })),
+            "corpus": object(
+                &["scale", "ehrs", "compositions_per_ehr", "templates"],
+                json!({
+                    "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
+                    "ehrs": { "type": "integer" },
+                    "compositions_per_ehr": { "type": "integer" },
+                    "templates": { "type": "array", "items": object(&["key", "share"],
+                        json!({ "key": text, "share": share })) }
+                })),
+            "planned_run": object(
+                &["min_s", "max_s", "session_tail_s", "limit_s"],
+                json!({
+                    "min_s": { "type": "integer" }, "max_s": { "type": "integer" },
+                    "session_tail_s": { "type": "integer" }, "limit_s": { "type": "integer" }
+                })),
+            "read_write_ratio": { "type": "string", "pattern": "^([0-9]+\\.[0-9]{2}:1|reads only)$" },
+            "mean_operations_per_interaction": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}$" },
+            "interactions": { "type": "array", "items": object(
+                &["name", "share", "kind", "stages", "requires", "description", "derivation"],
+                json!({
+                    "name": text, "share": share, "kind": { "enum": ["single", "session"] },
+                    "think_time_mean_ms": { "type": "integer" },
+                    "stages": { "type": "array", "items": text },
+                    "requires": { "type": "array", "items": text },
+                    "description": text, "derivation": text
+                })) },
+            "operations": { "type": "array", "items": object(
+                &["key", "share_of_operations", "write", "released"],
+                json!({
+                    "key": text, "share_of_operations": percent, "write": { "type": "boolean" },
+                    "released": { "type": "array", "items": released }
+                })) },
+            "queries": { "type": "array", "items": object(
+                &["name", "share_of_operations", "scope", "tier", "budget_ms", "text", "parameters",
+                  "transport", "requires", "on_refusal", "description", "derivation"],
+                json!({
+                    "name": text, "share_of_operations": percent,
+                    "scope": { "enum": ["single_subject", "population"] },
+                    "tier": { "enum": ["metadata", "content"] },
+                    "budget_ms": { "type": "integer" },
+                    "text": text,
+                    "parameters": { "type": "object" },
+                    "transport": { "type": "array", "items": object(&["transport", "share", "released"],
+                        json!({ "transport": text, "share": share, "released": released })) },
+                    "requires": { "type": "array", "items": text },
+                    "on_refusal": { "enum": ["error", "count_apart"] },
+                    "description": text, "derivation": text
+                })) },
+            "payloads": { "type": "array", "items": object(
+                &["key", "source", "bytes", "sha256", "provenance"],
+                json!({
+                    "key": text, "source": text, "template_id": text,
+                    "bytes": { "type": "integer", "minimum": 0 }, "sha256": sha, "provenance": text
+                })) }
+        }),
+    );
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-workloads"),
+        "title": "Performance workload manifest",
+        "description": "What `veredictum perf-workloads` writes: every pinned workload with its digest, its expanded per-operation mix with the released ITS-REST operation each entry is sent as, its query classes, its read:write ratio, its planned run range after seeding, and every payload it sends or seeds with its size and digest. Byte-deterministic. No openEHR spec governs measured performance — our own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workloads"],
+        "properties": {
+            "workloads": { "type": "array", "items": workload }
+        }
+    })
+}
+
+/// The tokens of a closed vocabulary, as a JSON array.
+fn token_list(tokens: &[&'static str]) -> Value {
+    Value::Array(tokens.iter().map(|token| json!(token)).collect())
 }
 
 /// The posture block: the profile a run declared, every disclosed item's
 /// declared value, and the bracketing canary evidence behind its
 /// verified-or-declared-only label.
 #[must_use]
-fn bench_posture_def() -> Value {
-    use crate::bench::posture::{
+fn posture_def() -> Value {
+    use crate::perf_emulate::posture::{
         Assurance, AuditSink, AuthnMode, Bracket, CanaryOutcome, CompressionMode, PostureItem,
         SigningScheme, Tenancy, TlsMode, ValidationDepth,
     };
-    let tokens = |values: Vec<&'static str>| bench_tokens(&values);
+    let tokens = |values: Vec<&'static str>| token_list(&values);
     // The seven item vocabularies share tokens (`none` and `off` each occur in
     // three), and a JSON Schema `enum` holds a SET, so their union is sorted
     // and deduplicated rather than concatenated.
@@ -1457,13 +870,13 @@ fn bench_posture_def() -> Value {
     json!({
         "type": "object",
         "additionalProperties": false,
-        "description": "What was switched on behind these numbers. A run declares exactly one named posture profile out of the set its pack defines, and black-box canaries bracket the measured window: every item is labelled `verified` when both brackets observed the declared value first-hand, and `declared-only` when nothing on the wire discloses it. A canary that contradicted the declaration, or a pair of brackets that disagreed, refused the run, so no such record exists.",
+        "description": "What was switched on behind these numbers. A run declares exactly one named posture profile, and black-box canaries bracket the run, after seeding and after the last plateau: every item is labelled `verified` when both brackets observed the declared value first-hand, and `declared-only` when nothing on the wire discloses it. A canary that contradicted the declaration, or a pair of brackets that disagreed, refused the run, so no such record exists.",
         "required": ["profile", "summary", "items"],
         "properties": {
             "profile": { "type": "string", "minLength": 1 },
             "summary": { "type": "string", "minLength": 1 },
             "comparability": {
-                "description": "Every item on which the measured deployment's own configuration departs from the profile named above. A same-machine baseline is composed from somebody else's pinned recipe, so where that recipe configures an item differently the run declares, and the canaries check, what the deployment actually does; this block is how the record says so. Absent for a run that declared its profile as the pack defines it.",
+                "description": "Every item on which the measured deployment's own configuration departs from the profile named above. A same-host baseline is composed from somebody else's pinned recipe, so where that recipe configures an item differently the run declares, and the canaries check, what the deployment actually does; this block is how the record says so. Absent for a run that declared its profile as the instrument defines it.",
                 "type": "array",
                 "minItems": 1,
                 "items": {
@@ -1513,205 +926,6 @@ fn bench_posture_def() -> Value {
                                     "evidence": { "type": "string", "minLength": 1 }
                                 }
                             }
-                        }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// `bench-packs.json` — the embedded benchmark packs, as the binary describes
-/// them.
-///
-/// The document a rendered legend is generated from: every phase with its
-/// discipline, every mix entry with what it probes, every fixture pin with its
-/// provenance, and the requirements a record meets before it may be ranked.
-#[must_use]
-#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
-pub fn bench_packs_schema() -> Value {
-    let fixtures = json!({
-        "type": "array",
-        "minItems": 1,
-        "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["key", "kind", "media_type", "bytes", "sha256", "provenance"],
-            "properties": {
-                "key": { "type": "string", "minLength": 1 },
-                "kind": {
-                    "enum": bench_tokens(&crate::bench::pack::FixtureKind::ALL
-                        .iter().map(|kind| kind.as_str()).collect::<Vec<_>>())
-                },
-                "media_type": { "type": "string", "minLength": 1 },
-                "bytes": { "type": "integer", "minimum": 1 },
-                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-                "provenance": { "type": "string", "minLength": 1 }
-            }
-        }
-    });
-    let seed_phase = json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["kind", "name", "discipline", "ehrs", "compositions_per_ehr",
-                      "compositions", "workers", "fixtures"],
-        "properties": {
-            "kind": { "const": "seed" },
-            "name": { "type": "string", "minLength": 1 },
-            "discipline": { "const": "closed-loop" },
-            "ehrs": { "type": "integer", "minimum": 0 },
-            "compositions_per_ehr": { "type": "integer", "minimum": 0 },
-            "compositions": { "type": "integer", "minimum": 0 },
-            "workers": { "type": "integer", "minimum": 1 },
-            "fixtures": {
-                "type": "array",
-                "minItems": 1,
-                "items": { "type": "string", "minLength": 1 }
-            }
-        }
-    });
-    let sweep_phase = json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["kind", "name", "discipline", "workers", "requests_per_composition",
-                      "operations"],
-        "properties": {
-            "kind": { "const": "sweep" },
-            "name": { "type": "string", "minLength": 1 },
-            "discipline": { "const": "closed-loop" },
-            "workers": { "type": "integer", "minimum": 1 },
-            "requests_per_composition": { "type": "integer", "minimum": 1 },
-            "operations": {
-                "type": "array",
-                "minItems": 1,
-                "items": bench_operation_names()
-            }
-        }
-    });
-    let measure_phase = json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["kind", "name", "discipline", "rate_per_s", "warmup_s", "duration_s",
-                      "planned_arrivals", "planned_measured_arrivals", "mix"],
-        "properties": {
-            "kind": { "const": "measure" },
-            "name": { "type": "string", "minLength": 1 },
-            "discipline": { "const": "open-loop" },
-            "rate_per_s": { "type": "number", "exclusiveMinimum": 0.0 },
-            "warmup_s": { "type": "integer", "minimum": 0 },
-            "duration_s": { "type": "integer", "minimum": 1 },
-            "planned_arrivals": { "type": "integer", "minimum": 1 },
-            "planned_measured_arrivals": { "type": "integer", "minimum": 1 },
-            "mix": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["op", "share", "rate_per_s", "rationale"],
-                    "properties": {
-                        "op": bench_operation_names(),
-                        "share": { "type": "integer", "minimum": 1 },
-                        "rate_per_s": { "type": "number", "minimum": 0.0 },
-                        "rationale": { "type": "string", "minLength": 1 }
-                    }
-                }
-            }
-        }
-    });
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("bench-packs"),
-        "title": "Veredictum benchmark pack manifest",
-        "description": "Every benchmark pack this binary embeds: the phases with their load discipline, the operation mix with what each entry probes, the pinned fixtures with their provenance, the seed the arrival streams draw from, and the requirements a record meets before it may be ranked. Emitted by `veredictum bench-packs`, and the only source a published description of a pack may be generated from.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["schema_version", "boundary_statement", "methodology", "relative_index",
-                      "seed_disclosure", "posture_disclosure", "submission_requirements",
-                      "operations", "packs"],
-        "properties": {
-            "schema_version": { "type": "string", "minLength": 1 },
-            "boundary_statement": { "const": crate::bench::BOUNDARY_STATEMENT },
-            "methodology": { "const": crate::bench::METHODOLOGY },
-            "relative_index": { "const": crate::bench::relative::RELATIVE_DERIVATION },
-            "seed_disclosure": { "const": crate::bench::manifest::SEED_DISCLOSURE },
-            "posture_disclosure": { "const": crate::bench::manifest::POSTURE_DISCLOSURE },
-            "submission_requirements": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["token", "statement"],
-                    "properties": {
-                        "token": {
-                            "enum": bench_tokens(&crate::bench::result::SubmissionRequirement::ALL
-                                .iter().map(|requirement| requirement.as_str()).collect::<Vec<_>>())
-                        },
-                        "statement": { "type": "string", "minLength": 1 }
-                    }
-                }
-            },
-            "operations": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["token", "wire"],
-                    "properties": {
-                        "token": bench_operation_names(),
-                        "wire": { "type": "string", "pattern": "^(GET|POST) /" }
-                    }
-                }
-            },
-            "packs": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["id", "version", "description", "max_failed_share", "seed",
-                                  "fixtures", "phases", "profiles", "probe_rationales"],
-                    "properties": {
-                        "id": { "type": "string", "pattern": OPTION_TAG_PATTERN },
-                        "version": { "type": "string", "minLength": 1 },
-                        "description": { "type": "string", "minLength": 1 },
-                        "max_failed_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-                        "seed": { "type": "integer", "minimum": 0 },
-                        "fixtures": fixtures,
-                        "phases": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": { "oneOf": [seed_phase, sweep_phase, measure_phase] }
-                        },
-                        "profiles": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["name", "summary", "default", "declares"],
-                                "properties": {
-                                    "name": { "type": "string", "pattern": OPTION_TAG_PATTERN },
-                                    "summary": { "type": "string", "minLength": 1 },
-                                    "default": { "type": "boolean" },
-                                    "declares": {
-                                        "type": "object",
-                                        "minProperties": 1,
-                                        "propertyNames": {
-                                            "enum": bench_tokens(&crate::bench::posture::PostureItem::ALL
-                                                .iter().map(|item| item.as_str()).collect::<Vec<_>>())
-                                        },
-                                        "additionalProperties": { "type": "string", "minLength": 1 }
-                                    }
-                                }
-                            }
-                        },
-                        "probe_rationales": {
-                            "type": "object",
-                            "propertyNames": bench_operation_names(),
-                            "additionalProperties": { "type": "string", "minLength": 1 }
                         }
                     }
                 }
@@ -2311,20 +1525,1046 @@ pub fn identity_schema() -> Value {
     })
 }
 
+/// One quantile of a `perf-result`: resolved with its interval, or not
+/// resolvable.
+fn perf_quantile_def() -> Value {
+    let ms = json!({ "type": "number", "minimum": 0.0 });
+    let rank = json!({ "type": "integer", "minimum": 1 });
+    json!({
+        "type": "object",
+        "required": ["state"],
+        "oneOf": [
+            {
+                "additionalProperties": false,
+                "required": ["state", "value_ms", "rank", "low_ms", "low_rank", "high_ms", "high_rank"],
+                "properties": {
+                    "state": { "const": "resolved" },
+                    "value_ms": ms, "rank": rank,
+                    "low_ms": ms, "low_rank": rank,
+                    "high_ms": ms, "high_rank": rank
+                }
+            },
+            {
+                "additionalProperties": false,
+                "required": ["state", "samples_above"],
+                "properties": {
+                    "state": { "const": "not_resolvable" },
+                    "samples_above": { "type": "integer", "minimum": 0, "description": "Fewer than 10 samples lie above the quantile, so it is not reported." }
+                }
+            }
+        ]
+    })
+}
+
+fn perf_error_counts_def() -> Value {
+    let mut properties = serde_json::Map::new();
+    for class in crate::perf_gen::ErrorClass::ALL {
+        let _replaced = properties.insert(
+            class.token().to_owned(),
+            json!({ "type": "integer", "minimum": 1 }),
+        );
+    }
+    json!({ "type": "object", "additionalProperties": false, "properties": properties })
+}
+
+fn perf_latency_def() -> Value {
+    let q = perf_quantile_def();
+    let mut properties = serde_json::Map::new();
+    for name in crate::perf_result::quantile::QuantileName::ALL {
+        let _replaced = properties.insert(name.token().to_owned(), q.clone());
+    }
+    let _replaced = properties.insert(
+        "max_ms".to_owned(),
+        json!({ "type": "number", "minimum": 0.0 }),
+    );
+    let required: Vec<&str> = crate::perf_result::quantile::QuantileName::ALL
+        .iter()
+        .map(|n| n.token())
+        .collect();
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": required,
+        "properties": properties
+    })
+}
+
+fn perf_raw_window_def() -> Value {
+    let hdr = json!({ "type": "string", "minLength": 1, "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds." });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start_ms", "end_ms", "operations", "lag_hdr", "in_flight", "budget_wait_ms", "budget_exhausted"],
+        "properties": {
+            "start_ms": { "type": "integer", "minimum": 0 },
+            "end_ms": { "type": "integer", "minimum": 1 },
+            "operations": {
+                "type": "object",
+                "propertyNames": { "pattern": "^\\S+$" },
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["ok_hdr"],
+                    "properties": {
+                        "ok_hdr": hdr,
+                        "failed_hdr": hdr,
+                        "errors": perf_error_counts_def(),
+                        "refused": { "type": "integer", "minimum": 1, "description": "Refusals of an optional operation the workload counts apart from errors (`on_refusal: count_apart`)." }
+                    }
+                }
+            },
+            "lag_hdr": hdr,
+            "in_flight": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+            "budget_wait_ms": { "type": "integer", "minimum": 0 },
+            "budget_exhausted": { "type": "boolean" }
+        }
+    })
+}
+
+fn perf_throughput_def() -> Value {
+    let rate = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["offered_per_s", "achieved_per_s", "requests", "succeeded", "mean_in_flight"],
+        "properties": {
+            "offered_per_s": rate,
+            "achieved_per_s": rate,
+            "requests": { "type": "integer", "minimum": 0 },
+            "succeeded": { "type": "integer", "minimum": 0 },
+            "refused": { "type": "integer", "minimum": 1, "description": "Refusals counted apart from errors." },
+            "errors": perf_error_counts_def(),
+            "error_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "mean_in_flight": { "type": "number", "minimum": 0.0, "description": "Little's law: the rate of the timed exchanges times their mean latency." }
+        }
+    })
+}
+
+fn perf_generator_reading_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["budget_exhausted", "generator_bound"],
+        "properties": {
+            "lag_p99_ms": { "type": "number", "minimum": 0.0 },
+            "lag_max_ms": { "type": "number", "minimum": 0.0 },
+            "budget_exhausted": { "type": "boolean" },
+            "generator_bound": { "type": "boolean", "description": "The lag p99 exceeded the generator's limit while the in-flight budget never ran out: the generator, not the server, failed to hold the rate." }
+        }
+    })
+}
+
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+fn perf_result_raw_def() -> Value {
+    let rate = json!({ "type": "number", "exclusiveMinimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["instrument", "target", "environment", "generator", "workload", "corpus", "seeding", "mix", "qualification", "seed", "plateaus"],
+        "properties": {
+            "instrument": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "version"],
+                "properties": {
+                    "name": { "type": "string", "minLength": 1 },
+                    "version": { "type": "string", "minLength": 1 }
+                }
+            },
+            "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["base_url", "options"],
+                "properties": {
+                    "base_url": { "type": "string", "minLength": 1 },
+                    "options": {
+                        "type": "object",
+                        "required": ["read"],
+                        "description": "The answer to ITS-REST System OPTIONS (specifications/operations/options.yaml), or the transport failure that prevented one.",
+                        "oneOf": [
+                            {
+                                "additionalProperties": false,
+                                "required": ["read", "answer"],
+                                "properties": { "read": { "const": "answered" }, "answer": identity_read_def() }
+                            },
+                            {
+                                "additionalProperties": false,
+                                "required": ["read", "error"],
+                                "properties": { "read": { "const": "unanswered" }, "error": { "type": "string" } }
+                            }
+                        ]
+                    }
+                }
+            },
+            "environment": environment_def(),
+            "generator": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["host", "in_flight_budget", "lag_limit_us", "workers"],
+                "properties": {
+                    "host": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["arch", "os"],
+                        "properties": {
+                            "arch": { "type": "string", "minLength": 1 },
+                            "os": { "type": "string", "minLength": 1 },
+                            "available_parallelism": { "type": "integer", "minimum": 1 },
+                            "cpu_model": { "type": "string", "minLength": 1 },
+                            "total_memory_bytes": { "type": "integer", "minimum": 1 }
+                        }
+                    },
+                    "in_flight_budget": { "type": "integer", "minimum": 1 },
+                    "lag_limit_us": { "type": "integer", "minimum": 0 },
+                    "workers": { "type": "integer", "minimum": 1 }
+                }
+            },
+            "host_prescription": host_prescription_def(),
+            "network_leg": network_leg_def(),
+            "interleaving": interleaving_def(),
+            "aa_floor": aa_floor_def(),
+            "posture": posture_def(),
+            "workload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "label", "version", "sha256", "document"],
+                "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "label": { "type": "string", "pattern": "^(custom|[a-z0-9][a-z0-9-]*@[0-9]+)$", "description": "`<id>@<version>` for a workload the instrument pins by digest, `custom` for any other document." },
+                    "version": { "type": "string", "minLength": 1 },
+                    "sha256": sha256_def("The digest of `document`."),
+                    "document": { "type": "string", "minLength": 1 }
+                }
+            },
+            "corpus": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["scale", "recipe_sha256", "digest", "origin", "ehrs", "compositions"],
+                "properties": {
+                    "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
+                    "recipe_sha256": sha256_def("The digest of the recipe the corpus was seeded from."),
+                    "digest": sha256_def("The digest of the seeded corpus listing."),
+                    "origin": { "enum": ["seeded", "reused"] },
+                    "ehrs": { "type": "integer", "minimum": 0, "description": "The EHRs the server held when the clock started, as read back." },
+                    "compositions": { "type": "integer", "minimum": 0, "description": "The compositions the server held when the clock started, as read back." }
+                }
+            },
+            "seeding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model", "workers", "requests", "wall_ms"],
+                "description": "The seeding before the clock, a closed-loop bulk load reported apart from every measured number.",
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "workers": { "type": "integer", "minimum": 1 },
+                    "requests": { "type": "integer", "minimum": 0 },
+                    "wall_ms": { "type": "integer", "minimum": 0 }
+                }
+            },
+            "walk": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model", "reads", "requests", "wall_ms"],
+                "description": "The closed-loop read walk after seeding, reported apart from every measured number.",
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "reads": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+                    "requests": { "type": "integer", "minimum": 0 },
+                    "failed": { "type": "integer", "minimum": 1 },
+                    "wall_ms": { "type": "integer", "minimum": 0 }
+                }
+            },
+            "mix": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["operations_per_interaction"],
+                "properties": {
+                    "operations_per_interaction": { "type": "number", "exclusiveMinimum": 0.0, "description": "Planned rates count operation arrivals per second; the generator draws interactions at the rate divided by this." },
+                    "dropped": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["interaction", "share", "missing"],
+                            "properties": {
+                                "interaction": { "type": "string", "minLength": 1 },
+                                "share": { "type": "string", "minLength": 1 },
+                                "missing": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+                            }
+                        }
+                    }
+                }
+            },
+            "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["default_budget_ms", "max_error_ppm", "min_achieved_ppm"],
+                "properties": {
+                    "default_budget_ms": { "type": "integer", "minimum": 1 },
+                    "budgets_ms": { "type": "object", "propertyNames": { "pattern": "^\\S+$" }, "additionalProperties": { "type": "integer", "minimum": 1 } },
+                    "max_error_ppm": { "type": "integer", "minimum": 0, "maximum": 1_000_000 },
+                    "min_achieved_ppm": { "type": "integer", "minimum": 0, "maximum": 1_000_000 }
+                }
+            },
+            "seed": { "type": "integer", "minimum": 0 },
+            "phases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["phase", "planned_ms", "wall_ms", "exchanges"],
+                    "properties": {
+                        "phase": { "enum": ["settle", "warm_up", "scout", "drain", "ladder", "extra_plateau", "closing"] },
+                        "planned_ms": { "type": "integer", "minimum": 0 },
+                        "wall_ms": { "type": "integer", "minimum": 0 },
+                        "exchanges": { "type": "integer", "minimum": 0 },
+                        "errors": perf_error_counts_def()
+                    }
+                }
+            },
+            "scout": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["start_rate", "end_rate", "window_ms", "windows"],
+                "properties": {
+                    "start_rate": rate,
+                    "end_rate": rate,
+                    "halted_at_ms": { "type": "integer", "minimum": 0 },
+                    "window_ms": { "type": "integer", "minimum": 1 },
+                    "windows": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["planned_rate", "window"],
+                            "properties": { "planned_rate": rate, "window": perf_raw_window_def() }
+                        }
+                    }
+                }
+            },
+            "server_settings": perf_reading_def(
+                "The database server's settings, read once before the settle: every setting not at its built-in default, and the planner, memory, WAL and parallelism settings whatever their source.",
+                &json!({
+                    "server_version": { "type": "string", "minLength": 1 },
+                    "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["setting", "source"],
+                            "properties": {
+                                "setting": { "type": "string" },
+                                "unit": { "type": "string" },
+                                "source": { "type": "string", "minLength": 1 }
+                            }
+                        }
+                    }
+                }),
+            ),
+            "plateaus": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["planned_rate", "ramp_in_ms", "hold_ms", "halves"],
+                    "properties": {
+                        "planned_rate": rate,
+                        "ramp_in_ms": { "type": "integer", "minimum": 0 },
+                        "hold_ms": { "type": "integer", "minimum": 1 },
+                        "halves": { "type": "array", "minItems": 2, "maxItems": 2, "items": perf_raw_window_def() },
+                        "stopped_at_ms": { "type": "integer", "minimum": 0 },
+                        "multiple": { "type": "number", "exclusiveMinimum": 0.0, "description": "The planned rate as a multiple of the scout's knee estimate." },
+                        "server": perf_server_readings_def(),
+                        "failed_exchanges": {
+                            "type": "object",
+                            "propertyNames": { "pattern": "^\\S+$" },
+                            "additionalProperties": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": crate::perf_result::FAILED_EXCHANGES_PER_OPERATION,
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["request_line", "body", "truncated"],
+                                    "properties": {
+                                        "status": { "type": "integer", "minimum": 100, "maximum": 999 },
+                                        "request_line": { "type": "string", "maxLength": crate::perf_gen::REQUEST_LINE_LIMIT },
+                                        "body": { "type": "string" },
+                                        "truncated": { "type": "boolean" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// A server-side reading: `present` with `properties`, or `absent` with
+/// the reason.
+fn perf_reading_def(description: &str, properties: &Value) -> Value {
+    let mut present = serde_json::Map::new();
+    let _state = present.insert("state".to_owned(), json!({ "const": "present" }));
+    let mut required = vec![json!("state")];
+    if let Some(members) = properties.as_object() {
+        for (name, def) in members {
+            let _member = present.insert(name.clone(), def.clone());
+            required.push(json!(name));
+        }
+    }
+    json!({
+        "description": description,
+        "type": "object",
+        "required": ["state"],
+        "oneOf": [
+            { "additionalProperties": false, "required": required, "properties": present },
+            {
+                "additionalProperties": false,
+                "required": ["state", "reason"],
+                "properties": { "state": { "const": "absent" }, "reason": { "type": "string", "minLength": 1 } }
+            }
+        ]
+    })
+}
+
+/// The server-side readings of one plateau's hold.
+fn perf_server_readings_def() -> Value {
+    let count = json!({ "type": "integer", "minimum": 0 });
+    let sizes = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["database_bytes", "schemas"],
+        "properties": {
+            "database_bytes": count,
+            "schemas": { "type": "object", "additionalProperties": count }
+        }
+    });
+    let ms = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["containers", "database", "statements"],
+        "description": "The server-side readings over the hold: context that never bears on qualification. Each is present, or absent with its reason.",
+        "properties": {
+            "containers": perf_reading_def(
+                "The declared containers' cumulative counters from the Docker Engine API stats endpoint, read at a fixed interval from the hold's start and once at its end. A failed reading ends that container's series, with the reason.",
+                &json!({
+                    "series": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["role", "name", "interval_ms", "samples"],
+                            "properties": {
+                                "role": { "enum": ["sut", "db"] },
+                                "name": { "type": "string", "minLength": 1 },
+                                "interval_ms": { "type": "integer", "minimum": 1 },
+                                "samples": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": ["offset_ms", "cpu_ns", "rss_bytes", "blk_read_bytes", "blk_write_bytes", "net_rx_bytes", "net_tx_bytes"],
+                                        "properties": {
+                                            "offset_ms": count, "cpu_ns": count, "rss_bytes": count,
+                                            "blk_read_bytes": count, "blk_write_bytes": count,
+                                            "net_rx_bytes": count, "net_tx_bytes": count
+                                        }
+                                    }
+                                },
+                                "truncated": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["at_ms", "reason"],
+                                    "properties": { "at_ms": count, "reason": { "type": "string", "minLength": 1 } }
+                                }
+                            }
+                        }
+                    }
+                }),
+            ),
+            "database": perf_reading_def(
+                "The database's pg_database_size and per-schema pg_total_relation_size at the hold's start and end.",
+                &json!({
+                    "database": { "type": "string", "minLength": 1 },
+                    "start": sizes,
+                    "end": sizes
+                }),
+            ),
+            "statements": perf_reading_def(
+                "The statements pg_stat_statements counted over the hold, by execution and planning time, costliest first.",
+                &json!({
+                    "statements": {
+                        "type": "array",
+                        "maxItems": crate::perf_result::server::STATEMENTS_PER_PLATEAU,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["query", "calls", "total_exec_ms", "total_plan_ms", "rows", "shared_blks_hit", "shared_blks_read"],
+                            "properties": {
+                                "query": { "type": "string", "maxLength": crate::perf_result::server::STATEMENT_TEXT_LIMIT },
+                                "calls": { "type": "integer", "minimum": 1 },
+                                "total_exec_ms": ms, "total_plan_ms": ms,
+                                "rows": count, "shared_blks_hit": count, "shared_blks_read": count
+                            }
+                        }
+                    }
+                }),
+            )
+        }
+    })
+}
+
+/// A plateau's server-side readings, summarized.
+fn perf_server_summary_def() -> Value {
+    let count = json!({ "type": "integer", "minimum": 0 });
+    let pct = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The server-side readings summarized from the raw series alone: context that never bears on qualification.",
+        "properties": {
+            "containers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["role", "name", "samples", "truncated"],
+                    "properties": {
+                        "role": { "enum": ["sut", "db"] },
+                        "name": { "type": "string", "minLength": 1 },
+                        "samples": count,
+                        "truncated": { "type": "boolean" },
+                        "cpu_mean_pct": pct, "cpu_max_pct": pct,
+                        "rss_max_bytes": count,
+                        "blk_read_bytes": count, "blk_write_bytes": count,
+                        "net_rx_bytes": count, "net_tx_bytes": count
+                    }
+                }
+            },
+            "database_growth_bytes": { "type": "integer" }
+        }
+    })
+}
+
+fn perf_qualification_def() -> Value {
+    let judged: Vec<&str> = vec!["p99", "p95", "p90", "p50", "none"];
+    let share = json!({ "type": "number", "minimum": 0.0, "maximum": 1.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["qualified"],
+        "description": "A plateau qualifies when its successes are at least the achieved share of the exchanges not refused, its errors at most the error share, every operation within its budget at its judged quantile, and the generator neither bound nor stopped.",
+        "properties": {
+            "qualified": { "type": "boolean" },
+            "shortfalls": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["criterion"],
+                    "oneOf": [
+                        { "additionalProperties": false, "properties": { "criterion": { "const": "no_exchanges" } } },
+                        { "additionalProperties": false, "required": ["share"], "properties": { "criterion": { "const": "achieved" }, "share": share } },
+                        { "additionalProperties": false, "required": ["share"], "properties": { "criterion": { "const": "error_share" }, "share": share } },
+                        {
+                            "additionalProperties": false,
+                            "required": ["operation", "judged_at", "value_ms", "budget_ms"],
+                            "properties": {
+                                "criterion": { "const": "latency" },
+                                "operation": { "type": "string", "pattern": "^\\S+$" },
+                                "judged_at": { "enum": judged },
+                                "value_ms": { "type": "number", "minimum": 0.0 },
+                                "budget_ms": { "type": "integer", "minimum": 1 }
+                            }
+                        },
+                        { "additionalProperties": false, "properties": { "criterion": { "const": "generator_bound" } } },
+                        { "additionalProperties": false, "properties": { "criterion": { "const": "stopped" } } }
+                    ]
+                }
+            }
+        }
+    })
+}
+
+fn perf_knee_def() -> Value {
+    let rate = json!({ "type": "number", "exclusiveMinimum": 0.0 });
+    let achieved = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "description": "The highest offered rate whose plateau and every lower one qualify: a bracket up to the first failing plateau, a lower bound when the top plateau qualifies, or below the ladder when the lowest fails.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound", "qualified_rate", "achieved_per_s", "failing_rate"],
+                "properties": { "bound": { "const": "bracket" }, "qualified_rate": rate, "achieved_per_s": achieved, "failing_rate": rate }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound", "qualified_rate", "achieved_per_s"],
+                "properties": { "bound": { "const": "lower_bound" }, "qualified_rate": rate, "achieved_per_s": achieved }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound", "failing_rate"],
+                "properties": { "bound": { "const": "below_ladder" }, "failing_rate": rate }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound"],
+                "properties": { "bound": { "const": "no_plateau" } }
+            }
+        ]
+    })
+}
+
+fn perf_usl_def() -> Value {
+    json!({
+        "description": "The Universal Scalability Law X(N) = γN / (1 + α(N − 1) + βN(N − 1)) fitted to achieved throughput against mean in flight over the scout windows and the plateaus: an explanatory model, never a verdict. The fit is pinned arithmetic, so `perf-judge` reproduces it.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "alpha", "beta", "gamma", "r_squared", "points", "iterations"],
+                "properties": {
+                    "state": { "const": "fitted" },
+                    "alpha": { "type": "number", "minimum": 0.0, "exclusiveMaximum": 1.0 },
+                    "beta": { "type": "number", "minimum": 0.0 },
+                    "gamma": { "type": "number" },
+                    "n_star": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "predicted_max_per_s": { "type": "number" },
+                    "r_squared": { "type": "number" },
+                    "points": { "type": "integer", "minimum": crate::perf_result::capacity::USL_MIN_POINTS },
+                    "iterations": { "const": crate::perf_result::capacity::USL_ITERATIONS }
+                }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "points", "reason"],
+                "properties": {
+                    "state": { "const": "not_fitted" },
+                    "points": { "type": "integer", "minimum": 0 },
+                    "reason": { "type": "string", "minLength": 1 }
+                }
+            }
+        ]
+    })
+}
+
+fn perf_population_def() -> Value {
+    let pair = json!({ "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "exclusiveMinimum": 0.0 } });
+    json!({
+        "description": "The population the knee could serve at its peak: the knee divided by 13 to 75 peak API arrivals per second per 100,000 population, read at the run's corpus scale and environment.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "knee_rate", "lower_bound", "arrivals_per_100k", "population", "corpus_scale", "corpus_ehrs", "environment", "derivation"],
+                "properties": {
+                    "state": { "const": "read" },
+                    "knee_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "lower_bound": { "type": "boolean" },
+                    "arrivals_per_100k": pair.clone(),
+                    "population": pair,
+                    "corpus_scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
+                    "corpus_ehrs": { "type": "integer", "minimum": 1 },
+                    "environment": { "type": "string", "minLength": 1 },
+                    "derivation": { "const": crate::perf_result::capacity::POPULATION_DERIVATION }
+                }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "reason"],
+                "properties": { "state": { "const": "not_read" }, "reason": { "type": "string", "minLength": 1 } }
+            }
+        ]
+    })
+}
+
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+fn perf_result_derived_def() -> Value {
+    let judged: Vec<&str> = vec!["p99", "p95", "p90", "p50", "none"];
+    let ratio = json!({ "type": "number", "exclusiveMinimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["passes", "between_run_noise", "scope", "seeding", "plateaus", "knee", "usl", "population", "host"],
+        "properties": {
+            "passes": { "const": 1 },
+            "between_run_noise": {
+                "description": "`unmeasured` for one pass, which measures sampling intervals only; the A/A floor when an interleaved A/A comparison is attached.",
+                "oneOf": [
+                    { "const": "unmeasured" },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["aa_floor"],
+                        "properties": { "aa_floor": aa_floor_def() }
+                    }
+                ]
+            },
+            "host": host_reading_def(),
+            "scope": { "const": crate::perf_result::SCOPE },
+            "seeding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model"],
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "requests_per_s": { "type": "number", "minimum": 0.0 }
+                }
+            },
+            "walk": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model"],
+                "description": "The closed-loop walk's whole-loop average, the figure a single-client harness reports.",
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "mean_us_per_request": { "type": "number", "minimum": 0.0 }
+                }
+            },
+            "knee": perf_knee_def(),
+            "peak": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["achieved_per_s", "source", "index"],
+                "description": "The highest achieved throughput of the run, whatever its latency.",
+                "properties": {
+                    "achieved_per_s": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "source": { "enum": ["plateau", "scout"] },
+                    "index": { "type": "integer", "minimum": 0 }
+                }
+            },
+            "usl": perf_usl_def(),
+            "population": perf_population_def(),
+            "scout_estimate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["rate"],
+                "description": "K̂, the knee estimate the ladder's rates are multiples of: the midpoint rate of the first breaching scout window, or the ramp's end rate as a lower bound when no window breached.",
+                "properties": {
+                    "rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "breached_window": { "type": "integer", "minimum": 0 }
+                }
+            },
+            "scout": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["start_ms", "planned_rate", "throughput", "latency", "generator"],
+                    "properties": {
+                        "start_ms": { "type": "integer", "minimum": 0 },
+                        "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "throughput": perf_throughput_def(),
+                        "latency": perf_latency_def(),
+                        "generator": perf_generator_reading_def(),
+                        "qualification": perf_qualification_def()
+                    }
+                }
+            },
+            "plateaus": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["planned_rate", "hold_s", "throughput", "latency", "operations", "halves", "generator", "stopped", "qualification"],
+                    "properties": {
+                        "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "hold_s": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "throughput": perf_throughput_def(),
+                        "latency": perf_latency_def(),
+                        "operations": {
+                            "type": "object",
+                            "propertyNames": { "pattern": "^\\S+$" },
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["requests", "succeeded", "share", "latency", "judged_at", "budget_ms"],
+                                "properties": {
+                                    "requests": { "type": "integer", "minimum": 0 },
+                                    "succeeded": { "type": "integer", "minimum": 0 },
+                                    "refused": { "type": "integer", "minimum": 1 },
+                                    "budget_ms": { "type": "integer", "minimum": 1, "description": "The latency budget at the judged quantile." },
+                                    "errors": perf_error_counts_def(),
+                                    "error_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+                                    "share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+                                    "latency": perf_latency_def(),
+                                    "judged_at": { "enum": judged, "description": "The highest of p99, p95, p90 and p50 that resolves." }
+                                }
+                            }
+                        },
+                        "halves": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["steadiness"],
+                            "properties": {
+                                "p50_ratio": ratio,
+                                "p95_ratio": ratio,
+                                "steadiness": { "enum": ["steady", "unsteady", "not_measurable"], "description": "Unsteady when the second half's overall p50 or p95 over the first's lies outside 0.8 to 1.25." }
+                            }
+                        },
+                        "generator": perf_generator_reading_def(),
+                        "stopped": { "type": "boolean" },
+                        "qualification": perf_qualification_def(),
+                        "server": perf_server_summary_def()
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// `perf-result.schema.json`: one performance run's record, its evidence
+/// and every number derived from it.
+#[must_use]
+pub fn perf_result_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-result"),
+        "title": "Veredictum performance result",
+        "description": "One performance run against one server: the `raw` evidence (the target's System OPTIONS answer, the environment, the generator, the embedded workload and corpus, the seed, the scout windows and per plateau the encoded HDR histograms per hold half and operation) and the `derived` numbers, which `veredictum perf-judge` recomputes from `raw` byte for byte. Percentiles come from summed histograms, never an average of percentiles. No openEHR specification governs performance; this is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "raw", "derived"],
+        "properties": {
+            "family": { "const": "perf-result" },
+            "raw": perf_result_raw_def(),
+            "derived": perf_result_derived_def()
+        }
+    })
+}
+
+fn network_leg_def() -> Value {
+    json!({
+        "enum": ["same-host", "same-zone", "cross-region"],
+        "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+    })
+}
+
+fn host_prescription_properties() -> Value {
+    json!({
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "The prescription's id, its file stem under perf/hosts/." },
+        "version": { "type": "integer", "minimum": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "derivation": { "type": "string", "minLength": 1, "description": "Where the prescription comes from; a field the source does not name is `unstated`." },
+        "machine_class": { "enum": ["bare_metal", "virtual_machine", "hosted_ci_runner", "unstated"] },
+        "vcpu": { "type": "integer", "minimum": 1 },
+        "memory_gib": { "type": "integer", "minimum": 1 },
+        "storage_class": { "enum": ["nvme", "ssd", "network_block", "hdd", "unstated"] },
+        "container_ceilings": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cpus", "memory_gib"],
+            "properties": {
+                "cpus": { "type": "number", "exclusiveMinimum": 0.0 },
+                "memory_gib": { "type": "integer", "minimum": 1 }
+            }
+        },
+        "network_leg": network_leg_def(),
+        "idle": { "type": "boolean", "description": "Whether the host runs nothing but the measurement." }
+    })
+}
+
+fn host_prescription_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "description", "derivation", "machine_class", "vcpu", "memory_gib", "storage_class", "network_leg", "idle"],
+        "properties": host_prescription_properties()
+    })
+}
+
+/// `perf-host.schema.json`: one host prescription under `perf/hosts/`.
+#[must_use]
+pub fn perf_host_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-host"),
+        "title": "Veredictum host prescription",
+        "description": "The machine a performance record claims to have run on: machine class, vCPU, memory, storage class, container ceilings and network leg. A record embeds the prescription it claims and its derived part reads the generator's measured fingerprint against it. No openEHR specification governs performance; this is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "description", "derivation", "machine_class", "vcpu", "memory_gib", "storage_class", "network_leg", "idle"],
+        "properties": host_prescription_properties()
+    })
+}
+
+fn compare_metric_tokens() -> Vec<&'static str> {
+    crate::perf_result::compare::CompareMetric::ALL
+        .iter()
+        .map(|m| m.token())
+        .collect()
+}
+
+fn aa_floor_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ratios", "pairs"],
+        "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+        "properties": {
+            "ratios": {
+                "type": "object",
+                "propertyNames": { "enum": compare_metric_tokens() },
+                "additionalProperties": { "type": "number", "minimum": 1.0 }
+            },
+            "pairs": { "type": "integer", "minimum": 0 }
+        }
+    })
+}
+
+fn slot_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rung", "planned_rate", "side"],
+        "properties": {
+            "rung": { "type": "integer", "minimum": 0 },
+            "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+            "side": { "enum": ["a", "b"] }
+        }
+    })
+}
+
+fn interleaving_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "side", "partner", "shared_estimate", "sequence"],
+        "description": "The interleaved run this record is one side of: both sides were offered the same rates and holds, and on each rung the plateaus alternate in ABBA order.",
+        "properties": {
+            "mode": { "enum": ["aa", "ab"] },
+            "side": { "enum": ["a", "b"] },
+            "partner": { "type": "string", "minLength": 1 },
+            "shared_estimate": { "type": "number", "exclusiveMinimum": 0.0 },
+            "sequence": { "type": "array", "items": slot_def() }
+        }
+    })
+}
+
+fn host_reading_def() -> Value {
+    let id = json!({ "type": "string", "minLength": 1 });
+    let list =
+        json!({ "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } });
+    json!({
+        "type": "object",
+        "required": ["state"],
+        "description": "The generator's measured fingerprint and the record's network leg read against the host prescription the record claims.",
+        "oneOf": [
+            { "additionalProperties": false, "required": ["state"], "properties": { "state": { "const": "unclaimed" } } },
+            { "additionalProperties": false, "required": ["state", "prescription"], "properties": { "state": { "const": "matched" }, "prescription": id } },
+            { "additionalProperties": false, "required": ["state", "prescription", "mismatches"], "properties": { "state": { "const": "unmatched" }, "prescription": id, "mismatches": list } },
+            { "additionalProperties": false, "required": ["state", "prescription", "missing"], "properties": { "state": { "const": "unverifiable" }, "prescription": id, "missing": list } }
+        ]
+    })
+}
+
+/// `perf-compare.schema.json`: two or more `perf-result` records aligned,
+/// with their ratios when there are two.
+#[must_use]
+pub fn perf_compare_schema() -> Value {
+    let fields: Vec<&str> = crate::perf_result::compare::AlignField::ALL
+        .iter()
+        .map(|f| f.token())
+        .collect();
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-compare"),
+        "title": "Veredictum performance comparison",
+        "description": "Two or more perf-result records aligned into one table, with every mismatch that makes their numbers describe different things named above it. Two records of one interleaved run carry ratios rung by rung, each with both values, judged against the declared tolerance and the attached A/A floor. No openEHR specification governs performance; this is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "mode", "records", "table", "tolerance"],
+        "properties": {
+            "family": { "const": "perf-compare" },
+            "mode": { "enum": ["aligned", "aa", "ab"] },
+            "records": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "base_url", "fields"],
+                    "properties": {
+                        "label": { "type": "string", "minLength": 1 },
+                        "base_url": { "type": "string", "minLength": 1 },
+                        "fields": {
+                            "type": "object",
+                            "propertyNames": { "enum": fields },
+                            "additionalProperties": { "type": "string" }
+                        }
+                    }
+                }
+            },
+            "mismatches": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["field", "values"],
+                    "properties": {
+                        "field": { "enum": fields },
+                        "values": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            },
+            "table": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "cells"],
+                    "properties": {
+                        "label": { "type": "string", "minLength": 1 },
+                        "cells": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            },
+            "tolerance": { "type": "number", "minimum": 0.0 },
+            "floor": aa_floor_def(),
+            "sequence": { "type": "array", "items": slot_def() },
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["rung", "planned_rate", "operation", "metric", "reading"],
+                    "properties": {
+                        "rung": { "type": "integer", "minimum": 0 },
+                        "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "operation": { "type": "string", "minLength": 1 },
+                        "metric": { "enum": compare_metric_tokens() },
+                        "a": { "type": "number", "minimum": 0.0 },
+                        "b": { "type": "number", "minimum": 0.0 },
+                        "ratio": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "overlap": { "type": "boolean" },
+                        "reading": { "enum": ["difference", "within_noise", "not_resolvable", "different_rates"] }
+                    }
+                }
+            }
+        }
+    })
+}
 /// The full published set: (file name, schema document).
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
     vec![
         ("statement.schema.json", statement_schema()),
-        ("results.schema.json", results_schema()),
         ("ixit.schema.json", ixit_schema()),
-        ("performance-case.schema.json", performance_case_schema()),
-        ("journey-catalogue.schema.json", journey_catalogue_schema()),
         ("perf-payloads.schema.json", perf_payloads_schema()),
-        ("stress.schema.json", stress_schema()),
-        ("aql-probe.schema.json", aql_probe_schema()),
-        ("bench-result.schema.json", bench_result_schema()),
-        ("bench-packs.schema.json", bench_packs_schema()),
+        ("perf-workload.schema.json", perf_workload_schema()),
+        ("perf-workloads.schema.json", perf_workloads_schema()),
+        ("perf-result.schema.json", perf_result_schema()),
+        ("perf-host.schema.json", perf_host_schema()),
+        ("perf-compare.schema.json", perf_compare_schema()),
         (
             "arazzo-extensions.schema.json",
             crate::arazzo::gates::published::extensions_schema(),

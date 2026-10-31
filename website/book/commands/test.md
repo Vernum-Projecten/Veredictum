@@ -20,8 +20,8 @@ openEHR specification governs this order; it is this instrument's own design.
 A workflow that declares no inputs carries the marker in a rows file with no
 `rows`, and the workflow then runs once. A conformance-only IXIT declares
 `exclusive_server` alone: the other `environment` members describe the
-hardware a measured run was taken on, and only `perf`, `stress` and
-`aql-probe` read them. `test` reads no `instances` either, since `--base-url`
+hardware a measured run was taken on, and only `perf` and `perf-compare`
+read them. `test` reads no `instances` either, since `--base-url`
 names the server, so `{ "environment": { "exclusive_server": true } }` is a
 whole IXIT for it. The IXIT is checked against the published IXIT schema
 before anything runs, and one that fails it, such as a misspelled member,

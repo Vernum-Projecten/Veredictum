@@ -149,7 +149,7 @@ jobs:
           # (#55); no code lives at the root any more. The legend generator is
           # named individually (#189) because the test job runs its --check and
           # the rest of scripts/render/ has nothing to do with that job.
-          if echo "$changed" | grep -qE '^(app/|catalogue/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
+          if echo "$changed" | grep -qE '^(app/|catalogue/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -824,8 +824,9 @@ jobs:
       # without that program, because a skip must never be the outcome that
       # gates a merge. The container-runtime-coupled paths (#192): the
       # resource sampler's Engine API reads, the disk anchor and the
-      # maintenance settling, and the AQL probe's `pg_stat_statements`
-      # attribution are all another program's reply, so `env_coupled.rs`
+      # maintenance settling, and the server-side readings' sizes, settings
+      # and `pg_stat_statements` table are all another program's reply, so
+      # `env_coupled.rs`
       # drives a real engine and skips with a printed reason when none
       # answers. This step refuses a runner without one, and pre-pulls the
       # image so three parallel tests do not race the same pull. The pin is
@@ -873,13 +874,6 @@ jobs:
       # the schema set has as a Rust test is a script here.
       - name: The example results document matches its generator
         run: bash scripts/checks/example-results-drift.sh
-      # The benchmark legend is generated from the pack manifest the binary
-      # emits, and the manifest is held byte-identical to the embedded packs by
-      # `bench_manifest` in the suite above. This step closes the second half:
-      # the committed page still matches the committed manifest, so a pack
-      # change cannot reach the site with the legend saying something else.
-      - name: The benchmark legend matches the emitted pack manifest
-        run: bash scripts/render/bench-legend.sh --check
 
   # The `[lints.rustdoc]` table is inert without a doc run — this is the run.
   # `-D warnings` promotes the warn-tier entries (unescaped backticks, a missing

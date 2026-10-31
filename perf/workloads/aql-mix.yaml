@@ -1,0 +1,158 @@
+# The six AQL query classes of the aql-mix bench pack, as a workload: query
+# speed over the community harness's Vital signs population, one class per
+# storage behaviour, at equal shares.
+#
+# No openEHR specification governs this (CNF guide master03-overview.adoc:
+# "Non-functional conformance (performance, etc) is not addressed by this
+# guide"). Every query parses with the released AQL grammar, and the corpus
+# is the pinned Vital signs composition of perf/payloads.yaml.
+id: aql-mix
+version: 1
+status: provisional
+reproduces: >-
+  The aql-mix bench pack, version 1.1.0: 50 EHRs each holding the community
+  harness's Vital signs composition 20 times, seeded on 8 workers, and six
+  AQL classes offered open-loop at equal shares.
+description: >-
+  Query speed over one population, one set of percentiles per query class
+  rather than one blended query number: the indexed point lookup, the
+  single-EHR scan, the value filter, the cross-EHR population filter, the
+  population COUNT, and the ordered page a paged interface reads.
+seed: 4706627057783240704
+corpus:
+  scale: POC
+  ehrs: 50
+  compositions_per_ehr: 20
+  templates:
+    community.vital_signs: 100%
+  commit: verbatim
+  seed_workers: 8
+arrival: poisson
+
+interactions:
+  aql_point_lookup:
+    share: 16.6667%
+    description: One composition addressed by its uid inside one EHR.
+    derivation: The pack's point-lookup class, at the equal share it gives each of six.
+    op: aql
+    query: aql_point_lookup
+  aql_ehr_scan:
+    share: 16.6667%
+    description: Every composition in one EHR, projected by uid.
+    derivation: The pack's EHR-scan class, at an equal sixth.
+    op: aql
+    query: aql_ehr_scan
+  aql_filtered:
+    share: 16.6667%
+    description: A systolic threshold over one EHR's observations.
+    derivation: The pack's filtered class, at an equal sixth.
+    op: aql
+    query: aql_filtered
+  aql_population:
+    share: 16.6667%
+    description: The systolic threshold across the population, fetch-bounded.
+    derivation: The pack's population class, at an equal sixth.
+    op: aql
+    query: aql_population
+  aql_aggregate:
+    share: 16.6666%
+    description: One COUNT over the population the threshold matches.
+    derivation: The pack's aggregate class, at an equal sixth.
+    op: aql
+    query: aql_aggregate
+  aql_ordered_page:
+    share: 16.6666%
+    description: An ORDER BY over composition start time, read one page at a time.
+    derivation: The pack's ordered-page class, at an equal sixth.
+    op: aql
+    query: aql_ordered_page
+
+queries:
+  aql_point_lookup:
+    description: One composition addressed by its own uid inside one EHR.
+    text: >-
+      SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid]
+      CONTAINS COMPOSITION c WHERE c/uid/value = $uid
+    scope: single_subject
+    tier: metadata
+    parameters:
+      ehr_uid: ehr
+      uid: composition
+    transport:
+      adhoc_post: 50%
+      adhoc_get: 50%
+    on_refusal: error
+    derivation: The aql-mix bench pack's point-lookup class, the indexed-read floor.
+  aql_ehr_scan:
+    description: Every composition in one EHR, projected by uid.
+    text: >-
+      SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+    scope: single_subject
+    tier: metadata
+    parameters:
+      ehr_uid: ehr
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: The aql-mix bench pack's EHR-scan class, whose cost follows how much the EHR holds.
+  aql_filtered:
+    description: A systolic threshold over the observations of one EHR.
+    text: >-
+      SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: single_subject
+    tier: content
+    parameters:
+      ehr_uid: ehr
+      systolic:
+        int_range: [90, 150]
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: The aql-mix bench pack's filtered class, the value index with a drawn threshold.
+  aql_population:
+    description: The systolic threshold with no EHR scope, bounded by a fetch count.
+    text: >-
+      SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: population
+    tier: content
+    parameters:
+      systolic:
+        int_range: [90, 150]
+    transport:
+      adhoc_post: 100%
+    fetch: 50
+    on_refusal: error
+    derivation: The aql-mix bench pack's population class, the cross-EHR planner.
+  aql_aggregate:
+    description: One COUNT over the population a systolic threshold matches.
+    text: >-
+      SELECT COUNT(c/uid/value) FROM EHR e CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: population
+    tier: content
+    parameters:
+      systolic:
+        int_range: [90, 150]
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: The aql-mix bench pack's aggregate class, one row that reads every value behind it.
+  aql_ordered_page:
+    description: Compositions ordered by start time, one page at a time.
+    text: >-
+      SELECT c/uid/value, c/context/start_time/value
+      FROM EHR e CONTAINS COMPOSITION c ORDER BY c/context/start_time/value DESC
+    scope: population
+    tier: metadata
+    transport:
+      adhoc_post: 100%
+    fetch: 20
+    on_refusal: error
+    derivation: >-
+      The aql-mix bench pack's ordered-page class, the shape a paged user
+      interface issues (QUERY AQL master03-syntax.adoc §ORDER BY).

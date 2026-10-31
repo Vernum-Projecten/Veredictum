@@ -1,18 +1,17 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The consumable pipeline seams (`veredictum::pipeline`): judging a
-//! committed measured campaign, rendering the published assets, reading the
-//! party documents, and the typed failures each seam reports.
+//! The consumable pipeline seams (`veredictum::pipeline`): serving the
+//! published schema set, reading and writing the party documents, the
+//! statement schema's refusals, and the typed failures each seam reports.
 //!
-//! Every input here is a file already committed to this repository — the
-//! performance schedule, a party statement, the example results document —
-//! so the seams are exercised the way a second consumer of the library would
-//! drive them, with no system under test involved.
+//! Every input here is a file already committed to this repository or a
+//! temporary one, so the seams are exercised the way a second consumer of the
+//! library would drive them, with no system under test involved.
 
 use std::path::{Path, PathBuf};
 
-use veredictum::pipeline::{Error, assets, judgement, measured, read_json, to_json_document};
+use veredictum::pipeline::{Error, assets, read_json, to_json_document};
 
 /// Anything a seam or a fixture read can fail with, so a test body
 /// propagates plumbing failures with `?` instead of unwrapping them
@@ -24,180 +23,8 @@ fn repo_root() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
 }
 
-/// The performance schedule the measured instruments read.
-fn perf() -> PathBuf {
-    repo_root().join("perf")
-}
-
-/// The named ICS fixture: a filled-in declaration for a product that does not
-/// exist, which is the shape the judgement seam needs.
-fn statement_path() -> PathBuf {
-    repo_root().join("fixtures/declaration/statement.json")
-}
-
-/// The committed example results document (`examples/results.example.json`).
-fn results_path() -> PathBuf {
-    PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/examples/results.example.json"
-    ))
-}
-
-/// Judges the example campaign against the committed performance schedule.
-fn judge_example() -> Result<judgement::Judgement, Error> {
-    let statement = statement_path();
-    let results = results_path();
-    let root = perf();
-    judgement::judge(&judgement::JudgementRequest {
-        statement: &statement,
-        results: &results,
-        root: &root,
-    })
-}
-
-// ── the catalogue seam ──────────────────────────────────────────────────────
-
-// ── the judgement seam ─────────────────────────────────────────────────────
-
-/// Judging the committed campaign writes one document, `verdicts.json`, and
-/// that document is the report itself: the measured class verdicts
-/// re-derived from the embedded histograms.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn judging_a_committed_campaign_writes_its_verdict_record() -> Fallible {
-    let judgement = judge_example()?;
-    let names: Vec<&str> = judgement
-        .documents
-        .iter()
-        .map(|d| d.name.as_str())
-        .collect();
-    assert_eq!(names, [judgement::VERDICTS_FILE]);
-    let record = judgement
-        .documents
-        .first()
-        .ok_or("the judgement writes its record")?;
-    assert!(
-        record.body.ends_with('\n'),
-        "every emitted document ends with a newline"
-    );
-    assert_eq!(
-        record.body,
-        to_json_document(&judgement.report, "verdicts")?
-    );
-    assert_eq!(
-        judgement.report.performance.len(),
-        judgement.results.measurements.len(),
-        "every measurement re-derives into one verdict"
-    );
-    assert_eq!(
-        judgement.statement.product.name, "Fixture CDR",
-        "the statement travels back with the judgement"
-    );
-    assert_eq!(
-        judgement.is_clean(),
-        judgement.report.review.is_empty(),
-        "`is_clean` is the static review being empty"
-    );
-    Ok(())
-}
-
-/// A campaign the results record does not describe is refused rather than
-/// judged: the statement path must name a statement.
-#[test]
-fn judging_refuses_a_document_that_is_not_a_statement() {
-    let results = results_path();
-    let root = perf();
-    // The results document is a valid party artifact of the WRONG family, so
-    // the schema stage is what rejects it.
-    let error = judgement::judge(&judgement::JudgementRequest {
-        statement: &results,
-        results: &results,
-        root: &root,
-    })
-    .expect_err("a results document is not a statement");
-    let message = error.to_string();
-    assert!(matches!(error, Error::Party(_)), "{message}");
-    assert!(message.contains("schema"), "{message}");
-}
-
 // ── the asset seams ────────────────────────────────────────────────────────
 
-/// The performance visuals render the class ladder plus one latency chart per
-/// measurement, and the resource and disk charts only from records that
-/// actually carry those samples.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_performance_visuals_render_only_what_the_record_carries() -> Fallible {
-    let root = perf();
-    let results = results_path();
-    let rendered = assets::performance_assets(&root, &results, None)?;
-    let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
-
-    assert_eq!(names.first(), Some(&"perf-class-ladder.svg"));
-    assert!(
-        names.contains(&"perf-latency-class-POC.svg"),
-        "the example's measured class gets its latency chart: {names:?}"
-    );
-    assert!(
-        !names.iter().any(|n| n.starts_with("perf-resources-")),
-        "the example samples no container resources, so no series is drawn: {names:?}"
-    );
-    for file in &rendered.files {
-        assert!(file.body.starts_with("<svg"), "{} is not SVG", file.name);
-    }
-
-    let summary = rendered.summary_markdown()?;
-    assert!(
-        summary.contains("POC"),
-        "the summary reports the measured class: {summary}"
-    );
-    Ok(())
-}
-
-/// A record `perf` created rather than merged into is a full input to the
-/// readers downstream: `verdicts` judges its measurement and `perf-assets`
-/// draws it, with no conformance outcome in it at all.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_record_perf_created_is_judged_and_drawn() -> Fallible {
-    let example: veredictum::party::Results = read_json(&results_path(), "example results")?;
-    let mut created =
-        measured::new_measured_record(veredictum::party::Sut::operator("Fixture CDR", "1.0"), "{}");
-    created.measurements = example.measurements;
-    let dir = assert_fs::TempDir::new()?;
-    let results = dir.path().join("results.json");
-    std::fs::write(&results, to_json_document(&created, "results")?)?;
-
-    let statement = statement_path();
-    let root = perf();
-    let judgement = judgement::judge(&judgement::JudgementRequest {
-        statement: &statement,
-        results: &results,
-        root: &root,
-    })?;
-    assert_eq!(
-        judgement.report.performance.len(),
-        1,
-        "the created record's measurement re-derives into one verdict"
-    );
-
-    let rendered = assets::performance_assets(&root, &results, None)?;
-    let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
-    assert!(
-        names.contains(&"perf-latency-class-POC.svg"),
-        "the created record's measured class gets its latency chart: {names:?}"
-    );
-    Ok(())
-}
 /// The schema seam serves exactly the published set: the same names and the
 /// same bytes as the committed `schemas/` directory a party validates against.
 #[test]
@@ -329,277 +156,38 @@ fn the_ixit_reader_rebases_file_references_and_keeps_the_bytes() -> Fallible {
     Ok(())
 }
 
-// ── the measured seam's selectors ──────────────────────────────────────────
+// ── the statement schema ───────────────────────────────────────────────────
 
-/// Only the ladder's own rungs are windows, and a window is a whole number of
-/// hours in seconds.
-#[test]
-fn only_a_ladder_rung_is_a_sustained_window() {
-    for hours in measured::SustainedWindow::LADDER {
-        let window = measured::SustainedWindow::hours(*hours)
-            .unwrap_or_else(|| panic!("{hours} is a rung of the ladder"));
-        assert_eq!(window.seconds(), hours * 3600);
-    }
-    assert!(
-        measured::SustainedWindow::hours(3).is_none(),
-        "3 hours is not a rung, and nothing rounds it to one"
-    );
-    assert!(measured::SustainedWindow::hours(0).is_none());
-    assert_eq!(
-        measured::SustainedWindow::default().seconds(),
-        3600,
-        "the default window is the shortest rung"
-    );
-}
-
-/// The class selector resolves against the performance schedule's own cases,
-/// and an unstocked class is a named miss rather than a silent empty run.
+/// The statement carries no performance block: a declaration naming one is
+/// refused by the published schema, and the refusal names the field.
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
-fn a_class_selects_its_own_performance_case() -> Fallible {
-    let schedule = measured::load_clean_schedule(&perf())?;
-    let class = veredictum::perf::PerfClass::parse("POC").map_err(Error::Selector)?;
-    let (path, case) = measured::performance_case_of_class(&schedule, class, "POC")?;
-    assert_eq!(case.class, class);
+fn a_statement_carrying_a_performance_block_is_refused_naming_the_field() -> Fallible {
+    let text = std::fs::read_to_string(repo_root().join("fixtures/declaration/statement.json"))?;
+    let mut statement: serde_json::Value = serde_json::from_str(&text)?;
+    let validator = jsonschema::validator_for(&veredictum::schema::statement_schema())?;
     assert!(
-        path.ends_with("class_POC.yaml") || path.to_string_lossy().contains("POC"),
-        "the case comes back with the artifact it was loaded from: {}",
-        path.display()
+        validator.is_valid(&statement),
+        "the fixture itself is valid"
     );
-
-    let empty = veredictum::perf_schedule::PerfSchedule::default();
-    let error = measured::performance_case_of_class(&empty, class, "POC")
-        .expect_err("an empty catalogue stocks no class");
-    assert!(matches!(error, Error::Missing(_)), "{error}");
-    assert!(error.to_string().contains("class POC"), "{error}");
-    Ok(())
-}
-
-/// The journey context and the scale OPT come from the committed performance
-/// schedule, and a tree without one says which piece is missing instead of
-/// measuring nothing.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_measured_preamble_reads_its_inputs_from_the_committed_schedule() -> Fallible {
-    let schedule = measured::load_clean_schedule(&perf())?;
-    let opt = measured::scale_opt_xml(&schedule)?;
+    statement["performance"] =
+        serde_json::json!({ "class": "POC", "environment_ref": "ixit.json#/environment" });
+    let errors: Vec<String> = validator
+        .iter_errors(&statement)
+        .map(|e| e.to_string())
+        .collect();
+    assert!(!errors.is_empty(), "a performance block is refused");
     assert!(
-        opt.contains("<template"),
-        "the scale corpus commits against an OPT document"
+        errors.iter().any(|e| e.contains("performance")),
+        "the refusal names the field: {errors:?}"
     );
-    let (journeys, pack) = measured::journey_context(&schedule)?;
-    assert!(!journeys.0.is_empty(), "the catalogue names journeys");
-    assert!(
-        !pack.templates.is_empty(),
-        "the pack carries a template per journey stage"
-    );
-
-    let empty = veredictum::perf_schedule::PerfSchedule::default();
-    let error = measured::scale_opt_xml(&empty).expect_err("no payload manifest, no OPT");
-    assert!(matches!(error, Error::Missing(_)), "{error}");
-    let error = measured::journey_context(&empty).expect_err("no catalogue, no journeys");
-    assert!(error.to_string().contains("journeys.yaml"), "{error}");
     Ok(())
 }
 
 // ── the seams' typed refusals ──────────────────────────────────────────────
-
-/// An excused row with no citation would claim a case was out of scope
-/// without saying on what ground. Two gates refuse it, and the ORDER matters
-/// to whoever reads the diagnostic: the published schema stage runs first and
-/// names the document member, so the typed invariant behind it is the second
-/// gate — the one a consumer building results in memory still faces.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn an_uncited_excused_row_is_refused_by_the_schema_and_by_the_invariant() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let mut results: veredictum::party::Results = read_json(&results_path(), "results")?;
-    let mut uncited = results
-        .outcomes
-        .first()
-        .cloned()
-        .ok_or("the example records at least one outcome")?;
-    uncited.status = veredictum::party::OutcomeStatus::NotApplicable;
-    uncited.citation = None;
-    let mut blank = uncited.clone();
-    blank.status = veredictum::party::OutcomeStatus::Skipped;
-    blank.citation = Some(String::new());
-    results.outcomes.push(uncited);
-    results.outcomes.push(blank);
-
-    // The typed invariant names one violation per uncited row.
-    let violations = results
-        .check_invariants()
-        .expect_err("an uncited excused row breaks the record's own invariant");
-    assert_eq!(violations.len(), 2, "{violations:?}");
-
-    // Rendered as the seam's refusal, every violation is on its own prefixed
-    // line, so a caller that only prints the error still sees all of them.
-    let rendered = Error::ResultsInvariants(violations).to_string();
-    assert_eq!(rendered.lines().count(), 2, "{rendered}");
-    for line in rendered.lines() {
-        assert!(line.starts_with("results invariant: "), "{line}");
-    }
-
-    // Read from disk, the published schema refuses the same document first,
-    // naming the member rather than the invariant.
-    let path = dir.path().join("results.json");
-    std::fs::write(&path, to_json_document(&results, "results")?)?;
-    let statement = statement_path();
-    let root = perf();
-    let error = judgement::judge(&judgement::JudgementRequest {
-        statement: &statement,
-        results: &path,
-        root: &root,
-    })
-    .expect_err("a record that breaks its own invariants is not judgeable");
-    assert!(matches!(error, Error::Party(_)), "{error}");
-    assert!(error.to_string().contains("citation"), "{error}");
-    Ok(())
-}
-
-/// The performance visuals draw a resource series and a disk-growth chart
-/// only from a record that CARRIES those samples, and the stress curve only
-/// when a report is supplied — nothing is fabricated from an absent input.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_performance_visuals_draw_the_samples_a_record_carries() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let mut results: veredictum::party::Results = read_json(&results_path(), "results")?;
-    let measurement = results
-        .measurements
-        .first_mut()
-        .ok_or("the example carries a measurement")?;
-    measurement.resources = Some(serde_json::from_value(serde_json::json!({
-        "sample_interval_s": 5,
-        "containers": [{
-            "role": "sut", "name": "cdr",
-            "samples": [
-                { "offset_s": 0, "phase": "warmup", "cpu_pct": 12.5, "rss_bytes": 100,
-                  "blk_read_bytes": 0, "blk_write_bytes": 0,
-                  "net_rx_bytes": 0, "net_tx_bytes": 0 },
-                { "offset_s": 5, "phase": "measured", "cpu_pct": 80.0, "rss_bytes": 200,
-                  "blk_read_bytes": 10, "blk_write_bytes": 20,
-                  "net_rx_bytes": 30, "net_tx_bytes": 40 }
-            ]
-        }],
-        "disk": {
-            "before_scale_seed_bytes": 1_000,
-            "after_scale_seed_bytes": 5_000,
-            "after_window_bytes": 6_000,
-            "seed_compositions": 100
-        }
-    }))?);
-    let sampled = dir.path().join("results-sampled.json");
-    std::fs::write(&sampled, to_json_document(&results, "results")?)?;
-
-    let root = perf();
-    let rendered = assets::performance_assets(&root, &sampled, None)?;
-    let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
-    assert!(
-        names.iter().any(|n| n.starts_with("perf-resources-class-")),
-        "a sampled record draws its resource series: {names:?}"
-    );
-    assert!(
-        names.contains(&"perf-disk-growth.svg"),
-        "anchored disk bytes draw the growth chart: {names:?}"
-    );
-    for file in &rendered.files {
-        assert!(file.body.starts_with("<svg"), "{} is not SVG", file.name);
-    }
-    Ok(())
-}
-
-/// A committed stress report renders its curve beside the performance
-/// visuals, and the same two reports render the cross-SUT overlay — both are
-/// exploration records, never conformance evidence.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_committed_stress_report_renders_its_curve_and_its_overlay() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let results: veredictum::party::Results = read_json(&results_path(), "results")?;
-    let operations = results
-        .measurements
-        .first()
-        .map(|m| m.operations.clone())
-        .ok_or("the example carries a measured operation")?;
-    let environment = results
-        .measurements
-        .first()
-        .map(|m| m.environment.clone())
-        .ok_or("the example carries an environment")?;
-
-    let step = |rate: f64, stable: bool| veredictum::stress::LoadStep {
-        rate,
-        offered_load_sustained: rate,
-        operations: operations.clone(),
-        stable,
-        breaches: if stable {
-            Vec::new()
-        } else {
-            vec!["p99 3000ms > budget 1000ms".to_owned()]
-        },
-        generator_bound: false,
-        resources: None,
-    };
-    let report = |max: f64| veredictum::stress::StressReport {
-        corpus: "cnf.scale.10k".to_owned(),
-        environment: environment.clone(),
-        step_warmup_s: 10,
-        step_hold_s: 30,
-        p99_budget_ms: 1_000.0,
-        error_budget: 0.0,
-        steps: vec![step(10.0, true), step(200.0, false)],
-        max_sustainable_throughput_per_s: max,
-        ladder_capped: false,
-        generator_bound: false,
-        remark: "exploration only".to_owned(),
-    };
-
-    let left = dir.path().join("stress-left.json");
-    let right = dir.path().join("stress-right.json");
-    std::fs::write(&left, to_json_document(&report(10.0), "stress")?)?;
-    std::fs::write(&right, to_json_document(&report(200.0), "stress")?)?;
-
-    let rendered = assets::performance_assets(&perf(), &results_path(), Some(&left))?;
-    let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
-    assert!(
-        names.contains(&"perf-stress-curve.svg"),
-        "a supplied report draws the curve: {names:?}"
-    );
-
-    let overlay = assets::stress_overlay(("left", &left), ("right", &right))?;
-    assert!(overlay.starts_with("<svg"), "{overlay}");
-    assert!(
-        overlay.contains("left") && overlay.contains("right"),
-        "{overlay}"
-    );
-
-    // A report neither seam can read is a typed failure naming the file.
-    let absent = dir.path().join("absent.json");
-    let error = assets::stress_overlay(("left", &absent), ("right", &right))
-        .expect_err("an absent report is not renderable");
-    assert!(matches!(error, Error::Read { .. }), "{error}");
-    let error = assets::performance_assets(&perf(), &results_path(), Some(&absent))
-        .expect_err("an absent report is not renderable");
-    assert!(matches!(error, Error::Read { .. }), "{error}");
-    Ok(())
-}
 
 /// A value that cannot be serialized is a typed failure naming what was being
 /// written, and a directory that cannot be created is named too — neither

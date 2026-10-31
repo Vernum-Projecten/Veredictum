@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![no_main]
-//! The three documents a party supplies: the IXIT declaration, the statement
-//! of claims, and the results record.
+//! The two documents a party supplies: the IXIT declaration and the
+//! statement of claims.
 //!
 //! This is the instrument's least trusted input by a wide margin. A statement
-//! and a results record are published by the organization whose product is
-//! being judged, and re-checking them is the whole point of the verdict
-//! pipeline: `veredictum verdicts` reads somebody else's JSON and re-derives
-//! the verdict from it. An IXIT is operator-supplied and names endpoints,
-//! credentials and file-system paths.
+//! is published by the organization whose product is being judged, and
+//! `validate --statement` reads somebody else's JSON. An IXIT is
+//! operator-supplied and names endpoints, credentials and file-system paths.
 //!
 //! The property is that a hostile or merely broken document is refused by
 //! type, or reported by an invariant check, and never crashes the reader. The
@@ -22,7 +20,7 @@ use std::path::Path;
 use libfuzzer_sys::fuzz_target;
 
 use veredictum::ixit::Ixit;
-use veredictum::party::{Results, Statement};
+use veredictum::party::Statement;
 
 fuzz_target!(|data: &[u8]| {
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(data) else {
@@ -46,12 +44,5 @@ fuzz_target!(|data: &[u8]| {
         }
     }
 
-    let _ = serde_json::from_value::<Statement>(value.clone());
-
-    if let Ok(results) = serde_json::from_value::<Results>(value) {
-        let _ = results.check_invariants();
-        for outcome in &results.outcomes {
-            let _ = outcome.check_invariants();
-        }
-    }
+    let _ = serde_json::from_value::<Statement>(value);
 });

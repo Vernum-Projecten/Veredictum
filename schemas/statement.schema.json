@@ -136,28 +136,6 @@
         "pattern": "^[a-z0-9_-]+$"
       }
     },
-    "performance": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "class",
-        "environment_ref"
-      ],
-      "properties": {
-        "class": {
-          "enum": [
-            "POC",
-            "S",
-            "L",
-            "R"
-          ]
-        },
-        "environment_ref": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
     "non_functional": {
       "type": "object"
     },

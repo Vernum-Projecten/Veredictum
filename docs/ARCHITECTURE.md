@@ -496,17 +496,18 @@ operations, and its design is §15: the layout, the extensions, the
 condition profile, the gates, the results and their exports. This section
 holds what sits around it: the documents a party supplies and receives
 (§8.10), how a statement selects what runs and how verdicts are computed
-(§8.11), how the instrument proves its own judgement (§8.12), the
-performance and volumetrics schedule (§8.14), the Security & Privacy
-schedule (§8.15) and the universal benchmark (§8.16).
+(§8.11), how the instrument proves its own judgement (§8.12), measured
+performance by traffic emulation (§8.14, which also holds what the universal
+benchmark instrument used to describe) and the Security & Privacy schedule
+(§8.15).
 
-Two verdict machineries share one discipline. **Conformance by assertion** is
-the catalogue: each workflow row ends passed, failed, errored or skipped,
-every red row carries its four-part explanation, and a capability folder's
-rows count for that capability (§15.8, §15.12). **Conformance by
-measurement** is the performance schedule under `perf/`: measured metrics
-against class thresholds, bound to a declared environment (§8.14). Both are
-pure functions of recorded data.
+Two machineries share one discipline. **Conformance by assertion** is the
+catalogue: each workflow row ends passed, failed, errored or skipped, every
+red row carries its four-part explanation, and a capability folder's rows
+count for that capability (§15.8, §15.12). **Measured performance** is the
+workload under `perf/`: a declared traffic mix offered on a load ladder,
+recorded with the environment it ran on, and re-judged from its histograms
+(§8.14). Both are pure functions of recorded data.
 
 The case-core catalogue that §8 used to describe (case cores, operation
 bindings per SM operation, the outcome-kind taxonomy, the ambiguity register,
@@ -534,7 +535,6 @@ makes it a legal SDoC:
 | `claims` ∎ | `capabilities`: the capability folders under `catalogue/cases/` the party claims; every workflow of a document in another folder is skipped `not-claimed` |
 | `tech_profiles` | which formats are claimed (e.g. `[its-rest: [canonical-json, canonical-xml, wt-flat]]`) |
 | `options` | one arm per option of `catalogue/capabilities.yaml`; the documents of every other arm are skipped `option-not-selected` |
-| `performance` | the claimed **volumetric class per declared environment** (`POC`/`S`/`L`/`R`, §8.14) |
 | `non_functional` | declaration-only slots (security posture beyond what the catalogue tests: encryption configuration, pseudonymisation on export) — never verdict inputs |
 | `evidence` | hash links to the results backing the claims |
 | `attestation` | signatory name/role/date + the §6.4 responsibility sentence |
@@ -553,17 +553,20 @@ skipped is not a 9646 verdict, it records ICS-driven selection. The
 recording (`recording.har`) beside it holds every exchange, so a re-judgement
 reproduces the document byte for byte.
 
-**`results.json` of a measured campaign** (`schemas/results.schema.json`):
-the SUT identity, the runner, the `ixit_digest`, and `measurements`: per
-performance case the metric values, the encoded HDR histograms and the
-`earned | not-earned` class verdict, with the mandatory environment block
-(§8.14).
+**`perf-result.json` of a measured run** (`schemas/perf-result.schema.json`):
+the target's System OPTIONS identity, the environment block, the generator's
+fingerprint and the host prescription it claims, the posture block, the
+embedded workload and corpus, and per plateau the encoded HDR histograms, with
+every derived number beside them (§8.14). A statement carries no performance
+claim; the schema refuses a `performance` member by name.
 
 **`ixit.json`** (9646 IXIT): the SUT **topology**, one or more **named
 instances** (each: base URL, auth mode and the names of the variables its
 credentials are read from) plus the **environment block** (hardware class,
 cores, memory, storage class, deployment topology — mandatory for
-performance runs, §8.14). A rows file's `declared` inputs read their values
+performance runs, §8.14) and, for a measured run, the optional `containers`
+block naming the server and database containers and the `database` the
+server-side readings query. A rows file's `declared` inputs read their values
 from it (§15.7). The shipped contract is `schemas/ixit.schema.json`.
 
 ### 8.11 ICS-driven selection and verdict computation
@@ -585,11 +588,11 @@ A pure function of (statement, IXIT, catalogue, recording):
    against the server, and a row whose failing criteria are all `should` is
    a warning and never counts against a capability. `veredictum test` exits
    `1` when a row failed (not a warning) or errored.
-5. **Measured verdicts** (the second machinery, `veredictum verdicts`): per
-   measurement, every §8.14 threshold of its performance case is re-derived
-   from the embedded histograms; a stored verdict that does not re-derive, a
-   claimed class with no measurement, and a claim with no environment
-   reference are review findings.
+5. **Measured records** (the second machinery, `veredictum perf-judge`):
+   every derived number of a `perf-result` is re-derived from its embedded
+   histograms, and a record that does not reproduce byte for byte is named
+   by the JSON pointer of each difference. A measured record earns no class
+   and enters no conformance verdict (§8.14).
 
 Any two conformant implementations of this pipeline MUST compute identical
 verdicts from the same inputs.
@@ -610,204 +613,417 @@ Live-SUT conformance stays a second leg: the catalogue is driven against at
 least two independent live SUTs, and every disagreement is attributed under
 `.claude/rules/cnf-triage.md` before anything changes.
 
-### 8.14 The performance & volumetrics schedule
+### 8.14 Measured performance: traffic emulation
 
-Performance conformance is its own dimension with its own machine-readable
-schedule — same artifact discipline, different verdict machinery. A
-performance case (`kind: performance`) defines:
+No openEHR specification governs this section. The CNF guide says so in as
+many words: "Non-functional conformance (performance, etc) is not addressed
+by this guide" (`master03-overview.adoc`). Everything below is our own
+design, and every method claim names the source it rests on.
 
-```yaml
-# perf/classes/PERF-hospital_sim-class_S.yaml (the journey shape,
-# 2026-07-22 — the original flat mix `{ composition_read: 61%, adhoc_query:
-# 30%, composition_commit: 8%, ehr_create: 1% }` is preserved here as the
-# derivation's historical first realization; the journey catalogue
-# decomposes the same envelope)
-id: PERF-hospital_sim-class_S
-kind: performance
-component: PERFORMANCE
-description: "Class-S sustained hospital-simulation workload"
-test_purpose: >
-  Under the class-S normative offered load, decomposed into clinical
-  journeys over the whole claimed platform surface, the platform sustains
-  the class-S latency and throughput thresholds on every operation.
-spec_refs: ["CNF 2.0 performance schedule §classes (this proposal; 2017 schedule lineage)"]
-class: S                        # POC | S | L | R — the selection key (§8.11 step 5);
-                                # performance cases carry no `capabilities`
-corpus: cnf.scale.100k          # synthesized corpus recipe (§11.11 scale classes)
-workload:                       # OPEN-LOOP offered load:
-  arrival_rate: 15/s            #   the class-S floor (table below), in aggregate
-                                #   OPERATION arrivals — a seeded schedule, never
-  warmup: PT5M                  #   closed-loop users, so coordinated omission
-  duration: PT1H                #   cannot hide stalls
-  journeys:                     # shares of JOURNEY instances (the catalogue,
-    chart_review: 56%           # perf/journeys.yaml, expands each into
-    ward_dashboard: 12%         # its ordered, time-offset operation stages);
-    vitals_round: 6%            # the validator recomputes the expansion — the
-    # … (the committed cases    # expanded write share must sit inside the
-    # carry 18 journeys)        # derived 10:1..50:1 read-heavy band (below)
-thresholds:                     # ALL must hold in the single measured run
-  - { metric: latency_p99, max: 1s }   # operation-less = EVERY measured operation
-  - { metric: error_rate, max: 0 }
-  - { metric: offered_load_sustained, min: 15/s }   # class-S floor (table below)
-# environment: bound to the mandatory ixit.json environment block (§8.10)
-```
+The instrument measures a CDR the way a clinical system loads it. It offers a
+declared mix of operations, AQL shapes and payloads at Poisson arrival
+rates, measures every latency from the instant the request was due, walks a
+short ladder of offered rates up to the knee, and writes one record from which
+every reported number is re-derived offline. It reports, per operation and
+overall, p50, p95, p99, p99.9 and max, the achieved throughput, the error rate
+by class, and how latency moves as the offered load rises. The full run after
+seeding takes at most ten minutes, and about five when the server is fast.
 
-**Provisional class parameters** (proposed defaults pending SEC
-ratification; derivation shown so the numbers are arguable, not arbitrary):
+**The owner's rulings of 2026-10-30 (#879, #880).** They are the frame of
+this section, and each is restated where it bites:
 
-| Class | Population served | Corpus | Offered-load floor (peak API arrivals, sustained) | p99 API budget | Error rate |
-|---|---|---|---|---|---|
-| POC | demo | 10k EHRs | 2/s (demonstration floor, not population-derived) | ≤ 1 s | 0 |
-| S | 100k | 100k EHRs | **15/s** (derived band 13–75/s) | ≤ 1 s | 0 |
-| L | 1M | 1M EHRs | **150/s** (band 130–750/s) | ≤ 1 s | 0 |
-| R | 10M | 10M EHRs | **1,500/s** (band 1,300–7,500/s) | ≤ 1 s | 0 |
+1. `bench` folds into `perf`, and `bench`, `bench-compare` and `bench-packs`
+   go.
+2. `aql-probe` folds into perf's server-side readings, and the command goes.
+3. POC, S, L and R stay as names of corpus scales (10k, 100k, 1M and 10M
+   EHRs). They are no longer pass or fail classes.
+4. The statement's `performance` block is removed.
+5. A plateau qualifies when every operation holds p99 ≤ 1 s (≤ 5 s for
+   population AQL), errors stay at or below 0.1 %, and the achieved
+   throughput is at least 95 % of the offered rate. A workload may set
+   stricter limits and never looser ones.
+6. #595 stands: the console shows no measured results.
+7. Server-side readings come from Docker stats and PostgreSQL only. There is
+   no Prometheus scrape.
+8. The full run after seeding takes at most 10 minutes, 5 where the evidence
+   allows, and there is no second, longer profile.
+9. The plateau hold is fixed: a function of the planned rate, never of the
+   server's answers.
+10. The reference mix is derived and provisional, for SEC ratification.
+11. The reference host of FerroEHR#4188, an idle 8-CPU, 8 GB machine, is
+    recorded as versioned data.
 
-Derivation — the **population-anchored utilization model** (**[legislated]**
-composite of cited statistics, each input graded; SEC ratifies or amends;
-replaces the 2017 concurrent-users guess, following the TPC-C/SAP-SD
-precedent of anchoring load to a countable base unit with a per-unit rate):
+**Why the hour went.** A class run held one rate for an hour and earned a
+letter. FerroEHR's committed record shows what that bought: class POC earned
+at 2.04 arrivals/s for an hour, while the stress report on the same corpus
+showed the server holding 512/s. An hour at a floor says the server is above
+the floor and nothing about where it stops. The knee says that, and finding it
+takes minutes, not an hour.
+
+#### The workload document
+
+A workload is a versioned YAML document under `perf/workloads/<id>.yaml`,
+published as `schemas/perf-workload.schema.json`, emitted and drift-guarded
+like every other schema here. It carries:
+
+| Field | Content |
+|---|---|
+| `id`, `version`, `status` | the workload's name, an integer version, and `provisional` or `ratified` |
+| `seed` | the root of every seeded draw: arrival gaps, think times, the EHR each interaction addresses, query parameters |
+| `corpus` | the recipe the run seeds: scale by name (POC, S, L, R), compositions per EHR, and a template mix of payload keys with shares |
+| `arrival` | `poisson` (the default) or `uniform`, the latter kept only as a labelled comparison with the old even grid |
+| `sample_target` | samples per plateau, 5,000 by default, at least 1,000 |
+| `qualification` | the limits of ruling 5, each at most as loose as the ruled default |
+| `interactions` | a share each, summing to 100 %: either one operation, or a session of stages on one EHR with an exponential think time of at most 10 s mean |
+| `queries` | the AQL query classes: text, parameters, scope, tier, transport mix, `requires` and `on_refusal` |
+
+Every interaction share carries a `derivation` that names its source. The
+operation vocabulary is closed, and each token cites the released ITS-REST
+operation it is sent as (`specs/openehr/ITS-REST/specifications/operations/`),
+so a workload names no wire the release does not define. A query class is
+one `aql` operation per class, keyed `aql:<class>` in the record, and its
+transport mix splits its arrivals over the four released query executions:
+ad-hoc `POST /query/aql`, ad-hoc `GET /query/aql`, and the stored query over
+`GET` and `POST /query/{qualified_query_name}`
+(`specs/openehr/ITS-REST/specifications/query.openapi.yaml`). A query with an
+EHR parameter is single-subject; one without is a population query, and the
+release forbids an EHR scope on it ("It MUST NOT be supplied for 'population
+queries' and similar multi-patient queries",
+`specs/openehr/ITS-REST/specifications/docs/query/Request.md` §About the
+ehr_id parameter). `requires` names the capability folders and option arms a
+query needs beyond its operation's own folder, and `on_refusal` says whether a
+refusal of an optional query counts as an error or is counted apart from
+errors.
+
+Loading the document is its gate. Each failure is a load error naming the file
+and the field:
+
+- shares, at any level, that do not sum to exactly 100 %;
+- a session whose mean think time exceeds 10 s;
+- an operation outside the vocabulary, a stage whose input does not fit its
+  operation, or a query the document does not declare;
+- a payload key missing from `perf/payloads.yaml`, or a template key without
+  its `.example` skeleton;
+- a query whose text does not parse with the released AQL grammar, whose
+  parameters and `$` references disagree, or whose population scope binds the
+  EHR;
+- a `requires` token that names no capability folder under
+  `catalogue/cases/` and no option arm of `catalogue/capabilities.yaml`;
+- an expanded per-operation mix outside the 10:1 to 50:1 read band of step 4
+  below;
+- a qualification limit looser than the ruled default;
+- a planned run longer than 10 minutes after seeding.
+
+A statement drops what it does not claim. An interaction requires the
+capability folder of every operation it sends, plus the `requires` of every
+query it runs; when the statement claims less, the interaction leaves the mix,
+the loader reports the drop and the renormalized shares, and the record
+carries both. `perf --workload <file>` takes an evaluator's own document. The
+embedded workloads are pinned by sha256 in the binary, and a document that
+matches none is labelled `custom` in every record and every rendering.
+`perf-workloads --out <dir>` writes the byte-deterministic manifest of the
+embedded workloads with their digests, the expanded mix, the read:write ratio,
+the planned run range, and every payload with its size; the workload page is
+generated from it.
+
+The reference workload is `clinical-mix` v1 (#882), carried over from the 24
+journeys of `perf/journeys.yaml` without their minute-scale offsets. Chart
+review becomes a session; vitals, laboratory results, medication orders,
+corrections, folders, tags, templates and the demographic side become
+single-operation interactions; the query set joins the six `aql-mix` classes
+with the front-end shapes (patient summary, observation trend, ward board,
+problem list with a `TERMINOLOGY()` variant behind the `aql-terminology`
+option arm, and cohort `COUNT`). No published per-operation trace of a
+production openEHR CDR exists in the sources read, so every share rests on
+derivation, says so, and is provisional by ruling 10.
+
+#### Arrivals: open, partly open, and Poisson
+
+A closed-loop generator issues the next request only after the previous
+answer, so a slow server is offered less work and its stall disappears from
+the samples. Schroeder, Wierman and Harchol-Balter show that open and closed
+models of one system answer differently by orders of magnitude, and that real
+web traffic sits between them: users arrive open, then run a short closed
+session ("Open Versus Closed: A Cautionary Tale", NSDI 2006). The instrument
+uses that partly-open model. Interactions arrive open on the planned
+schedule; inside a session each stage waits for the previous answer and a
+drawn think time, and the session addresses one EHR throughout.
+
+Arrival gaps are exponential, so arrivals are Poisson. An even grid has no
+arrival variance and understates queueing: by Kingman's heavy-traffic
+approximation the mean wait scales with `(ca² + cs²) / 2`, the squared
+coefficients of variation of inter-arrival and service time (Kingman, "The
+single server queue in heavy traffic", Proc. Cambridge Phil. Soc. 57(4),
+1961). A grid sets `ca² = 0` and hides half the term. The offered rate is
+counted in operation arrivals per second, the unit of the population model
+below.
+
+Every latency is measured from the intended instant, never from when the
+request left: a request due at `t` that leaves at `t + 40 ms` because the
+generator or the connection pool was behind carries those 40 ms. This is
+wrk2's correction for coordinated omission (Tene, wrk2 README,
+<https://github.com/giltene/wrk2>; "How NOT to Measure Latency"). The
+generator records its own lag (actual send minus intended) in a histogram,
+and a plateau whose lag p99 exceeds 5 ms while the server keeps up is
+`generator_bound` and never qualifies. HdrHistogram's post-hoc correction
+assumes a fixed interval and is not used. k6 draws the same line between its
+`constant-arrival-rate` and `ramping-arrival-rate` executors and its
+closed-model ones, and counts the arrivals it could not start as
+`dropped_iterations` (k6 documentation, executors); Gatling's open injection
+profiles, Vegeta's constant-rate attack and Locust's user model are the
+other points of comparison read.
+
+#### The ten-minute run
+
+Seeding comes first and is outside the clock: a closed-loop bulk load of the
+corpus recipe, reported apart and labelled closed-loop. Then:
+
+| Phase | Duration | What happens |
+|---|---|---|
+| settle | 15 s | `ANALYZE` or the declared `settle_maintenance` where containers are declared, then idle (FerroEHR#4318 traced A/A differences to an un-analyzed clone) |
+| warm-up | 20 s | the start rate, discarded |
+| scout | 60 s | an exponential ramp judged in 2 s windows; the first breaching window gives the knee estimate K̂ (k6 `ramping-arrival-rate`) |
+| drain | ≤ 10 s | in-flight work completes |
+| ladder | 4 × (5 s ramp-in + hold) | plateaus at 0.5, 0.75, 0.9 and 1.05 × K̂, plus one at 0.25 × K̂ only when the 0.5 plateau fails (Gatling's stairs injection) |
+| closing | ≈ 10 s + the longest expected session span | the posture canaries, after the last plateau's sessions finish |
+
+The hold of a plateau at rate `r` is `clamp(sample_target / r, 30 s, 90 s)`
+(ruling 9), so two targets offered the same rates receive identical work. The
+fixed phases sum to 115 s. Four plateaus of 35 to 95 s give 4.3 minutes when
+every plateau runs above 167/s, 8.3 minutes when every plateau runs at or
+below 56/s, and 9.8 minutes with the extra plateau; a knee near 200/s takes
+about 4.7 minutes. The loader adds the longest expected session span of the
+workload (stages less one, times the mean think time) to the closing phase and
+refuses a workload whose upper bound exceeds 600 s, so a session-heavy
+workload pays for its tail in the gate rather than at run time. There is no
+quick profile and no repetition of the ladder (ruling 8).
+
+Rates are operation arrivals per second; the generator draws interactions at
+the rate divided by the mix's operations per interaction. The warm-up holds
+8/s and the scout ramps from 8/s to 4,096/s, both settable per run. The scout
+stops early once the exchanges in flight exceed twice the planned rate times
+the largest latency budget, because by Little's law the mean latency is then
+past twice the budget and the rest of the ramp would only bury the server.
+The 0.5 plateau runs first and alone. When it fails, the extra plateau runs
+next, before a higher plateau can leave its backlog behind, and the 0.75, 0.9
+and 1.05 plateaus then run as one continuous profile, so sessions carry
+across their boundaries. Between these legs the run waits at most the largest
+latency budget for outstanding exchanges; an exchange still out by then is
+over every budget already.
+
+**The 5,000-sample argument.** The binomial order-statistic interval puts a
+distribution-free 95 % confidence interval on a quantile from the ranks
+`np ± 1.96 √(np(1 − p))` (Le Boudec, *Performance Evaluation of Computer and
+Communication Systems*, 2010, §2.2). At `n = 5,000` and `p = 0.99` that is
+ranks 4,936 to 4,964, about p98.7 to p99.3, with 50 samples above the
+estimate. At 500 samples only 5 lie above, and the instrument declares a
+quantile with fewer than 10 samples above it `not_resolvable` rather than
+print a number that is mostly noise.
+
+**Qualification (ruling 5).** A plateau qualifies when its achieved
+throughput is at least 95 % of offered, every operation holds its budget at
+the quantile it is judged at (p99 ≤ 1 s, ≤ 5 s for population AQL, or the
+workload's stricter limit), the error share is at most 0.1 %, and it is not
+`generator_bound`. A `429` refuses the record. A refusal of an optional query
+whose `on_refusal` is `count_apart` is counted in its own column and never as
+an error.
+
+#### What is measured
+
+Per plateau, per operation and overall: p50, p90, p95, p99, p99.9 and max,
+each with its 95 % interval and resolvability; the achieved throughput; the
+error share by class; the mean in flight, from Little's law `L = λW` (Little,
+"A Proof for the Queuing Formula: L = λW", Operations Research 9(3), 1961);
+and the half-to-half ratio of p50 and p95, which marks a plateau `unsteady`
+outside 0.8 to 1.25. Overall numbers come from summed histograms, never from
+an average of percentiles (HdrHistogram `add`, <https://hdrhistogram.org/>).
+Each operation names `judged_at`, the highest quantile it resolves: an
+operation with a 10 % share at 5,000 samples has 500 samples and is judged at
+p95.
+
+Per run: the knee, the highest offered rate whose plateau and every lower one
+qualify, with its achieved throughput (Jain, *The Art of Computer Systems
+Performance Analysis*, 1991, ch. 3, usable capacity), stated as a bracket up
+to the first failing plateau or as a lower bound when 1.05 × K̂ qualifies; the
+peak achieved throughput whatever the latency; and a fit of the Universal
+Scalability Law `X(N) = γN / (1 + α(N − 1) + βN(N − 1))` of throughput against
+mean in flight (Gunther, *Guerrilla Capacity Planning*, 2007;
+<https://arxiv.org/abs/0808.1431>), recorded with α, β, N\*, the predicted
+maximum and R² as an explanatory model and never a verdict.
+
+Server-side readings sit beside each plateau as context that never bears on
+qualification (ruling 7): CPU, RSS, block and network I/O per declared
+container from the Docker Engine API, the database and per-schema sizes at the
+plateau's start and end, the top statements by total time from
+`pg_stat_statements`, and the PostgreSQL settings once per run. Each reading
+is `present` or `absent` with its reason, and a sampler failure truncates its
+series and never fails the run. The statement table is the attribution
+`aql-probe` used to provide (ruling 2). The database the readings query is
+named by the IXIT member `containers.database`; without it the database
+readings are absent with that reason. The sampler is read-only: it creates no
+extension, changes no setting and resets no statistic, so the statement table
+is the difference of two `pg_stat_statements` snapshots taken at the hold's
+start and end, and a server without the extension gets an absent reading
+rather than an instrument that alters it.
+
+#### What one pass gives up, and how the record says so
+
+A single pass gives sampling intervals and nothing else. It does not measure:
+
+- **between-run noise.** FerroEHR#4318 saw two GitHub-hosted runs of the same
+  code read up to 156 % apart. The record carries `passes: 1` and
+  `between_run_noise: unmeasured` unless an A/A floor from `perf-compare` is
+  attached (Kalibera and Jones, "Rigorous Benchmarking in Reasonable Time",
+  ISMM 2013, on why repetition at the right level matters more than count);
+- **p99 for rare operations.** An operation's samples are its share of the
+  plateau's; below 1,000 it is judged at a lower quantile and the record names
+  that quantile in `judged_at`;
+- **a bisected knee.** The ladder brackets the knee between two plateaus and
+  says which; it never bisects further;
+- **behaviour beyond ten minutes.** Memory growth, data growth and hours of
+  operation are out of reach. Every record carries one scope sentence: a run
+  of at most ten minutes measures steady-state capacity and says nothing about
+  memory growth, data growth or behaviour over hours.
+
+#### The record and its re-judgement
+
+One family replaces the four measured families of before:
+`schemas/perf-result.schema.json` (#884). Its `raw` part holds the target's
+System OPTIONS identity, the instrument version, the IXIT environment block,
+the generator fingerprint, the host prescription claimed, the posture block,
+the embedded workload and its digest, the corpus recipe and its digest, the
+seed, the scout's 2 s windows, and per plateau the planned rate and hold, one
+encoded HDR histogram per hold half and operation, counters by error class,
+the lag histogram, in-flight samples, and the first 16 failed exchanges per
+operation. Its `derived` part holds every number above.
+`veredictum perf-judge --result <file>` recomputes `derived` from `raw` and
+exits `1` on any byte of difference, the measured counterpart of re-judging a
+`recording.har` (§8.12). The USL fit uses pinned arithmetic, a fixed solver
+and iteration count, so the re-judgement reproduces it. `show`,
+`export --markdown`, `perf-assets` and `perf-compare` read the record.
+
+#### Comparability, posture and the reference host
+
+An absolute millisecond describes a system and the machine it ran on
+together. `perf-compare` aligns two or more records into one table and names
+every mismatch above it: workload digest, corpus digest, posture, host
+prescription and fingerprint, network leg; it exits `1` when any applies.
+`--ab <A> <B>` keeps both targets resident on one host, seeded from one recipe
+and seed, gives each its warm-up and scout, builds the shared ladder from the
+larger estimate so both sides are offered the same rates and holds, and
+alternates the plateaus per rate in ABBA order. `--aa` runs the same
+interleaving with one target on both sides and records the floor, the largest
+A/A ratio per metric. A difference counts only when it exceeds the declared
+tolerance and the attached floor, and the two sides' 95 % intervals do not
+overlap. `--with-baselines` keeps the pinned EHRbase and FerroEHR
+compositions, each its own published deployment recipe at an immutable tag,
+and the relative index against them, interleaved the same way.
+
+The posture profiles and their bracketing canaries came from the bench
+instrument unchanged. A run declares one profile (`minimal`, the bare
+spec-conformant surface with validation at `template`, because the release
+puts it there: ITS-REST `specifications/responses/422.yaml`; or
+`clinical-default`, the same with an audit trail). Each item is probed
+black-box where an observable exists and labelled `verified` or
+`declared-only`: version signing from the run's own committed versions (RM
+`UML/classes/version.adoc` §Attributes, `signature`), commit validation from
+the workload's invalid twin (`422` on
+`specifications/operations/composition_create.yaml`), authentication from one
+uncredentialed request, compression from one `Accept-Encoding` request, and TLS
+from the base URL. Audit and tenancy have no released read surface and stay
+`declared-only`. The canaries run after seeding and again after the last
+plateau; a reading that contradicts the declaration, or two readings that
+disagree, refuse the run.
+
+The reference host is versioned data (ruling 11): `perf/hosts/<id>.yaml`
+names the machine class, vCPU, memory, storage class, container ceilings and
+network leg, the first being the idle 8-CPU, 8 GB host of FerroEHR#4188. A
+record names the prescription it claims beside the fingerprint it measured,
+and a record on an unmatched prescription says so. The neutral-host model
+extends the same prescription to a load generator on hardware no vendor
+controls, with the network leg (`same-host`, `same-zone`, `cross-region`) a
+record field; a record naming no leg reads as `same-host`.
+
+#### The population reading
+
+The classes are gone (ruling 3); their derivation stays as the reading that
+puts a knee in context. The **population-anchored utilization model** turns
+a population into peak API arrivals per second:
 
 1. **Clinical documents per capita per year ≈ 46**, from published activity
-   rates × documents per event: doctor consultations 6/capita (OECD Health
-   at a Glance 2023; Eurostat range 4.4–10.1) × 1 doc; inpatient discharges
-   0.128/capita (OECD/Eurostat) × ~10 docs/stay; ED visits 0.3/capita
-   (OECD WP 83; 40-country median) × ~4 docs; laboratory results 15/capita
-   (RCPath — flagged low-confidence); imaging 0.82/capita (NHS Diagnostic
-   Imaging Dataset 2023/24) × 1; prescription items 21.8/capita (NHS BSA
-   PCA 2024/25, accredited statistic) × 1. Sanity: between Denmark/Estonia
-   major-document exchange rates (~8–10/capita/yr) and Finland Kanta's
-   all-inclusive ~130/capita/yr (>2M documents stored/day).
-2. **Average writes/s** = population × 46 ÷ year-seconds → 0.15/s per 100k.
-3. **Peak factor ×8** (band 6–10): weekday concentration ×1.4 · busy-hour
-   ≈17% of daily traffic ×~4 (the Cisco/ITU-T E.500 busy-hour convention) ·
-   intra-hour burstiness ×1.2–1.5; healthcare corroboration: ED arrival
-   rates vary >3× over 24 h, ~88% of arrivals in the 16 non-overnight
-   hours.
+   rates times documents per event: doctor consultations 6/capita (OECD Health
+   at a Glance 2023; Eurostat range 4.4–10.1) × 1 document; inpatient
+   discharges 0.128/capita (OECD/Eurostat) × ~10 documents per stay; ED visits
+   0.3/capita (OECD WP 83; 40-country median) × ~4; laboratory results
+   15/capita (RCPath, flagged low-confidence); imaging 0.82/capita (NHS
+   Diagnostic Imaging Dataset 2023/24) × 1; prescription items 21.8/capita
+   (NHS BSA PCA 2024/25, an accredited statistic) × 1. Sanity: between the
+   Danish and Estonian major-document exchange rates (~8–10/capita/yr) and
+   Finland Kanta's all-inclusive ~130/capita/yr (>2M documents stored a day).
+2. **Average writes/s** = population × 46 ÷ seconds per year, so 0.15/s per
+   100k.
+3. **Peak factor ×8** (band 6–10): weekday concentration ×1.4, a busy hour of
+   ≈17 % of daily traffic ×~4 (the ITU-T E.500 busy-hour convention), and
+   intra-hour burstiness ×1.2–1.5. ED arrival rates vary more than 3× over 24
+   h, with ~88 % of arrivals in the 16 non-overnight hours.
 4. **Read multiplier 10:1** (the 90/10 read-heavy OLTP convention,
-   OLTP-Bench/YCSB) as the floor's mix — with audit-log evidence (~597 EHR
-   interactions per encounter, PMC10148376) bounding a read-heavy upper
-   band at ~50:1, which gives each class its band ceiling.
-5. **Result: ≈13 peak API arrivals/s per 100k population** (band 13–75);
-   class floors rounded to 15/150/1,500 per class population. Envelope
-   checks against real systems: NHS Spine peaks at 3,500 coarse
-   messages/s for ~60M people; the Catalonia 13M-patient openEHR CDR
-   (117M compositions) published the lesson that **per-EHR data volume
-   dominates query cost** — honoured by the corpus ladder's per-patient
-   volume assumption (~100 composition versions/EHR, §11.11).
+   OLTP-Bench and YCSB) as the floor, with audit-log evidence (~597 EHR
+   interactions per encounter, PMC10148376) bounding a read-heavy ceiling at
+   ~50:1. The same band is the workload loader's read-band gate.
+5. **Result: ≈13 peak API arrivals/s per 100k population**, band 13–75.
 
-The latency budget is the **standard per-operation SLO of p99 ≤ 1 s,
-uniform across classes** — the same SLO the committed knee-ladder
-methodology already defines sustainability by (FerroEHR's
-`docs/benchmarks/*/KNEE.md`: "SLO p99 ≤ 1 s, error ≤ 0.1%"). The 2017
-page's user counts and screen latencies are recorded as lineage only.
-Procurers who need tighter tails or the read-heavy band ceiling tighten per
-tender via the §10 template parameters. Corpus sizes are the 2017 D-row
-scale ladder. Feasibility is evidenced by FerroEHR's committed measurement
-artifacts (its `docs/benchmarks/`, regenerated per release, never
-hand-typed): FerroEHR sustains a 631.5 req/s knee at p99 204.7 ms and
-upstream EHRbase 475.0 req/s (its `ferroehr/KNEE.md`, `ehrbase/KNEE.md`) on
-8-core consumer hardware —
-the class-L floor (150/s) is comfortably attainable — a consumer laptop
-already sustains 4× it — and the class-R floor (1,500/s) is a
-server/scaled-deployment target bracketed by NHS Spine's published peak,
-consistent with its "Region" intent.
+The reading divides the knee by that band and prints the population a
+deployment of this shape could serve at its peak, as a band, beside the
+corpus scale the run seeded (POC 10k, S 100k, L 1M, R 10M EHRs) and the
+environment it ran on. The Catalonia 13M-patient openEHR CDR (117M
+compositions) published the lesson that per-EHR data volume dominates query
+cost, which is why the corpus recipe names compositions per EHR and why a
+reading is only ever stated at its scale.
 
-Performance case fields (∎ beyond the common fields — `id`, `kind`,
-`component`, `description`, `test_purpose`, `spec_refs`): `class` ∎,
-`corpus` ∎, `workload` ∎ (`arrival_rate` ∎, `warmup` ∎, `duration` ∎,
-`mix` ∎), `thresholds` ∎. The **knee-finding ladder is not a case** — it is
-the exploratory procedure (donated methodology) an implementer uses to pick
-which class to claim; the class case is the single fixed-offered-load
-sustained run that earns it. The measurement record in `results.json`
-carries, per case × operation: request count, error count, p50/p90/p99
-latencies, and the full HDR histogram (encoded) — so thresholds are
-re-checkable from the artifact. `perf` creates that `results.json` when
-`--results` names no file: the new record carries the SUT identity (the
-server's System OPTIONS answer, the operator's `--sut-name`/`--sut-version`
-for what it does not state), the instrument's own facts, and no conformance
-outcome, and an existing record gains or replaces the measured case's
-record. Performance `spec_refs` cite the proposal
-lineage and are exempt from vendored-spec link-checking (the admitted scope
-extension, §6.3).
-
-Rules:
-
-- **Classes are earned, not declared**: a class rating requires every
-  threshold of that class's case(s) to hold in a single measured run;
-  results land in `results.json` as measurements + a per-class
-  `earned | not-earned` verdict. The 2017 ladder supplies the shape (POC ~5
-  users; S ~100 users/100k EHRs; L ~1000 users/1M; R ~10k users/10M); the
-  concrete threshold numbers carry the provisional defaults above (the 2017
-  page's "XX" rates made concrete, derivation shown) — SEC ratifies or
-  amends them with the chapter (§11.4).
-- **Environment-bound**: performance is meaningless without the deployment
-  described — the `ixit.json` environment block (hardware class, cores,
-  memory, storage class, topology) is mandatory for performance runs, and
-  every earned class is reported *with* its environment. This answers the
-  reason the current Guide excluded performance, without excluding it.
-- **Statement + certificate**: the statement claims a target class per
-  environment; the certificate reports the earned class alongside the
-  functional profile — the 2017 multi-dimensional certificate
-  (Functional | Performance | Security per §8.15, with Enterprise following §11.11).
-- **Reference methodology**: seeded workload generators + the knee-finding
-  and sustained-run procedure of a published benchmark harness (FerroEHR's
-  `tools/benchmark` was the donated working draft; the methodology ships
-  here as the `perf` and `stress` instruments under `app/veredictum/src/`);
-  any runner reproducing the workload definition and emitting
-  the measurement schema qualifies — harness independence holds here too.
-
-**The journey decomposition (2026-07-22, the hospital simulation — FerroEHR#240).**
-The measured workload evolved from the flat four-operation mix into
-journey-structured arrivals: the performance case's `workload` block names
-shares of *clinical journeys* (a committed catalogue,
-`perf/journeys.yaml` — ADT admission/discharge, vitals rounds,
-the eMAR loop, medicines reconciliation, asynchronous laboratory/imaging
-order-to-result pipelines, specialist/registry reporting, public-health
-notification, chart review, ward dashboards with a registered stored
-query, versioned corrections, contribution audit review, ITEM_TAG
-workflow tagging, logical deletion, and the integration-engine template
-poll), each journey an ordered, time-offset operation sequence over a
-closed 22-operation vocabulary with fixed ITS-REST wire realizations,
-payloads carried by COMPOSITION-rooted openEHR CKM templates vendored
-with provenance. The population anchor is UNCHANGED and machine-enforced:
-`arrival_rate` stays aggregate operation arrivals (this section's floors'
-unit); every journey's `derivation` cites the same activity-statistics
-register as the floors (documents per discharge, prescription items per
-capita, laboratory reports per capita, the audit-log ~597
-interactions/encounter read evidence); and loading the performance
-schedule recomputes the catalogue expansion of every workload,
-requiring the expanded write share inside the 10:1..50:1 read-heavy band
-of step 4 — the decomposition is arguable, never arbitrary. Every stage is
-its own planned arrival on the same open-loop schedule (dependent stages
-never block; an unlanded prerequisite records as an error), and the
-extended 8/12-hour holds may follow a diurnal day curve realizing step 3's
-ITU-T E.500 busy-hour convention (the floor is then the busy-hour rate).
-The certificate reports workload coverage: exercised capabilities vs the
-ICS claims, with untouched claimed capabilities listed as catalogue gaps.
-
-**Where the schedule lives (#746).** The performance schedule is its own
-tree, `perf/`, beside the conformance catalogue and independent of it:
+#### Where it lives
 
 ```text
 perf/
-  classes/PERF-hospital_sim-class_{POC,S,L,R}.yaml   the performance cases
-  journeys.yaml                                      the journey catalogue
-  payloads.yaml                                      key -> file, template_id, provenance
-  payloads/                                          the CKM templates and their example
-                                                     skeletons, the scale-corpus OPT, the
-                                                     Simplified-FLAT pair, the demographic bodies
+  workloads/<id>.yaml     the workload documents (clinical-mix v1 first)
+  hosts/<id>.yaml         the host prescriptions
+  payloads.yaml           key -> file, template_id, provenance
+  payloads/               the CKM templates and their example skeletons, the
+                          scale-corpus OPT, the Simplified-FLAT pair, the
+                          demographic bodies
 ```
 
-`perf`, `stress`, `aql-probe` and `perf-assets` take this tree as `--root`
-and read nothing else: a journey operation carries its own wire realization,
-and every payload a stage sends is a file in `payloads/`. Loading the tree
-is its gate: a workload outside the read-heavy band, a stage template or
-auxiliary payload missing from the manifest, a manifest file that does not
-exist, and a manifest entry no stage reads are each a load error naming the
-file, so an instrument refuses a defective schedule before it contacts a
-server. The schedule is kept apart from `catalogue/` because the catalogue
-holds conformance workflows only (§15.10), and no released openEHR text
-assigns a class, a load or a threshold.
+The schedule is kept apart from `catalogue/` because the catalogue holds
+conformance workflows only (§15.10), and no released openEHR text assigns a
+load or a threshold. A workload reads `catalogue/` for one thing, the names
+its `requires` tokens must resolve to.
+
+#### What the design removes
+
+With the replacement landed (#891, #892), nothing offers the old surface:
+
+- the commands `stress`, `stress-compare`, `aql-probe`, `bench`,
+  `bench-compare` and `bench-packs`, and the measured half of `verdicts` with
+  its performance badge;
+- the `perf` flags `--class` and `--hours`, the `PT1H` window, the `PT5M`
+  warm-up, the diurnal curve and the even arrival grid;
+- the schemas `performance-case.schema.json`, `stress.schema.json`,
+  `aql-probe.schema.json`, `bench-result.schema.json`,
+  `bench-packs.schema.json`, and the measured-campaign
+  `results.schema.json`;
+- the trees and modules `perf/classes/`, `probe.rs`, the class path of
+  `pipeline/measured.rs` with `ClassVerdict`, `class_verdict` and
+  `rederive_verdict`, and the console's `ClassVerdict` token;
+- the minute-scale offsets and periodic stages of `perf/journeys.yaml`, whose
+  content the reference workload carries;
+- the statement's `performance` block (ruling 4), which the statement schema
+  then refuses with the field named.
+
+The removal breaks FerroEHR's `scripts/conformance.sh` (`CONF_PERF_CLASS`,
+`CONF_PERF_HOURS`), which its own tracker handles. `community-vitals` and
+`aql-mix` become embedded workloads; the community harness's closed-loop
+sweep stays inside `community-vitals` as a labelled closed-loop phase,
+because that is the figure that compares with the community's published
+number.
 
 ### 8.15 The Security & Privacy schedule
 
@@ -843,185 +1059,6 @@ like every other cell, never declared.
 The catalogue's `security` capability folder holds these behaviours; a
 party claims it like any other folder (§8.10).
 
-### 8.16 The universal benchmark instrument
-
-§8.14 rates a platform against a normative class. The bench instrument answers
-the neighbouring question a procurer and a vendor both ask first: how fast is
-this deployment compared with that one, on this machine, under a load both were
-offered identically. It runs against any reachable CDR with no catalogue, no
-ixit and no artifact root, from a base URL plus one credential whose secret
-never rides argv, as the `bench`, `bench-compare` and `bench-packs` subcommands
-(#163).
-
-**The boundary, stated first, because every number below is read through it.**
-A bench result is a benchmark record for comparative speed. It is not a
-conformance record, not a certificate, and not a §8.14 performance-class
-rating. The class cases stay the only performance surface a certificate may
-cite: a class is earned when every threshold of that class holds in one
-sustained run at the normative offered load, and a ratio against a reference
-deployment tests none of those thresholds. A bench result may motivate a class
-run and never substitutes for one. The engine carries that sentence verbatim in
-the emitted artifact, on the command line's own summary, in every rendered
-comparison, so a number cannot travel away from it.
-
-**The pack model.** A pack is a versioned load definition compiled into the
-binary, so a run has nothing to fetch and nothing to tune. It carries its
-phases, its operation mix over a closed operation vocabulary, its posture
-profiles, the seed its arrival streams draw from, the failed-arrival ceiling it
-is judged by, and its fixtures, each pinned by sha256, verified when the pack
-loads and recorded in the result. Two records describe the same work when the
-pack id, the pack version and the fixture digests agree, and a reader checks
-that from the documents alone. Inside a run every choice is a seeded draw off
-separated FNV-1a streams (the operation, the EHR, the composition, the payload
-variant, the query parameter), so read targets come from the population the run
-itself created and payload bytes vary while the schedule stays a pure function
-of the pack's seed. Two repetitions offer the same work in the same order, and
-a server cannot special-case a request set it cannot predict. `bench-packs`
-emits the whole embedded set as a byte-deterministic manifest, which is what the
-published methodology page is generated from.
-
-The embedded packs: `smoke`, one blood-pressure template over a small corpus,
-which proves the engine; `community-vitals`, the openEHR community's own
-vital-signs harness reproduced from its published source (#164), with the CKM
-`Vital signs` operational template and that thread's own composition instance
-vendored byte-identically under their digests, the same 100 EHRs, the same
-1,000 commits into each, and the same seven composition reads per committed
-composition; and `aql-mix`, six query classes at equal share over a `Vital
-signs` population seeded from those same fixtures, so a query figure and a read
-figure describe one corpus shape. Each pack also embeds the invalid twin of its
-composition, the mandatory `COMPOSITION.composer` deleted and nothing else,
-which is what the commit-validation canary offers.
-
-**Three phase disciplines, each labelled in the record with what it honestly
-measures** (#163):
-
-| Phase | Regime | What it reports | Why it is there |
-|---|---|---|---|
-| `Seed` | closed-loop: fixed counts on a closed worker pool | bulk-load throughput | it builds the population every later phase reads and writes against, and a bulk load has no arrival schedule to be faithful to |
-| `Sweep` | closed-loop: each request issued only after the previous one answered | the whole-loop average a sequential single-client harness produces | it is the figure that compares with a published community number |
-| `Measure` | open-loop: a pack-pinned aggregate arrival rate, warmup then a measured window | per-operation arrivals, failures by class, throughput, p50/p75/p90/p99/p99.9/max in microseconds, and the HDR-V2 histogram every percentile recomputes from | latency is taken from the PLANNED arrival instant, so a stall lands in every arrival queued behind it instead of quietly reducing the request count |
-
-The two regimes answer different questions and are never interchangeable, so
-the record labels every figure with the regime that produced it and
-`community-vitals` runs its read phase both ways. A run seeds once and repeats
-its measured phases N times, three by default. The measured span uses the same
-histogram bounds as the §8.14 instrument (1 µs to 10 min at three significant
-figures), so a bench histogram and a class histogram are read the same way.
-
-**The result family.** A run emits one JSON document in its own artifact
-family, `schemas/bench-result.schema.json`, emitted and drift-guarded like
-every other schema here. It carries the pack block (id, version, seed, fixture
-pins, ceiling), the declared scale and any worker override, the environment
-fingerprint of the machine that offered the load, the target's label and its
-self-reported version where an endpoint discloses one, the methodology
-sentence, the boundary sentence, every repetition in full, and the
-cross-repetition median and inter-quartile range per phase, operation and
-metric. Rankings read the median, and the IQR is what tells a reader how far
-the repetitions spread. Quantiles use the linear interpolation between order
-statistics that R's `quantile(type = 7)` and NumPy's `percentile` both take as
-their default, pinned here rather than left to a library, because at three
-repetitions the interpolation choice is visible in the number. Field ordering
-is ordered-map throughout, so re-rendering the same run's document produces
-the same bytes.
-
-**Same-machine baselines and the relative index (#184).** An absolute
-millisecond describes a system and the machine it ran on together, so a record
-taken on one host cannot be read against a record taken on another. The anchor
-is a reference run: the same pack, at the same seed, under the same container
-ceilings, against a reference CDR composed on the host that just measured the
-target, in the same session. `bench --with-baselines` composes EHRbase and
-FerroEHR from digest-pinned images, writes the compose document itself rather
-than fetching one, drives the pack against each, and tears each stack down with
-its volumes so the next baseline starts on an empty database. Every reference
-runs its own published deployment recipe at an immutable tag with that recipe's
-defaults, never a re-tuned composition, and the pin discloses the recipe
-reference and the posture that recipe actually configures, recorded first-hand
-from the recipe rather than left for a canary to discover (#204). From the
-target and each baseline the record derives the **relative index**: per phase,
-per operation and per metric, the target's cross-repetition median over the
-baseline's. It is dimensionless, so it travels between machines where
-milliseconds do not, and every ratio carries the two medians it came from.
-A place where no ratio could be formed is recorded as a typed gap with its
-reason, because silence in a comparison reads as agreement.
-
-**Posture profiles and bracketed canaries (#165).** A deployment running with
-no audit trail is not playing the same sport as one running with audit and
-signing on, so comparability needs the configuration on the record. Every pack
-defines named posture profiles and a run declares exactly one. `minimal` is the
-bare spec-conformant surface and is what every pack's default declares;
-`clinical-default`, which the reference pack also defines, is that
-surface with an audit trail written to the deployment's own store. Validation
-sits at `template` even
-in `minimal`, because the specification puts it there (ITS-REST
-`specifications/responses/422.yaml` defines the commit refusal as the case where
-the underlying template is not validating the supplied resource), so a server
-that accepts anything is below the floor rather than lightly configured. The
-disclosure block carries the audit sink, the version-signing scheme, the
-commit-validation depth, compression, tenancy, the authentication mode and TLS.
-The first five are profile choices and part of the versioned pack definition;
-the last two are facts of the invocation.
-
-A declaration alone is a promise, so each item is probed black-box wherever an
-observable exists and the record labels it `verified` or `declared-only`:
-
-| Item | Probe | Assurance |
-|---|---|---|
-| Version signing | versions committed by the run's OWN seed traffic are read back and their `signature` inspected, so signing cannot be switched on for a probe alone (RM `UML/classes/version.adoc` §Attributes: `signature` is `0..1`, an OpenPGP signature or a digest, so the armor header separates the schemes) | verified |
-| Commit validation | the pack's own invalid twin is committed inside the run window; acceptance falsifies the declared depth (ITS-REST `specifications/responses/422.yaml`, `422` on `specifications/operations/composition_create.yaml`) | verified |
-| Authentication | one request carrying no credential at all, the only way to see whether the declared mode is enforced | verified |
-| Compression | one request stating `Accept-Encoding`, read over a client that does not decompress, so `Content-Encoding` survives | verified |
-| TLS | the recorded base URL's scheme, which is first-hand | verified |
-| Audit, tenancy | released ITS-REST surfaces no read resource for either | `declared-only`, said plainly |
-
-The canaries **bracket** the measured window: the declaration is checked
-against the running system after the seed phases and again after the last
-repetition. A reading that contradicts the declaration refuses the run, and a
-pair of readings that disagree with each other refuses it too, because the
-numbers would straddle two configurations. Neither is ever a footnote under a
-published number.
-
-**Submittability (#187).** A record is always valid for local exploration.
-Comparing it with other records asks more, and the record names which
-requirements it misses rather than only that it misses some: at least three
-repetitions, because one repetition measures a moment; at least one
-same-machine baseline block with a relative index derived from it; and an
-**error share (#197)** at or below the failed-arrival ceiling its pack version
-pins, for every repetition, phase and operation, on the target and on every
-baseline. Percentiles taken over failed arrivals measure the failure rather
-than the system, so a completely failed run is unrankable by construction: the
-ceiling is part of the versioned pack definition, the engine refuses the
-record, and the rendered summary prints the failed share per phase.
-
-A bench row and a §8.14 class verdict are separate records behind separate
-gates, and nothing in this pipeline promotes one into the other: the
-certificate reports the earned class with its environment (§8.14), never a
-relative index.
-
-**The neutral-host model (#331).** The credibility end state, proposed from the
-community side: the load generator on hardware no vendor controls, every CDR
-reached the same way, through its public API. The design, ahead of the funding
-that builds it:
-
-- *The instance prescription.* A published spec a vendor deployment must match
-  to be comparable: one machine class (vCPU count, memory, disk class), the
-  pinned container ceilings, and one region so the
-  network leg is the same for every row. The prescription is versioned data
-  beside the packs; a record names the prescription version it ran under.
-- *The network leg is a record field.* Today every record is loopback-class
-  (`same-host`); a neutral-host run adds `same-zone` and `cross-region` values,
-  disclosed beside the environment fingerprint, because a ratio only cancels
-  the machine when both sides rode the same leg. A record naming no leg reads
-  as `same-host`, which keeps every existing record honest.
-- *Both records already fit.* A neutral-host conformance run is an ordinary
-  run on different iron, and nothing about it changes when the runner is
-  Foundation-funded. A neutral-host bench run stays a bench record with its leg
-  disclosed.
-- *What waits, and why.* The one funded piece is the load-generator instance;
-  vendor instances are the vendors' own per the prescription. Until the compute
-  conversation lands (the Foundation proposal in motion), the same-machine
-  relative index remains the design's answer to no shared hardware, and the
-  trust page below is the answer to "is it safe to run on my machine".
-
 ## 9. Certification governance — the ladder as a conformity-assessment scheme
 
 **Scheme owner: openEHR International** (the CIC that operationally runs the
@@ -1049,7 +1086,7 @@ Cross-cutting rules:
   ratings per capability family — Platform (CORE/STANDARD/OPTIONS), and
   Enterprise (D/M/X, §11.11) as its chapter lands and Security (SEC-BASIC,
   §8.15) — each per tech profile, plus the measurement-machinery rating
-  (earned performance class per environment, §8.14). Every cell is computed from `results.json` +
+  (the knee and its population reading per environment, from a `perf-result`, §8.14). Every cell is computed from `results.json` +
   `catalogue/capabilities.yaml`, never hand-asserted.
 - **Validity & supersession**: a statement/certificate names the CNF schedule
   release + spec versions + tech profile + exact product version. It never
@@ -1510,7 +1547,7 @@ catalogue/
   sources/veredictum-probes.openapi.yaml   the deliberately wrong requests no released operation defines
 schemas/                               statement, results, ixit, matrix, rows,
                                        dataset, certificate payload, extension schema
-perf/                                  the performance schedule: classes, journeys, payloads (§8.14), a sibling
+perf/                                  the performance workloads, host prescriptions and payloads (§8.14), a sibling
                                        of the catalogue because a measurement is not a conformance verdict
 ```
 
@@ -2060,9 +2097,8 @@ they are this instrument's own design.
   key the foundation generates, so no private key changes hands.
   `deploy/hosted/README.md` carries the procedures.
 - The console offers connect, scope, live run, results, verdicts and the
-  certificate download. The measured instruments (perf, stress, probe, bench)
-  run from the CLI only; perf, stress and probe read the performance schedule
-  under `perf/` (§8.14), and bench carries its packs in the binary.
+  certificate download. The measured instruments (`perf`, `perf-compare`)
+  run from the CLI only and read the workloads under `perf/` (§8.14).
 
 ### 15.11 AQL conformance
 
@@ -2332,6 +2368,30 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   <https://www.kanta.fi/en/statistics>; Catalonia 13M-patient openEHR CDR
   whitepaper (117M compositions; per-EHR volume dominates query cost)
   <https://hip.vitagroup.ag/wp-content/uploads/2026/04/Whitepaper_EN_Towards_large_scale_openEHR_Clinical_Data_Repositories.pdf>.
+
+**Performance-method sources (§8.14):**
+- Schroeder, Wierman and Harchol-Balter, "Open Versus Closed: A Cautionary
+  Tale", NSDI 2006 —
+  <https://www.usenix.org/conference/nsdi-06/open-versus-closed-cautionary-tale>.
+- Tene, wrk2 README (coordinated omission) — <https://github.com/giltene/wrk2>;
+  HdrHistogram — <https://hdrhistogram.org/>; "How NOT to Measure Latency" —
+  <https://www.infoq.com/presentations/latency-response-time/>.
+- Little, "A Proof for the Queuing Formula: L = λW", Operations Research 9(3),
+  1961 — <https://doi.org/10.1287/opre.9.3.383>.
+- Kingman, "The single server queue in heavy traffic", Proc. Cambridge Phil.
+  Soc. 57(4), 1961 — <https://doi.org/10.1017/S0305004100036094>.
+- Jain, *The Art of Computer Systems Performance Analysis*, Wiley 1991, ch. 3.
+- Gunther, *Guerrilla Capacity Planning*, Springer 2007; Gunther, "A General
+  Theory of Computational Scalability Based on Rational Functions" —
+  <https://arxiv.org/abs/0808.1431>.
+- Le Boudec, *Performance Evaluation of Computer and Communication Systems*,
+  EPFL Press 2010, §2.2 — <https://perfeval.epfl.ch/>.
+- Kalibera and Jones, "Rigorous Benchmarking in Reasonable Time", ISMM 2013 —
+  <https://doi.org/10.1145/2464157.2464160>.
+- k6 executors — <https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/>;
+  Gatling injection — <https://docs.gatling.io/reference/script/core/injection/>;
+  Vegeta — <https://github.com/tsenart/vegeta>; Locust —
+  <https://docs.locust.io/en/stable/>.
 
 **Procurement evidence:**
 - Catalonia CDR award —

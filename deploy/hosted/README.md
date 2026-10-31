@@ -8,7 +8,7 @@ record stays with the run, and the repository keeps no list of results. Anyone
 may run the console themselves against a deployment the internet cannot reach.
 
 It runs **functional conformance only**. The measured instruments (`perf`,
-`stress`, the AQL probe and the comparative `bench`) are run locally with the
+`stress` and the comparative `bench`) are run locally with the
 `veredictum` CLI, and the hosted console exposes none of them.
 
 It also serves the catalogue as a reading surface.

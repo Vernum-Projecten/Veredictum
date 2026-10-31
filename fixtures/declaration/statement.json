@@ -88,10 +88,6 @@
     "xml-namespace-v1",
     "terminology-binding-unresolvable-refused"
   ],
-  "performance": {
-    "class": "POC",
-    "environment_ref": "ixit.json#/environment"
-  },
   "attestation": {
     "signatory": "Veredictum test fixtures",
     "role": "Fixture",

@@ -11,9 +11,10 @@ one is written by hand and lives in `website/book/commands/`.
 Two commands make the conformance record: `validate` checks the catalogue,
 and `test` drives it or re-judges its recording. `export`
 renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
-system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
-re-derives the measured class verdicts, `verify` checks a conformance
-certificate offline, and the rest render or explore.
+system. `perf` measures a workload against a live server, `perf-compare`
+compares performance records or runs two servers interleaved, `perf-judge`
+re-derives a performance record, `verify` checks a conformance certificate
+offline, and the rest render or explore.
 
 ## emit-schemas
 
@@ -140,8 +141,8 @@ openEHR specification governs this order; it is this instrument's own design.
 A workflow that declares no inputs carries the marker in a rows file with no
 `rows`, and the workflow then runs once. A conformance-only IXIT declares
 `exclusive_server` alone: the other `environment` members describe the
-hardware a measured run was taken on, and only `perf`, `stress` and
-`aql-probe` read them. `test` reads no `instances` either, since `--base-url`
+hardware a measured run was taken on, and only `perf` and `perf-compare`
+read them. `test` reads no `instances` either, since `--base-url`
 names the server, so `{ "environment": { "exclusive_server": true } }` is a
 whole IXIT for it. The IXIT is checked against the published IXIT schema
 before anything runs, and one that fails it, such as a misspelled member,
@@ -475,493 +476,314 @@ second `--profile development` pass that reports the absences.
 ## perf
 
 ```text
-Execute the performance schedule's open-loop measured run(s) against a live SUT and merge the §8.10 measurement records into a results.json (conformance-by-measurement), creating it when `--results` names no file.
+Run a workload document against a live server and write one `perf-result`.
 
-A new record carries the SUT identity the server states through System OPTIONS, read before any seeding, with `--sut-name` and `--sut-version` filling what it does not state. It records no conformance outcome: nothing selected a statement, so it is `statement_blind`, and the verification pack is `not_run`. An existing file keeps its header and gains or replaces the measured case's record.
+The corpus is seeded (or reused with `--corpus reuse`) before the clock, closed-loop and reported apart. The posture canaries then take their first bracket, and the run after seeding takes at most ten minutes: a 15 s settle, a 20 s warm-up, a 60 s scout ramp judged in 2 s windows, a drain, a ladder of four plateaus at 0.5, 0.75, 0.9 and 1.05 times the knee estimate (a fifth at 0.25 only when the lowest fails), and the closing canaries. The planned duration is printed before the first measured request. A server that answers any exchange `429` gets no record, and a canary that contradicts the declared posture refuses the run.
 
-Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --results <RESULTS> --class <CLASS>
+Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --workload <WORKLOAD> --out <OUT>
 
 Options:
       --root <ROOT>
-          The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
+          The performance root, `perf/` in this repository (workloads/, payloads.yaml, payloads/, hosts/)
 
       --ixit <IXIT>
-          The ixit topology file (JSON) — its environment block is mandatory for a measured run
+          The ixit topology file (JSON); its environment block is mandatory for a measured run
 
-      --results <RESULTS>
-          The measured results record (`results.schema.json`) to merge the measurement records into; created when no file exists at the path
+      --workload <WORKLOAD>
+          The workload document to run, an embedded one under `perf/workloads/` or the evaluator's own (labelled `custom`)
 
-      --sut-name <SUT_NAME>
-          The SUT name a new record carries when the server does not state one through System OPTIONS. Unread when `--results` exists
+      --out <OUT>
+          Where the `perf-result` record is written
 
-      --sut-version <SUT_VERSION>
-          The SUT version a new record carries when the server does not state one through System OPTIONS. Unread when `--results` exists
+      --catalogue <CATALOGUE>
+          The catalogue root a workload's `requires` resolve against
+          
+          [default: catalogue]
 
-      --class <CLASS>
-          Select the performance case(s) of this class (POC | S | L | R)
+      --statement <STATEMENT>
+          A statement whose claims keep the interactions it covers and drop the rest, with the drop recorded
+
+      --corpus <CORPUS>
+          Seed the workload's corpus, or reuse the stored one: a reuse is refused before the warm-up when the server's read-back counts or the stored digest differ
+
+          Possible values:
+          - seed:  Seed the workload's recipe before the clock
+          - reuse: Reuse the stored corpus when its read-back counts and digest match
+          
+          [default: seed]
+
+      --corpus-state <CORPUS_STATE>
+          The stored corpus state a seeding writes and a reuse reads; defaults to the record's path with the extension `corpus.json`
+
+      --seed-workers <SEED_WORKERS>
+          Parallel closed-loop seeding workers
+          
+          [default: 16]
+
+      --start-rate <START_RATE>
+          The warm-up's rate and the scout's starting rate, operations per second
+          
+          [default: 8]
+
+      --scout-end-rate <SCOUT_END_RATE>
+          The scout ramp's end rate, operations per second
+          
+          [default: 4096]
+
+      --host-prescription <HOST_PRESCRIPTION>
+          The id of the host prescription under `perf/hosts/` the run claims to have run on; the record reads the generator's measured fingerprint against it
+
+      --network-leg <NETWORK_LEG>
+          Where the load generator sits relative to the server
+
+          Possible values:
+          - same-host:    The generator and the server share one host
+          - same-zone:    Different hosts in one zone of one provider
+          - cross-region: Different regions
+          
+          [default: same-host]
+
+      --posture <POSTURE>
+          The posture profile the run declares: `minimal`, `minimal-signed-digest`, `minimal-signed-pgp` or `clinical-default`. The canaries check it after seeding and after the last plateau, and a contradiction refuses the run
+          
+          [default: minimal]
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+Latency is measured from the planned arrival instant under open-loop Poisson
+arrivals, so a stall shows up as latency instead of disappearing into a
+slowed-down request rate. The run has one shape, and no flag lengthens it: the
+ladder finds the knee in at most ten minutes after seeding, and the record
+says what such a run cannot show. [Measured performance](running.md#measured-performance)
+walks a run phase by phase and explains how to read the record.
+
+`--root` is `perf/` in this repository: the workloads, the payloads they send
+and the host prescriptions. `--workload` names one workload document, an
+embedded one or your own, which is labelled `custom`. `--catalogue` is only
+read for the capability folders and option arms a workload's `requires`
+tokens name, and `--statement` drops the interactions your claims do not
+cover, with the drop recorded.
+
+The corpus is seeded before the clock, closed-loop, and its listing is stored
+beside the record (`--corpus-state`, by default the record's path with the
+extension `corpus.json`). `--corpus reuse` reuses that corpus instead of
+seeding again, and is refused before the warm-up when the server's read-back
+counts, the stored digest or the recipe moved.
+
+The `environment` block is mandatory because a latency number is a claim
+about a deployment, and a claim with no deployment described cannot be checked
+or reproduced. Every member of it is mandatory here (`hardware_class`,
+`cores`, `memory_gb`, `storage_class`, `topology`), and a run whose IXIT lacks
+one stops before it sends a request, naming the member. A conformance run
+reads only `exclusive_server`, so a conformance-only IXIT may leave the others
+out. The optional `containers` block names the server and database containers
+and the `database` the server-side readings query.
+
+`--posture` declares the posture profile the canaries check after seeding and
+after the last plateau; a contradiction refuses the run. `--host-prescription`
+names a prescription under `perf/hosts/`, which the record embeds and reads
+the generator's measured fingerprint against, and `--network-leg` says where
+the generator sat.
+
+## perf-workloads
+
+```text
+Load the performance workloads through their gates and print, for each, the expanded per-operation mix, its read:write ratio and the planned run range after seeding. With --out, write the byte-deterministic manifest of the pinned workloads with their digests and the page generated from it; with --workload, check one document instead, labelled custom unless it matches a pinned digest
+
+Usage: veredictum perf-workloads [OPTIONS] --root <ROOT> --catalogue <CATALOGUE>
+
+Options:
+      --root <ROOT>            The performance root, perf/ in this repository (workloads/, payloads.yaml, payloads/)
+      --catalogue <CATALOGUE>  The catalogue root a workload's requires tokens resolve against (catalogue/ in this repository)
+      --out <OUT>              Output directory for perf-workloads.json and perf-workloads.md (created if missing)
+      --workload <WORKLOAD>    One workload document to check and summarize
+  -h, --help                   Print help
+```
+
+A workload is the traffic a measured run offers: a versioned document under
+`perf/workloads/`, published as `schemas/perf-workload.schema.json`. This
+command loads every workload through its gates and prints, per workload, the
+expanded per-operation mix, the read:write ratio and the planned run range
+after seeding. A defect is reported against the file and the field, and the
+command exits `1`.
+
+With `--out` it writes `perf-workloads.json`, the byte-deterministic manifest
+of the workloads this binary pins by sha256, and `perf-workloads.md`, the page
+generated from it: every interaction, operation, query class and payload with
+its share and its source. The book's [Performance workloads](perf-workloads.md)
+page is that page, written with `--out website/book/src` and held to the
+pinned workloads by a test. A committed workload whose bytes match no pin is
+refused there, so a changed workload raises its version and its pin together.
+The command also holds `perf/payloads.yaml` to what the workloads read: an
+entry no workload reads is refused, as is a pinned payload whose bytes moved.
+
+With `--workload` it checks one document of your own instead. A document that
+matches no pinned digest is labelled `custom`.
+
+## perf-compare
+
+```text
+Compare performance records: align committed `perf-result` files, or run two targets (`--ab`) or one target against itself (`--aa`) interleaved on one host.
+
+With `--result`, two or more records are read into one table, one column per file. Every field on which they describe different things is named above it: the workload digest, the corpus recipe, the posture, the host prescription, the generator's fingerprint and the network leg. Two records also get a ratio per plateau, operation and metric, with both values beside it; plateaus offered different rates are shown and not judged.
+
+With `--ab`, both targets are seeded from the same recipe and seed and stay resident on one host. Each gets its settle, warm-up and scout; the shared ladder is built from the larger knee estimate, so both sides are offered the same rates and holds; and on each rung the plateaus alternate in ABBA order. `--aa` runs the same interleaving with one target on both sides and attaches its floor, the largest A/A ratio per metric, to both records. A difference counts only when its ratio exceeds the tolerance and the attached floor and the two sides' 95 % intervals do not overlap. Both write `a.perf-result.json`, `b.perf-result.json`, `perf-compare.json` and `perf-compare.md` under `--out`, in about twice a single run.
+
+Exit status: `0` when the records align; `1` when any mismatch applies; `2` when a record cannot be read or a run cannot finish.
+
+Usage: veredictum perf-compare [OPTIONS]
+
+Options:
+      --result <RESULTS>
+          A committed `perf-result`. Repeat the flag once per file; at least two are needed
+
+      --ab <IXIT_A> <IXIT_B>
+          Side A's and side B's IXIT, for an interleaved A/B run
+
+      --aa <IXIT>
+          The IXIT of the one target an A/A run puts on both sides
+
+      --with-baselines <IXIT>
+          The IXIT of a target to run against every pinned reference CDR (EHRbase and FerroEHR), each composed on this host from its own digest-pinned images with the docker CLI and torn down with its volumes afterwards. Each comparison, the target's index relative to that reference, is written under `--out/<reference>/`
+
+      --root <ROOT>
+          The performance root, `perf/` in this repository (workloads/, payloads.yaml, payloads/, hosts/). Needed by `--ab` and `--aa`
+
+      --workload <WORKLOAD>
+          The workload document both sides are offered. Needed by `--ab` and `--aa`
+
+      --catalogue <CATALOGUE>
+          The catalogue root a workload's `requires` resolve against
+          
+          [default: catalogue]
+
+      --statement <STATEMENT>
+          A statement whose claims keep the interactions it covers and drop the rest
+
+      --corpus <CORPUS>
+          Seed both corpora, or reuse the ones stored under `--out`
+
+          Possible values:
+          - seed:  Seed the workload's recipe before the clock
+          - reuse: Reuse the stored corpus when its read-back counts and digest match
+          
+          [default: seed]
 
       --seed-workers <SEED_WORKERS>
           Parallel seeding workers
           
           [default: 16]
 
-      --hours <HOURS>
-          The sustained-window ladder: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12. A longer window is a STRICTER demonstration and persists like any measured run; nothing shorter than the case exists
+      --start-rate <START_RATE>
+          The warm-up's rate and the scout's starting rate, operations per second
           
-          [default: 1]
+          [default: 8]
 
-  -h, --help
-          Print help (see a summary with '-h')
-```
-
-Conformance by measurement. Latency is measured from the planned arrival instant
-under open-loop offered load, so a stall shows up as latency instead of
-disappearing into a slowed-down request rate. A longer `--hours` window is a
-stricter demonstration and persists like any measured run; nothing shorter than
-the case exists.
-
-`--root` is the performance schedule, `perf/` in this repository: the class
-cases, the journey catalogue and the payloads the journeys send. `stress`,
-`aql-probe` and `perf-assets` read the same tree, and none of them reads
-`catalogue/`.
-
-`--results` names the measured record. When no file exists there, `perf`
-creates it: before it seeds anything, it reads the server's identity through
-System OPTIONS, and `--sut-name` and `--sut-version` supply the name and
-version the server does not state. The new record holds the measurements and
-no conformance outcome. No party statement selected the run, so it is
-`statement_blind` with the defaulted technology profile, and its verification
-pack is `not_run`. When the file exists, `perf` keeps its header, replaces any
-earlier record for the same case and adds the new one. `verdicts` and
-`perf-assets` read either kind of record.
-
-The `environment` block is mandatory rather than optional because a latency
-number is a claim about a deployment, and a claim with no deployment described
-cannot be checked or reproduced. Every member of it is mandatory here
-(`hardware_class`, `cores`, `memory_gb`, `storage_class`, `topology`), and a
-run whose IXIT lacks one stops before it sends a request, naming the member.
-A conformance run reads only `exclusive_server`, so a conformance-only IXIT
-may leave the others out.
-
-## stress
-
-```text
-Run the step-load STRESS instrument: geometric load steps to the maximum sustainable throughput — where the system breaks (exploration only; never a conformance record, and class-free by design)
-
-Usage: veredictum stress [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
-
-Options:
-      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --ixit <IXIT>                  The ixit topology file (JSON) — its environment block is mandatory (a throughput number without the deployment described is meaningless)
-      --out <OUT>                    Where to write the stress report (stress.json)
-      --corpus-class <CORPUS_CLASS>  The class-scale corpus the stress runs on (POC | S | L | R — the standardized corpus selector): data volume + workload mix only; no class floor enters the stress report or chart [default: POC]
-      --seed-workers <SEED_WORKERS>  Parallel seeding workers [default: 16]
-      --step-secs <STEP_SECS>        Each load step's recorded hold, seconds (short + intense by design) [default: 120]
-      --bisections <BISECTIONS>      Post-breach bisection refinements [default: 3]
-      --max-rate <MAX_RATE>          The climb cap (arrivals/s) [default: 4096]
-  -h, --help                         Print help
-```
-
-Exploration only, and class-free by design: no class floor enters the stress
-report or its chart. A `stress.json` is never a conformance record, and quoting
-one as if it were is a misuse of the tool.
-
-## bench
-
-```text
-Run the universal SPEED benchmark: an embedded pack against any reachable CDR over its base URL, seeded once and measured N times open-loop (comparative speed only; never a conformance record, a certificate, or a performance-class rating)
-
-Usage: veredictum bench [OPTIONS] --base-url <BASE_URL> --out <OUT>
-
-Options:
-      --base-url <BASE_URL>
-          The system's base URL, up to and including the openEHR REST base (for example `https://cdr.example/openehr/v1`)
-
-      --auth <AUTH>
-          How the client presents itself: `none`, `basic` or `bearer`.
+      --scout-end-rate <SCOUT_END_RATE>
+          The scout ramp's end rate, operations per second
           
-          The secret never rides argv: `basic` reads `VEREDICTUM_CDR_PASSWORD` and `bearer` reads `VEREDICTUM_CDR_TOKEN`, the variables `test` and `identify` read, each also from the file its `_FILE` form names.
-          
-          [default: none]
+          [default: 4096]
 
-      --user <USER>
-          The user `--auth basic` presents; without it, the user is read from `VEREDICTUM_CDR_USER`
+      --host-prescription <HOST_PRESCRIPTION>
+          The id of the host prescription under `perf/hosts/` the run claims
 
-      --pack <PACK>
-          The embedded pack to drive
+      --network-leg <NETWORK_LEG>
+          Where the load generator sits relative to the servers
+
+          Possible values:
+          - same-host:    The generator and the server share one host
+          - same-zone:    Different hosts in one zone of one provider
+          - cross-region: Different regions
           
-          [default: smoke]
+          [default: same-host]
 
       --posture <POSTURE>
-          The posture profile to declare, out of the set the pack defines. Omit to take the pack's first, which is always `minimal`.
+          The posture profile both sides declare
           
-          The run's canaries check the declaration against the running system before and after the measured window, and a contradiction refuses the run.
+          [default: minimal]
 
-      --repetitions <REPETITIONS>
-          How many times to repeat the measured phases. A result with fewer than three is recorded as not submittable, and names that as one of its unmet requirements
+      --tolerance <TOLERANCE>
+          The declared tolerance: a ratio within it either way is never a difference
           
-          [default: 3]
+          [default: 0.05]
 
-      --scale <SCALE>
-          Multiply the pack's EHR count by this factor, for a shorter run. Anything but `1.0` takes the run off the pack's pinned configuration, and the record says so
-          
-          [default: 1]
-
-      --seed-workers <SEED_WORKERS>
-          Override the worker count every seed phase declares. Omit to run the pack's own value, which is what its reference figures describe
-
-      --with-baselines
-          After the target's run, compose each pinned reference CDR on this host from its own digest-pinned images, drive the same pack at the same seed against it, and record the relative index. Needs the docker CLI; a record without a baseline is not submittable
+      --floor <FLOOR>
+          A `perf-result` or `perf-compare.json` carrying an A/A floor, which the ratios are judged against and an A/B run attaches to both records
 
       --out <OUT>
-          Output directory for the result document and its summary
-
-      --label <LABEL>
-          A label for this run, which names its column in a comparison and distinguishes its file name in a shared output directory
+          Output directory: the comparison for `--result`, and the records, corpora and comparison for `--ab` and `--aa`
 
   -h, --help
           Print help (see a summary with '-h')
 ```
 
-A bench run needs no artifact root, no IXIT and no party statement. The pack is
-compiled into the binary with a sha256 pin on every fixture, and the pins are
-recorded in the result.
+A single run carries sampling intervals and nothing else. Two GitHub-hosted
+runs of the same code have read up to 156 % apart, so a number from one run
+set beside a number from another says little about the two systems. An
+interleaved run puts both sides on one host in one window: each rung of the
+shared ladder runs A then B, the next rung B then A, so a drift in the host
+during the run lands on both sides.
 
-### The embedded packs
+`--aa` measures what that interleaving leaves: the same target on both sides.
+Its floor, the largest ratio per metric, is attached to both records and turns
+their `between_run_noise` from `unmeasured` into the floor. Pass that record or
+its `perf-compare.json` as `--floor` to an `--ab` run, and a ratio has to clear
+the floor as well as `--tolerance` before it reads as a difference.
 
-`smoke` proves the engine: one blood-pressure template, a small EHR corpus, and
-one mixed open-loop phase over the read, write and query surface.
-
-`community-vitals` reproduces the openEHR community's vital-signs benchmark
-harness ([thread 17224](https://discourse.openehr.org/t/17224)) and measures the
-same work a second way. Its write phase creates 100 EHRs and commits the same
-Vital signs composition 1,000 times into each with `Prefer: return=identifier`,
-on one worker, reporting bulk-load throughput plus the whole-loop
-milliseconds-per-composition average the thread quotes. Its read phase then runs
-twice over that population. `read_walk` is the sequential walk the harness
-performs, seven GETs against every committed composition: the latest version,
-the same at an instant, the `VERSIONED_COMPOSITION`, its latest version, its
-version at that instant, one version by id, and the revision history. It reports
-the whole-loop microseconds-per-request average. `read_open_loop` offers the same
-seven reads as an arrival schedule pinned at 200/s for 60s after a 15s warmup,
-which is where the coordinated-omission-free percentiles come from. The pinned
-rate is part of the pack version.
-
-Every number in the record carries the discipline that produced it: a
-`closed-loop` whole-loop average and an `open-loop` percentile answer different
-questions and are never read against one another. The two fixtures are embedded
-byte-identically, the operational template from the vendored CKM export for
-template id `Vital signs` and the composition from the attachment on post 8 of
-that thread, both pinned by sha256 and verified at load.
-
-`aql-mix` measures query speed over that same population, from the same two
-pinned fixtures, so a query figure and a read figure describe the same corpus.
-Its seed phase creates 50 EHRs and commits the composition 20 times into each,
-on a pool of 8 workers. The pack version pins that population, and it is sized
-for query shapes: large enough that a query has to choose an access path, small
-enough to load before a measured window opens. The measured phase is open-loop
-at 24 arrivals a second for 60s after a 15s warmup, over six query classes at
-equal share, so each class is offered at 4 arrivals a second and every class
-returns the same number of samples.
-
-| Class | What it probes |
-|---|---|
-| `adhoc_query_point_lookup` | The indexed-read floor: one composition addressed by its own uid inside one EHR, the cheapest query a server can answer |
-| `adhoc_query_ehr_scan` | The loaded-database shape: every composition in one EHR projected by uid, so the cost follows how much that EHR holds |
-| `adhoc_query_filtered` | The value index: a systolic magnitude threshold over the observation leaves of one EHR |
-| `adhoc_query_population` | The cross-EHR planner: the same threshold with no EHR scope and a `fetch` bound, so the server picks an access path over the whole population |
-| `adhoc_query_aggregate` | The columnar shape: one `COUNT` over the population that threshold matches, which returns a single row and reads every value behind it |
-| `adhoc_query_ordered_page` | Sorting and pagination: an `ORDER BY` over composition start time read through a moving `fetch` window |
-
-Each class posts its own AQL statement to `/query/aql`, accepts only `200`, and
-counts every other answer in its own error class, so a server that refuses one
-shape leaves the other five classes' percentiles alone. The systolic threshold,
-the page offset, and the EHR or composition each arrival addresses all draw
-from the run's seeded streams, so no arrival repeats the previous one's result
-set and the whole draw is reproducible from the seed the record discloses. Why
-each class exists travels with the pack definition, so a rendered view explains
-a column without knowing anything about the pack's internals.
-
-`--scale` shrinks the EHR count for a quick run and changes nothing else.
-Anything but `1.0`, or a `--seed-workers` override, takes the run off the pack's
-pinned configuration; the record says so in its `scale` block, the summary says
-so in prose, and `bench-compare` names it in the header.
-
-Credentials never ride the command line, and the bench reads the variables
-`test` and `identify` read ([Logging in to the CDR](authentication.md)):
-`--auth basic` reads its password from `VEREDICTUM_CDR_PASSWORD`, and its user
-from `VEREDICTUM_CDR_USER` when `--user` is absent; `--auth bearer` reads its
-token from `VEREDICTUM_CDR_TOKEN`. Each has its `_FILE` form.
-
-Before anything is measured, a preflight reads the template list, uploads the
-pack's template, then creates one scratch EHR, commits a composition into it and
-reads that composition back. A failure at any of those refuses the run and names
-the exchange, so a half-measured document never exists.
-
-The run then seeds its corpus once and repeats the measured phases. Measured
-phases are open-loop: arrivals fire at their planned instants whatever the
-system is doing, and every latency is measured from the planned instant, so a
-stall shows up in every arrival queued behind it.
-
-### Posture profiles
-
-A CDR running without an audit trail and unsigned versions is a different
-system from the same CDR with both switched on, and a speed number that does
-not say which one it measured cannot be compared with anything. Every pack
-therefore defines named posture profiles, and a run declares exactly one.
-
-`minimal` is the bare spec-conformant surface, and every pack defines it:
-no audit trail, unsigned versions, commits validated against the operational
-template, uncompressed responses, one tenant. Validation sits at `template`
-rather than at nothing because the specification puts it there: ITS-REST
-`specifications/responses/422.yaml` defines the commit refusal as the case
-where the template "is not validating the supplied resource". A server that
-accepts anything is below the floor rather than lightly configured.
-`community-vitals` also defines `clinical-default`, which is the same surface
-with an audit trail written.
-
-The record's `posture` block carries the profile, its summary, and one line per
-disclosed item: the audit sink, the version-signing scheme, the
-commit-validation depth, the authentication mode, TLS, response compression and
-tenancy. Each item is a closed vocabulary, so an unknown token is refused rather
-than read as a default.
-
-### Posture canaries
-
-A declaration is a promise, so each item is also probed black-box and labelled
-`verified` or `declared-only`, with the exchange behind the label recorded
-beside it.
-
-| Item | How it is checked |
-|---|---|
-| `version_signing` | Versions committed by the run's OWN seed traffic are read back and their `signature` inspected. Sampling the measured population means a scheme switched on around a probe never reaches it. The openPGP armor header separates `pgp` from `digest` |
-| `commit_validation` | The pack's pinned invalid twin (that pack's own composition with the mandatory `COMPOSITION.composer` removed) is committed inside the run window, and the answer read |
-| `authn` | One read with no `Authorization` header at all, which is the only way to see whether the declared mode is enforced |
-| `compression` | One read stating `Accept-Encoding` explicitly, over a client that does not decompress, so `Content-Encoding` survives to be read |
-| `tls` | The recorded base URL's own scheme |
-| `audit`, `tenancy` | Declared-only. Released ITS-REST surfaces no read resource for either, so the record carries the claim and says it is one |
-
-The canaries run before the measured window and again after it. A reading that
-contradicts the declaration refuses the run, naming the item, the declared
-value, the observed one and the exchange. So does a pair of brackets that
-disagree with each other, because a posture that moved mid-run leaves the
-numbers straddling two systems. Neither is recorded as a footnote beside a
-published figure.
-
-Baselines run under the profile the target declared and carry their own
-verified block, so both sides of a ratio disclose what was switched on behind
-them. `bench-compare` states a posture disagreement between columns in the
-header, above the numbers.
-
-### Same-machine baselines
-
-`--with-baselines` anchors the run. After the target's own measurement, the
-instrument composes each pinned reference CDR on this host, drives the same
-pack at the same seed for the same number of repetitions against it, and tears
-the stack down with its volumes so the next baseline starts from an empty
-database. The record then carries a baseline block per reference, each a full
-per-operation summary exactly like the target's, beside the digest-pinned
-images, the upstream deployment recipe the topology follows, and the container
-ceilings both stacks ran under. Every image is pinned by digest rather than by
-tag, so two submitters measure the same bytes.
-
-The flag needs the `docker` CLI. On a host where it does not answer the run is
-refused before the target is touched, with the missing binary named; a run
-without the flag needs no container runtime at all.
-
-### The relative index
-
-An absolute millisecond describes the system and the machine together, so two
-records taken on different hosts cannot be read against one another. The
-relative index can. For every phase, operation and metric it is the target's
-cross-repetition median divided by the baseline's, both measured on the same
-host in the same session, so the machine cancels. On a latency metric a value
-below `1.0` means the target answered faster than the baseline and above `1.0`
-slower; on throughput the sense inverts, because there a larger number is the
-faster system. Each ratio is serialized with the two medians it came from.
-
-Where no ratio can be formed the record says so and why: an operation only one
-side measured, a phase only one side ran, or a baseline median of zero. A gap
-is recorded rather than omitted, because a missing row in a comparison reads as
-agreement.
-
-### Submittability
-
-A record is submittable when it carries at least three repetitions, at least one
-same-machine baseline, and no operation that lost more of its arrivals than the
-pack's ceiling allows. That ceiling is part of the versioned pack definition and
-the record discloses it as `pack.max_failed_share`; every embedded pack pins
-`0.01`. The check reads every repetition, phase and operation, on the target and
-on every baseline block, because an index divides by a baseline median and a
-divisor taken from arrivals that failed describes the failure. A record that
-misses any requirement stays valid for local exploration and names the ones it
-misses, in the `submittable_unmet` list, in the rendered summary and in every
-`bench-compare` column header.
-
-The rendered summary carries a failed-arrival table: one row per side,
-repetition and phase, with the phase's own share and the worst operation inside
-it, followed by a sentence per reading above the ceiling naming where it went.
-The environment fingerprint prints on the summary header and in every comparison
-column, so no number is read without the machine it came from.
-
-A bench result is a benchmark record for comparative speed. It is not a
-conformance record, not a certificate, and not a performance-class rating; a
-bench result may motivate a class run, never substitute for one.
-
-## bench-compare
-
-```text
-Align two or more committed bench results into one table, one column per file, with every pack or host mismatch stated in the header
-
-Usage: veredictum bench-compare --result <RESULTS> --out <OUT>
-
-Options:
-      --result <RESULTS>  A committed bench result. Repeat the flag once per file; at least two are needed
-      --out <OUT>         Output directory for the rendered comparison
-  -h, --help              Print help
-```
-
-One column per file, one row per phase, operation and metric. Each cell carries
-the cross-repetition median with the inter-quartile range beside it, so a reader
-sees the spread as well as the number.
-
-Every column header carries the machine the run was generated on, the worst
-failed-arrival share the run recorded beside the ceiling its pack pins, and a
-column that is not submittable names the requirements it misses rather than
-printing one bare `false`. Where the columns carry a relative index, it gets its
-own table below the header, at `p50` and `p99` per baseline: that is the part
-which survives a change of host.
-
-A mismatch is stated above the table, never under it: columns that ran different
-pack versions, columns generated from different hosts, columns that ran at
-different scale factors or off the pack's pinned configuration, and columns whose
-runs are not submittable are all named in the header, and the command exits `1`
-when any of them applies. Columns from different hosts where at least one
-carries no relative index are named too, because nothing in that table is
-comparable across them. Each row also names the discipline its numbers came
-from.
-
-## bench-packs
-
-```text
-Write the embedded benchmark pack manifest: every pack's phases with their load discipline, its operation mix with what each entry probes, its posture profiles, its fixture pins with their provenance, its seed, and the submission requirements (byte-deterministic)
-
-Usage: veredictum bench-packs --out <OUT>
-
-Options:
-      --out <OUT>  Output directory (created if missing)
-  -h, --help       Print help
-```
-
-A pack is versioned data compiled into the binary, so the binary is the only
-honest source for a description of one. This command writes that description:
-per pack the id, the version, the seed every arrival stream draws from, the
-failed-arrival ceiling a record is judged against, each phase with its load
-discipline and its counts, each measured phase's operation
-mix with the share and the probe rationale of every entry, each posture profile
-the pack defines with what it declares item by item, and each embedded fixture
-with its sha256 pin, its size and where the bytes came from. The document also
-carries the boundary statement, the methodology, how a relative index is
-derived, what the seed and the posture canaries govern, and the requirements a
-record meets before it may be ranked.
-
-Emission is byte-deterministic and every collection is ordered, so regenerating
-the file and diffing it is a build gate. The public page at
-[veredictum.eu/benchmark-methodology.html](https://veredictum.eu/benchmark-methodology.html)
-is generated from the committed copy of this document, and CI refuses a pack
-change that leaves either of them stale.
-
-## aql-probe
-
-```text
-Run the AQL optimization probe: fire the measurement machinery's AQL vocabulary against a live, freshly seeded SUT, record wire percentiles, and attribute the DB-side cost per probe via `pg_stat_statements` (exploration evidence for the optimization loop — never a conformance record)
-
-Usage: veredictum aql-probe [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
-
-Options:
-      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --ixit <IXIT>                  The ixit topology file (JSON) — the `containers` block enables DB-side attribution and maintenance settling
-      --out <OUT>                    Where to write the probe report (aql-probe.json)
-      --corpus-class <CORPUS_CLASS>  The class-scale corpus the probes run against (POC | S | L | R) [default: POC]
-      --seed-workers <SEED_WORKERS>  Parallel seeding workers [default: 16]
-      --requests <REQUESTS>          Requests fired per probe [default: 20]
-  -h, --help                         Print help
-```
-
-Fires the measurement machinery's AQL vocabulary, records wire percentiles per
-probe, and attributes the database-side cost through `pg_stat_statements`. This
-is evidence for someone optimizing a server, and it is never a conformance
-record.
-
-## stress-compare
-
-```text
-Render the cross-SUT stress overlay (both systems' latency-throughput curves on one canvas) FROM two committed stress reports — deterministic, both directions on equal footing
-
-Usage: veredictum stress-compare --left <LEFT> --left-label <LEFT_LABEL> --right <RIGHT> --right-label <RIGHT_LABEL> --out <OUT>
-
-Options:
-      --left <LEFT>                The primary SUT's committed stress.json
-      --left-label <LEFT_LABEL>    The primary SUT's display label
-      --right <RIGHT>              The comparison SUT's committed stress.json
-      --right-label <RIGHT_LABEL>  The comparison SUT's display label
-      --out <OUT>                  Where to write the overlay SVG
-  -h, --help                       Print help
-```
-
-Deterministic, and both directions on equal footing: the two curves are drawn by
-the same code from the same kind of file, so neither side gets a rendering
-advantage.
+With `--result`, the records were measured apart, so their plateaus were
+offered different rates. The table still lines them up, and the ratios are
+shown as `different rates` rather than judged.
 
 ## perf-assets
 
 ```text
-Render the published performance SVG assets FROM a committed results.json (deterministic; CI regenerates and diffs — hand-drawn numbers are a build failure)
+Render the charts of a `perf-result` as SVG, deterministically: the same record always draws the same bytes.
 
-Usage: veredictum perf-assets [OPTIONS] --root <ROOT> --results <RESULTS> --out <OUT>
+Three charts: `perf-saturation.svg` (p50, p95 and p99 against achieved throughput over the scout windows and the plateaus, the knee bracket shaded, the Universal Scalability Law fit dashed), `perf-throughput.svg` (achieved against offered with the identity line) and `perf-operations.svg` (each operation's latency at the knee at its judged quantile, beside its budget). A quantile that does not resolve is marked below the plot and never joined to its neighbours.
+
+Usage: veredictum perf-assets [OPTIONS] --results <RESULTS> --out <OUT>
 
 Options:
-      --root <ROOT>        The performance schedule root, `perf/` in this repository (for the class-ladder floors)
-      --results <RESULTS>  The committed results.json carrying the measurement records
-      --out <OUT>          Output directory for the SVG files
-      --summary <SUMMARY>  Also write the generated Markdown summary (class ladder + measured detail) to this path — the book's build-time include
-      --stress <STRESS>    A committed stress report (stress.json) to render the latency-throughput curve from, when one exists
-  -h, --help               Print help
+      --results <RESULTS>
+          The committed `perf-result.json`
+
+      --out <OUT>
+          Output directory for the SVG files
+
+      --summary <SUMMARY>
+          Also write the `export --markdown` view of the record to this path, the book's build-time include
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
-## verdicts
+## perf-judge
 
 ```text
-Re-derive the measured performance-class verdicts from a statement and a results record against the performance schedule (the pure pipeline), and write them as `verdicts.json`
+Re-derive every number of a `perf-result` record from its recorded histograms, and compare the result with the record byte for byte.
 
-Usage: veredictum verdicts --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
+The record is checked against `perf-result.schema.json`, its `derived` part is computed again from its `raw` part, and every derived field that differs is printed with its JSON pointer, the recorded value and the re-derived one. The file must also equal the canonical rendering of the re-derived record, so a number written in a different form counts as a difference.
+
+Exit status: `0` when the record reproduces byte for byte; `1` when a derived field differs or the file is not in canonical form; `2` when the file cannot be read, is not JSON, breaks the schema, or its raw part does not re-derive.
+
+Usage: veredictum perf-judge --result <RESULT>
 
 Options:
-      --statement <STATEMENT>  The party statement (`statement.json`)
-      --results <RESULTS>      The party results (`results.json`)
-      --root <ROOT>            The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --out <OUT>              Output directory for verdicts.json
-  -h, --help                   Print help
+      --result <RESULT>
+          The record (`perf-result.json`)
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
-
-The pure step for a measured campaign. It reaches no network and reads nothing
-but its inputs, which is what makes a published verdict re-derivable by anyone
-who has the same three: the statement, the results record carrying the
-measurements, and the performance schedule under `perf/`.
-
-Each measured class verdict is re-derived from the measurement record's
-embedded histograms against its performance case, and a stored verdict that
-does not re-derive is a review finding. A claimed class with no measurement,
-or a claim with no environment reference, is a review finding too. The command
-writes `verdicts.json` and exits `1` when the review found anything.
-
-Conformance verdicts over the Arazzo catalogue are `veredictum test`'s results
-document and its exit status.
 
 ## export
 
 ```text
-Write the views of an Arazzo results document a vendor's CI shows: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a byte-deterministic function of the document.
+Write the views of a result document a vendor's CI shows, each a byte-deterministic function of the document.
+
+An Arazzo results document has three views: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary. A `perf-result`, told apart by its `family`, has the Markdown summary only, so `--junit` and `--ctrf` refuse it.
 
 A result judged under the development profile names the profile and every snapshot commit in each view: a `profile` property on every JUnit suite, a `specification` member in the CTRF environment, and a `Specification` row with a warning in the Markdown summary.
 
@@ -969,7 +791,7 @@ Usage: veredictum export [OPTIONS] --results <RESULTS>
 
 Options:
       --results <RESULTS>
-          The `results.json` the Arazzo evaluator wrote
+          The `results.json` the Arazzo evaluator wrote, or a `perf-result.json`
 
       --junit <JUNIT>
           Write the JUnit XML view here
@@ -1087,12 +909,18 @@ JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
 
+A `perf-result.json` has one exported view, the Markdown summary, with the
+same content `show` prints laid out as tables. `--junit` and `--ctrf` refuse
+it with exit status 2, since a performance record has no test cases to list.
+
 ## show
 
 ```text
-Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
+Show a result document in the terminal: an Arazzo results document one line per chapter, band and option, each with its counts and a bar, or a `perf-result` one line per plateau.
 
 A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure. A result judged under the development profile opens with a line naming the profile and every snapshot commit, and saying it is never a released result.
+
+A `perf-result` reads as a header naming the target, environment, host, workload (a `custom` one named so), corpus, the knee estimate, the between-run noise and the record's scope; one line per plateau with offered and achieved rates, p50 to max, the error share and a ✓ or ✕ qualification mark, with `unsteady` where recorded; the operations at the knee and at the lowest plateau with the quantile each is judged at (`n/r` where a quantile does not resolve); the knee, peak, population and fit sentences; a sparkline of p99 against the offered rate; and the server-side readings as context. It fits 80 columns. `--failed` does not apply to it.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 
@@ -1100,7 +928,7 @@ Usage: veredictum show [OPTIONS] <RESULTS>
 
 Arguments:
   <RESULTS>
-          The `results.json` the Arazzo evaluator wrote
+          The `results.json` the Arazzo evaluator wrote, or a `perf-result.json`
 
 Options:
       --failed
@@ -1158,6 +986,18 @@ standard output is a terminal and `NO_COLOR` is unset or empty, as
 <https://no-color.org/> asks. `--color always` and `--color never` override
 both, so `veredictum show results.json --color always | less -R` keeps the
 colour.
+
+**A performance record.** Given a `perf-result.json`, which names its
+`family`, `show` prints the record instead: a header with the target, the
+environment, the workload and its digest, the corpus, the between-run noise
+and the scope of one run; a line per plateau with offered and achieved rates,
+p50 to max and the error share, marked `✓` when it qualifies and `✕` when it
+fails, with `unsteady` where the halves disagree; the operations at the knee
+and at the lowest plateau with the quantile each is judged at; the knee, peak,
+population and fit sentences; a sparkline of p99 against the offered rate;
+and the server-side readings. A quantile with fewer than 10 samples above it
+prints `n/r`, not resolvable. Every number comes from the record, and the view
+fits 80 columns.
 
 ## verify
 

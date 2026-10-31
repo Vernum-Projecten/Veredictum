@@ -96,28 +96,18 @@ precedence = "override"
 SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
 SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
 
-# ── The embedded bench fixtures: third-party bytes inside our own tree ──────
-# A bench pack is compiled into the binary, so the bytes it offers a system
-# live under `app/` where the catch-all above would claim them for Veredictum.
-# They are not ours. The operational template is byte-identical to the vendored
-# CKM export under `perf/payloads/ckm/`, so it carries that tree's
-# declaration.
-[[annotations]]
-path = "app/veredictum/src/bench/fixtures/vital_signs.opt"
-precedence = "override"
-SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
-SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
-
+# ── The community workload's composition: not CKM material ──────────────────
 # The composition instance comes from a public attachment on the openEHR
 # Discourse forum, where the publisher declared no licence. Nothing here
 # asserts a grant on the publisher's behalf; the LicenseRef text records what
 # is known and what is not. Its invalid twin, which the commit-validation
 # canary offers, is those same bytes with one member deleted, so it is a
-# derivative and carries the same declaration.
+# derivative and carries the same declaration. This annotation follows the
+# `perf/payloads/**` one, so it takes precedence for these two files.
 [[annotations]]
 path = [
-  "app/veredictum/src/bench/fixtures/vital_signs_composition.json",
-  "app/veredictum/src/bench/fixtures/vital_signs_composition.missing_composer.json",
+  "perf/payloads/community/vital-signs-composition.json",
+  "perf/payloads/community/vital-signs-composition.missing-composer.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "the publisher of the openEHR Discourse benchmark harness attachment"

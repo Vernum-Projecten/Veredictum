@@ -95,6 +95,10 @@ clap = { version = "4", features = ["derive", "env"] }
 # standard V2 serialization so thresholds are re-checkable from the artifact.
 hdrhistogram = { version = "7.5.4", features = ["serialization"] }
 base64 = "0.23"
+# The open-loop generator's runtime: arrivals are tasks on a multi-thread
+# runtime with an in-flight semaphore, never an OS thread each. Already in the
+# lock through reqwest, so this adds no crate to the graph.
+tokio = { version = "1.53.1", default-features = false, features = ["rt", "rt-multi-thread", "time", "sync"] }
 # Deterministic case-scoped ids (UUIDv5) for the recipe machinery.
 uuid = { version = "1", features = ["v4", "v5", "v7", "serde", "fast-rng"] }
 # Version-signature verification (SIG-VERSION cases): reconstruct the agreed
@@ -143,7 +147,9 @@ wiremock = "0.6.5"
 # while every client here is `reqwest::blocking`, so the harness owns one
 # current-thread runtime for setup and readback. Already in the lock through
 # reqwest, so this adds no crate to the graph.
-tokio = { version = "1.53.1", default-features = false, features = ["rt", "time"] }
+# `test-util` pauses the runtime clock, so the generator's timing tests run on
+# virtual time and cannot flake on a loaded runner.
+tokio = { version = "1.53.1", default-features = false, features = ["rt", "time", "test-util"] }
 # Snapshots of the emitted CI views (JUnit XML, CTRF, the Markdown summary),
 # reviewed before acceptance. Without the default `colors` feature, which
 # only colours a diff on a terminal.
