@@ -225,6 +225,15 @@ async fn caller_faults_are_4xx(
     let mut parts = parts;
     parts.status = error.status();
     parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    if matches!(error, ConsoleError::CallTooLarge { .. }) {
+        // NOTE: RFC 9112 §9.6 — a server that closes the connection after a
+        // response SHOULD send `Connection: close`, and the body left unread
+        // past the cap is what makes hyper close this one (#784).
+        parts.headers.insert(
+            axum::http::header::CONNECTION,
+            axum::http::HeaderValue::from_static("close"),
+        );
+    }
     (parts, error.ser()).into_response()
 }
 
