@@ -89,7 +89,7 @@ jq -s --arg project "$PROJECT" --arg host "$HOST" '
           informationUri: ($host + "/project/overview?id=" + $project),
           rules: ([$issues[].rule] | unique | map({
             id: .,
-            helpUri: ($host + "/organizations/rubentalstra/rules?open=" + . + "&rule_key=" + .)
+            helpUri: ($host + "/organizations/vernum-projecten/rules?open=" + . + "&rule_key=" + .)
           }))
         }},
         results: [

@@ -5,8 +5,8 @@
       "url": "https://api.sonarcloud.io/mcp",
       "headers": {
         "Authorization": "Bearer ${SONARQUBE_TOKEN}",
-        "SONARQUBE_ORG": "rubentalstra",
-        "SONARQUBE_PROJECT_KEY": "rubentalstra_Veredictum"
+        "SONARQUBE_ORG": "vernum-projecten",
+        "SONARQUBE_PROJECT_KEY": "Vernum-Projecten_Veredictum"
       }
     }
   }
