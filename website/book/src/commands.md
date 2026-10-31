@@ -913,6 +913,52 @@ A `perf-result.json` has one exported view, the Markdown summary, with the
 same content `show` prints laid out as tables. `--junit` and `--ctrf` refuse
 it with exit status 2, since a performance record has no test cases to list.
 
+## badge
+
+```text
+Draw the static badges of a result document, for a README.
+
+Each badge is written as `<name>.svg`, a flat badge drawn without a font or the network, and as `<name>.json`, a Shields.io endpoint document (<https://shields.io/badges/endpoint-badge>), and each is a byte-deterministic function of the document. Every badge reports the vendor's own run, and none is a certificate.
+
+An Arazzo results document draws five: `base` (passed out of every BASE row), `options` (passed out of every row of the selected option arms and of the cases resting on TRIAL text), `warnings` (the warning rows, a SHOULD the server did not follow), `profile` (the specification profile) and `instrument` (the version, and `self-run`). Each counting badge names the profile in its label, so a development tally never reads as a released one. A counting badge is green only when no row failed or errored: red when a row failed, orange when none failed but one errored, grey when nothing passed.
+
+A `perf-result` draws one, `perf`: the workload in the label and the knee as the record states it, in a neutral colour, because a knee is a reading and never a pass or a failure.
+
+Exit status: `0` when every badge was written; `2` when the document cannot be read or a file cannot be written.
+
+Usage: veredictum badge --results <RESULTS> --out <OUT>
+
+Options:
+      --results <RESULTS>
+          The `results.json` the Arazzo evaluator wrote, or a `perf-result.json`
+
+      --out <OUT>
+          Output directory for the badges (created if missing)
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+`badge` draws the static badges a vendor shows in a README, from the result
+document it is given. Each badge is a pure function of that document, so
+drawing the same document twice writes the same bytes. The SVG is measured
+with a fixed table of character widths, so no font and no network is read.
+
+| Document | Files written |
+|---|---|
+| an Arazzo `results.json` | `base`, `options`, `warnings`, `profile` and `instrument`, each `.svg` and `.json` |
+| a `perf-result.json` | `perf.svg` and `perf.json` |
+
+```bash
+veredictum badge --results conformance/results.json --out conformance/badges
+```
+
+The `.json` file is a Shields.io endpoint document, so a badge can also be
+served by Shields from wherever the file is published. Every badge reports the
+vendor's own run and is never a certificate. [Badges](badges.md) has what each
+badge says, the colour rules, and how to publish them from GitHub, GitLab or
+any other CI.
+
 ## show
 
 ```text

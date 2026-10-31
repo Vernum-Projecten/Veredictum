@@ -9,6 +9,7 @@
   - [Logging in to the CDR](authentication.md)
   - [Command reference](commands.md)
   - [The GitHub Action](github-action.md)
+  - [Badges](badges.md)
 - [The web console](console.md)
 - [The conformance method](methodology.md)
 - [Performance workloads](perf-workloads.md)

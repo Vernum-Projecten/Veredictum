@@ -44,7 +44,7 @@ use veredictum::perf_result::compare::DEFAULT_TOLERANCE;
 use veredictum::perf_result::host::NetworkLeg;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{perf_result_assets, schema_files};
-use veredictum::pipeline::export::{Exports, export_document, show_results};
+use veredictum::pipeline::export::{Exports, badge_files, export_document, show_results};
 use veredictum::pipeline::perf_compare::{
     InterleavedRequest, align_records, run_compare, run_with_baselines, write_comparison,
 };
@@ -509,6 +509,39 @@ enum Command {
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
     },
+    /// Draw the static badges of a result document, for a README.
+    ///
+    /// Each badge is written as `<name>.svg`, a flat badge drawn without a
+    /// font or the network, and as `<name>.json`, a Shields.io endpoint
+    /// document (<https://shields.io/badges/endpoint-badge>), and each is a
+    /// byte-deterministic function of the document. Every badge reports the
+    /// vendor's own run, and none is a certificate.
+    ///
+    /// An Arazzo results document draws five: `base` (passed out of every
+    /// BASE row), `options` (passed out of every row of the selected option
+    /// arms and of the cases resting on TRIAL text), `warnings` (the warning
+    /// rows, a SHOULD the server did not follow), `profile` (the
+    /// specification profile) and `instrument` (the version, and `self-run`).
+    /// Each counting badge names the profile in its label, so a development
+    /// tally never reads as a released one. A counting badge is green only
+    /// when no row failed or errored: red when a row failed, orange when none
+    /// failed but one errored, grey when nothing passed.
+    ///
+    /// A `perf-result` draws one, `perf`: the workload in the label and the
+    /// knee as the record states it, in a neutral colour, because a knee is a
+    /// reading and never a pass or a failure.
+    ///
+    /// Exit status: `0` when every badge was written; `2` when the document
+    /// cannot be read or a file cannot be written.
+    Badge {
+        /// The `results.json` the Arazzo evaluator wrote, or a
+        /// `perf-result.json`.
+        #[arg(long)]
+        results: PathBuf,
+        /// Output directory for the badges (created if missing).
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Show a result document in the terminal: an Arazzo results document
     /// one line per chapter, band and option, each with its counts and a
     /// bar, or a `perf-result` one line per plateau.
@@ -817,6 +850,13 @@ fn main() -> ExitCode {
             Err(e) => fail(&e),
         },
         Command::PerfJudge { result } => perf_judge_command(&result),
+        Command::Badge { results, out } => match badge_files(&results) {
+            Ok(files) => match emit(&out, &files) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(code) => code,
+            },
+            Err(e) => fail(&e),
+        },
     }
 }
 
