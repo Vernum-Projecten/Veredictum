@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/agent_create.yaml b/specifications/operations/agent_create.yaml
-index 262369db..40297601 100644
+index 262369d..4029760 100644
 --- a/specifications/operations/agent_create.yaml
 +++ b/specifications/operations/agent_create.yaml
 @@ -4,7 +4,7 @@ description: |
@@ -12,7 +12,7 @@ index 262369db..40297601 100644
  tags:
    - AGENT
 diff --git a/specifications/operations/agent_tags_update.yaml b/specifications/operations/agent_tags_update.yaml
-index ab41fcea..291ce04d 100644
+index ab41fce..291ce04 100644
 --- a/specifications/operations/agent_tags_update.yaml
 +++ b/specifications/operations/agent_tags_update.yaml
 @@ -11,7 +11,9 @@ description: |
@@ -35,7 +35,7 @@ index ab41fcea..291ce04d 100644
    '404':
      $ref: ../responses/404_unknown_uid_based_id.yaml
 diff --git a/specifications/operations/agent_update.yaml b/specifications/operations/agent_update.yaml
-index 7a722fb3..2d1a23fb 100644
+index 7a722fb..2d1a23f 100644
 --- a/specifications/operations/agent_update.yaml
 +++ b/specifications/operations/agent_update.yaml
 @@ -10,7 +10,7 @@ description: |
@@ -48,7 +48,7 @@ index 7a722fb3..2d1a23fb 100644
  tags:
    - AGENT
 diff --git a/specifications/operations/composition_create.yaml b/specifications/operations/composition_create.yaml
-index 2d37dc10..e16c46c8 100644
+index 2d37dc1..e16c46c 100644
 --- a/specifications/operations/composition_create.yaml
 +++ b/specifications/operations/composition_create.yaml
 @@ -4,7 +4,7 @@ description: |
@@ -61,7 +61,7 @@ index 2d37dc10..e16c46c8 100644
  tags:
    - COMPOSITION
 diff --git a/specifications/operations/composition_tags_update.yaml b/specifications/operations/composition_tags_update.yaml
-index c1f9a476..e5587550 100644
+index c1f9a47..e558755 100644
 --- a/specifications/operations/composition_tags_update.yaml
 +++ b/specifications/operations/composition_tags_update.yaml
 @@ -12,7 +12,9 @@ description: |
@@ -84,7 +84,7 @@ index c1f9a476..e5587550 100644
    '404':
      $ref: ../responses/404_unknown_ehr_id_or_uid_based_id.yaml
 diff --git a/specifications/operations/composition_update.yaml b/specifications/operations/composition_update.yaml
-index cb38f41a..8d0b5679 100644
+index cb38f41..8d0b567 100644
 --- a/specifications/operations/composition_update.yaml
 +++ b/specifications/operations/composition_update.yaml
 @@ -10,7 +10,7 @@ description: |
@@ -97,7 +97,7 @@ index cb38f41a..8d0b5679 100644
  tags:
    - COMPOSITION
 diff --git a/specifications/operations/demographic_tags_get.yaml b/specifications/operations/demographic_tags_get.yaml
-index ab7c4ca7..b2692c4d 100644
+index ab7c4ca..b2692c4 100644
 --- a/specifications/operations/demographic_tags_get.yaml
 +++ b/specifications/operations/demographic_tags_get.yaml
 @@ -3,10 +3,12 @@ summary: Get Demographic tags
@@ -116,7 +116,7 @@ index ab7c4ca7..b2692c4d 100644
    More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
    by their `key` and `target_path` pair attributes.
 diff --git a/specifications/operations/ehr_status_tags_update.yaml b/specifications/operations/ehr_status_tags_update.yaml
-index 5c787659..894bd578 100644
+index 5c78765..894bd57 100644
 --- a/specifications/operations/ehr_status_tags_update.yaml
 +++ b/specifications/operations/ehr_status_tags_update.yaml
 @@ -12,7 +12,9 @@ description: |
@@ -139,7 +139,7 @@ index 5c787659..894bd578 100644
    '404':
      $ref: ../responses/404_unknown_ehr_id_or_uid_based_id.yaml
 diff --git a/specifications/operations/ehr_status_update.yaml b/specifications/operations/ehr_status_update.yaml
-index 3c3c0eaf..d0aa33e9 100644
+index 3c3c0ea..d0aa33e 100644
 --- a/specifications/operations/ehr_status_update.yaml
 +++ b/specifications/operations/ehr_status_update.yaml
 @@ -6,7 +6,7 @@ description: |
@@ -152,7 +152,7 @@ index 3c3c0eaf..d0aa33e9 100644
    The response will contain the updated EHR_STATUS resource when the `Prefer` header has a value of `return=representation`.
  tags:
 diff --git a/specifications/operations/ehr_tags_get.yaml b/specifications/operations/ehr_tags_get.yaml
-index 1b772ad4..acb3c31f 100644
+index 1b772ad..acb3c31 100644
 --- a/specifications/operations/ehr_tags_get.yaml
 +++ b/specifications/operations/ehr_tags_get.yaml
 @@ -4,7 +4,9 @@ description: |
@@ -167,7 +167,7 @@ index 1b772ad4..acb3c31f 100644
    
    This will return an empty list when there is no matching ITEM_TAG associated with any target within given EHR.
 diff --git a/specifications/operations/group_create.yaml b/specifications/operations/group_create.yaml
-index d91e2f4d..e54dc3cf 100644
+index d91e2f4..e54dc3c 100644
 --- a/specifications/operations/group_create.yaml
 +++ b/specifications/operations/group_create.yaml
 @@ -4,7 +4,7 @@ description: |
@@ -180,7 +180,7 @@ index d91e2f4d..e54dc3cf 100644
  tags:
    - GROUP
 diff --git a/specifications/operations/group_tags_update.yaml b/specifications/operations/group_tags_update.yaml
-index 9042fea4..ab1fa7e4 100644
+index 9042fea..ab1fa7e 100644
 --- a/specifications/operations/group_tags_update.yaml
 +++ b/specifications/operations/group_tags_update.yaml
 @@ -11,7 +11,9 @@ description: |
@@ -203,7 +203,7 @@ index 9042fea4..ab1fa7e4 100644
    '404':
      $ref: ../responses/404_unknown_uid_based_id.yaml
 diff --git a/specifications/operations/group_update.yaml b/specifications/operations/group_update.yaml
-index 00e34c30..cac4bf04 100644
+index 00e34c3..cac4bf0 100644
 --- a/specifications/operations/group_update.yaml
 +++ b/specifications/operations/group_update.yaml
 @@ -10,7 +10,7 @@ description: |
@@ -216,7 +216,7 @@ index 00e34c30..cac4bf04 100644
  tags:
    - GROUP
 diff --git a/specifications/operations/organisation_create.yaml b/specifications/operations/organisation_create.yaml
-index 2685670c..653c1a97 100644
+index 2685670..653c1a9 100644
 --- a/specifications/operations/organisation_create.yaml
 +++ b/specifications/operations/organisation_create.yaml
 @@ -4,7 +4,7 @@ description: |
@@ -229,7 +229,7 @@ index 2685670c..653c1a97 100644
  tags:
    - ORGANISATION
 diff --git a/specifications/operations/organisation_tags_update.yaml b/specifications/operations/organisation_tags_update.yaml
-index cb59c0fc..dcd64b80 100644
+index cb59c0f..dcd64b8 100644
 --- a/specifications/operations/organisation_tags_update.yaml
 +++ b/specifications/operations/organisation_tags_update.yaml
 @@ -11,7 +11,9 @@ description: |
@@ -252,7 +252,7 @@ index cb59c0fc..dcd64b80 100644
    '404':
      $ref: ../responses/404_unknown_uid_based_id.yaml
 diff --git a/specifications/operations/organisation_update.yaml b/specifications/operations/organisation_update.yaml
-index 3b236641..1e5d651a 100644
+index 3b23664..1e5d651 100644
 --- a/specifications/operations/organisation_update.yaml
 +++ b/specifications/operations/organisation_update.yaml
 @@ -10,7 +10,7 @@ description: |
@@ -265,7 +265,7 @@ index 3b236641..1e5d651a 100644
  tags:
    - ORGANISATION
 diff --git a/specifications/operations/person_create.yaml b/specifications/operations/person_create.yaml
-index 28145fed..2e87eb48 100644
+index 28145fe..2e87eb4 100644
 --- a/specifications/operations/person_create.yaml
 +++ b/specifications/operations/person_create.yaml
 @@ -4,7 +4,7 @@ description: |
@@ -278,7 +278,7 @@ index 28145fed..2e87eb48 100644
  tags:
    - PERSON
 diff --git a/specifications/operations/person_tags_update.yaml b/specifications/operations/person_tags_update.yaml
-index 28adad1f..318e88c0 100644
+index 28adad1..318e88c 100644
 --- a/specifications/operations/person_tags_update.yaml
 +++ b/specifications/operations/person_tags_update.yaml
 @@ -11,7 +11,9 @@ description: |
@@ -301,7 +301,7 @@ index 28adad1f..318e88c0 100644
    '404':
      $ref: ../responses/404_unknown_uid_based_id.yaml
 diff --git a/specifications/operations/person_update.yaml b/specifications/operations/person_update.yaml
-index 715ac8bb..7f5b2323 100644
+index 715ac8b..7f5b232 100644
 --- a/specifications/operations/person_update.yaml
 +++ b/specifications/operations/person_update.yaml
 @@ -10,7 +10,7 @@ description: |
@@ -314,7 +314,7 @@ index 715ac8bb..7f5b2323 100644
  tags:
    - PERSON
 diff --git a/specifications/operations/role_create.yaml b/specifications/operations/role_create.yaml
-index 01b16c47..9cb8ced4 100644
+index 01b16c4..9cb8ced 100644
 --- a/specifications/operations/role_create.yaml
 +++ b/specifications/operations/role_create.yaml
 @@ -4,7 +4,7 @@ description: |
@@ -327,7 +327,7 @@ index 01b16c47..9cb8ced4 100644
  tags:
    - ROLE
 diff --git a/specifications/operations/role_tags_update.yaml b/specifications/operations/role_tags_update.yaml
-index ef31f66a..ae7deafe 100644
+index ef31f66..ae7deaf 100644
 --- a/specifications/operations/role_tags_update.yaml
 +++ b/specifications/operations/role_tags_update.yaml
 @@ -11,7 +11,9 @@ description: |
@@ -350,7 +350,7 @@ index ef31f66a..ae7deafe 100644
    '404':
      $ref: ../responses/404_unknown_uid_based_id.yaml
 diff --git a/specifications/operations/role_update.yaml b/specifications/operations/role_update.yaml
-index 54e5d390..dbd8d4e4 100644
+index 54e5d39..dbd8d4e 100644
 --- a/specifications/operations/role_update.yaml
 +++ b/specifications/operations/role_update.yaml
 @@ -10,7 +10,7 @@ description: |

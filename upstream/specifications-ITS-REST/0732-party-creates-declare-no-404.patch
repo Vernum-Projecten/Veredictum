@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/agent_create.yaml b/specifications/operations/agent_create.yaml
-index 262369db..044c4c5b 100644
+index 262369d..044c4c5 100644
 --- a/specifications/operations/agent_create.yaml
 +++ b/specifications/operations/agent_create.yaml
 @@ -29,5 +29,3 @@ responses:
@@ -9,7 +9,7 @@ index 262369db..044c4c5b 100644
 -  '404':
 -    $ref: ../responses/404.yaml
 diff --git a/specifications/operations/group_create.yaml b/specifications/operations/group_create.yaml
-index d91e2f4d..5283fbf7 100644
+index d91e2f4..5283fbf 100644
 --- a/specifications/operations/group_create.yaml
 +++ b/specifications/operations/group_create.yaml
 @@ -29,5 +29,3 @@ responses:
@@ -19,7 +19,7 @@ index d91e2f4d..5283fbf7 100644
 -  '404':
 -    $ref: ../responses/404.yaml
 diff --git a/specifications/operations/organisation_create.yaml b/specifications/operations/organisation_create.yaml
-index 2685670c..6d909e13 100644
+index 2685670..6d909e1 100644
 --- a/specifications/operations/organisation_create.yaml
 +++ b/specifications/operations/organisation_create.yaml
 @@ -29,5 +29,3 @@ responses:
@@ -29,7 +29,7 @@ index 2685670c..6d909e13 100644
 -  '404':
 -    $ref: ../responses/404.yaml
 diff --git a/specifications/operations/person_create.yaml b/specifications/operations/person_create.yaml
-index 28145fed..19f78100 100644
+index 28145fe..19f7810 100644
 --- a/specifications/operations/person_create.yaml
 +++ b/specifications/operations/person_create.yaml
 @@ -29,5 +29,3 @@ responses:
@@ -39,7 +39,7 @@ index 28145fed..19f78100 100644
 -  '404':
 -    $ref: ../responses/404.yaml
 diff --git a/specifications/operations/role_create.yaml b/specifications/operations/role_create.yaml
-index 01b16c47..1a284c54 100644
+index 01b16c4..1a284c5 100644
 --- a/specifications/operations/role_create.yaml
 +++ b/specifications/operations/role_create.yaml
 @@ -29,5 +29,3 @@ responses:

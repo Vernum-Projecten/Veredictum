@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/agent_create.yaml b/specifications/operations/agent_create.yaml
-index 262369db..785cef5a 100644
+index 262369d..785cef5 100644
 --- a/specifications/operations/agent_create.yaml
 +++ b/specifications/operations/agent_create.yaml
 @@ -10,8 +10,8 @@ tags:
@@ -14,7 +14,7 @@ index 262369db..785cef5a 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
 diff --git a/specifications/operations/agent_get.yaml b/specifications/operations/agent_get.yaml
-index 6af653b2..d068865b 100644
+index 6af653b..d068865 100644
 --- a/specifications/operations/agent_get.yaml
 +++ b/specifications/operations/agent_get.yaml
 @@ -17,7 +17,7 @@ tags:
@@ -27,7 +27,7 @@ index 6af653b2..d068865b 100644
    '200':
      $ref: ../responses/200_AGENT_retrieved.yaml
 diff --git a/specifications/operations/agent_update.yaml b/specifications/operations/agent_update.yaml
-index 7a722fb3..7b7545e0 100644
+index 7a722fb..7b7545e 100644
 --- a/specifications/operations/agent_update.yaml
 +++ b/specifications/operations/agent_update.yaml
 @@ -18,8 +18,8 @@ parameters:
@@ -42,7 +42,7 @@ index 7a722fb3..7b7545e0 100644
  requestBody:
    description: |
 diff --git a/specifications/operations/contribution_create.yaml b/specifications/operations/contribution_create.yaml
-index 667bb891..1b6ebcb1 100644
+index 667bb89..1b6ebcb 100644
 --- a/specifications/operations/contribution_create.yaml
 +++ b/specifications/operations/contribution_create.yaml
 @@ -16,7 +16,7 @@ description: |
@@ -55,7 +55,7 @@ index 667bb891..1b6ebcb1 100644
    - CONTRIBUTION
  parameters:
 diff --git a/specifications/operations/contribution_get.yaml b/specifications/operations/contribution_get.yaml
-index 871e935a..629568c9 100644
+index 871e935..629568c 100644
 --- a/specifications/operations/contribution_get.yaml
 +++ b/specifications/operations/contribution_get.yaml
 @@ -7,7 +7,7 @@ description: |
@@ -68,7 +68,7 @@ index 871e935a..629568c9 100644
    - CONTRIBUTION
  parameters:
 diff --git a/specifications/operations/directory_create.yaml b/specifications/operations/directory_create.yaml
-index 880dc179..7db36b30 100644
+index 880dc17..7db36b3 100644
 --- a/specifications/operations/directory_create.yaml
 +++ b/specifications/operations/directory_create.yaml
 @@ -7,8 +7,8 @@ tags:
@@ -83,7 +83,7 @@ index 880dc179..7db36b30 100644
    description: |
      The directory.
 diff --git a/specifications/operations/directory_get_at_time.yaml b/specifications/operations/directory_get_at_time.yaml
-index 227fa720..a5892539 100644
+index 227fa72..a589253 100644
 --- a/specifications/operations/directory_get_at_time.yaml
 +++ b/specifications/operations/directory_get_at_time.yaml
 @@ -11,7 +11,7 @@ parameters:
@@ -96,7 +96,7 @@ index 227fa720..a5892539 100644
    '200':
      $ref: ../responses/200_FOLDER_retrieved.yaml
 diff --git a/specifications/operations/directory_get_by_version_id.yaml b/specifications/operations/directory_get_by_version_id.yaml
-index 512320b1..51e5da28 100644
+index 512320b..51e5da2 100644
 --- a/specifications/operations/directory_get_by_version_id.yaml
 +++ b/specifications/operations/directory_get_by_version_id.yaml
 @@ -10,7 +10,7 @@ parameters:
@@ -109,7 +109,7 @@ index 512320b1..51e5da28 100644
    '200':
      $ref: ../responses/200_FOLDER_retrieved.yaml
 diff --git a/specifications/operations/directory_update.yaml b/specifications/operations/directory_update.yaml
-index dae1daf1..62c95a74 100644
+index dae1daf..62c95a7 100644
 --- a/specifications/operations/directory_update.yaml
 +++ b/specifications/operations/directory_update.yaml
 @@ -10,8 +10,8 @@ parameters:
@@ -124,9 +124,10 @@ index dae1daf1..62c95a74 100644
    description: |
      The new directory.
 diff --git a/specifications/operations/ehr_create.yaml b/specifications/operations/ehr_create.yaml
+index c4438aa..f434f8a 100644
 --- a/specifications/operations/ehr_create.yaml
 +++ b/specifications/operations/ehr_create.yaml
-@@ -16,7 +16,7 @@
+@@ -16,7 +16,7 @@ tags:
  parameters:
    - $ref: ../parameters/header/Prefer.yaml
    - $ref: ../parameters/header/Accept_canonical.yaml
@@ -136,9 +137,10 @@ diff --git a/specifications/operations/ehr_create.yaml b/specifications/operatio
    description: |
      An EHR_STATUS resource MAY be also supplied by the client as the request body.
 diff --git a/specifications/operations/ehr_create_with_id.yaml b/specifications/operations/ehr_create_with_id.yaml
+index be8f84a..58a1009 100644
 --- a/specifications/operations/ehr_create_with_id.yaml
 +++ b/specifications/operations/ehr_create_with_id.yaml
-@@ -20,7 +20,7 @@
+@@ -20,7 +20,7 @@ parameters:
    - $ref: ../parameters/path/ehr_id.yaml
    - $ref: ../parameters/header/Prefer.yaml
    - $ref: ../parameters/header/Accept_canonical.yaml
@@ -148,7 +150,7 @@ diff --git a/specifications/operations/ehr_create_with_id.yaml b/specifications/
    description: |
      An EHR_STATUS resource MAY be also supplied by the client as the request body.
 diff --git a/specifications/operations/ehr_status_get_at_time.yaml b/specifications/operations/ehr_status_get_at_time.yaml
-index 0f59e61a..74f722b7 100644
+index 0f59e61..74f722b 100644
 --- a/specifications/operations/ehr_status_get_at_time.yaml
 +++ b/specifications/operations/ehr_status_get_at_time.yaml
 @@ -12,7 +12,7 @@ tags:
@@ -161,7 +163,7 @@ index 0f59e61a..74f722b7 100644
    '200':
      $ref: ../responses/200_EHR_STATUS_retrieved.yaml
 diff --git a/specifications/operations/ehr_status_get_by_version_id.yaml b/specifications/operations/ehr_status_get_by_version_id.yaml
-index 272ae6db..e92c419c 100644
+index 272ae6d..e92c419 100644
 --- a/specifications/operations/ehr_status_get_by_version_id.yaml
 +++ b/specifications/operations/ehr_status_get_by_version_id.yaml
 @@ -10,7 +10,7 @@ tags:
@@ -174,7 +176,7 @@ index 272ae6db..e92c419c 100644
    '200':
      $ref: ../responses/200_EHR_STATUS_retrieved.yaml
 diff --git a/specifications/operations/ehr_status_update.yaml b/specifications/operations/ehr_status_update.yaml
-index 3c3c0eaf..7e06d584 100644
+index 3c3c0ea..7e06d58 100644
 --- a/specifications/operations/ehr_status_update.yaml
 +++ b/specifications/operations/ehr_status_update.yaml
 @@ -15,8 +15,8 @@ parameters:
@@ -189,7 +191,7 @@ index 3c3c0eaf..7e06d584 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
 diff --git a/specifications/operations/group_create.yaml b/specifications/operations/group_create.yaml
-index d91e2f4d..e1c35ab3 100644
+index d91e2f4..e1c35ab 100644
 --- a/specifications/operations/group_create.yaml
 +++ b/specifications/operations/group_create.yaml
 @@ -10,8 +10,8 @@ tags:
@@ -204,7 +206,7 @@ index d91e2f4d..e1c35ab3 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
 diff --git a/specifications/operations/group_get.yaml b/specifications/operations/group_get.yaml
-index d8d04da4..bc5b6daf 100644
+index d8d04da..bc5b6da 100644
 --- a/specifications/operations/group_get.yaml
 +++ b/specifications/operations/group_get.yaml
 @@ -17,7 +17,7 @@ tags:
@@ -217,7 +219,7 @@ index d8d04da4..bc5b6daf 100644
    '200':
      $ref: ../responses/200_GROUP_retrieved.yaml
 diff --git a/specifications/operations/group_update.yaml b/specifications/operations/group_update.yaml
-index 00e34c30..dd7ae70a 100644
+index 00e34c3..dd7ae70 100644
 --- a/specifications/operations/group_update.yaml
 +++ b/specifications/operations/group_update.yaml
 @@ -18,8 +18,8 @@ parameters:
@@ -232,7 +234,7 @@ index 00e34c30..dd7ae70a 100644
  requestBody:
    description: |
 diff --git a/specifications/operations/organisation_create.yaml b/specifications/operations/organisation_create.yaml
-index 2685670c..c07cbb11 100644
+index 2685670..c07cbb1 100644
 --- a/specifications/operations/organisation_create.yaml
 +++ b/specifications/operations/organisation_create.yaml
 @@ -10,8 +10,8 @@ tags:
@@ -247,7 +249,7 @@ index 2685670c..c07cbb11 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
 diff --git a/specifications/operations/organisation_get.yaml b/specifications/operations/organisation_get.yaml
-index 89649358..538c1370 100644
+index 8964935..538c137 100644
 --- a/specifications/operations/organisation_get.yaml
 +++ b/specifications/operations/organisation_get.yaml
 @@ -17,7 +17,7 @@ tags:
@@ -260,7 +262,7 @@ index 89649358..538c1370 100644
    '200':
      $ref: ../responses/200_ORGANISATION_retrieved.yaml
 diff --git a/specifications/operations/organisation_update.yaml b/specifications/operations/organisation_update.yaml
-index 3b236641..15d321e1 100644
+index 3b23664..15d321e 100644
 --- a/specifications/operations/organisation_update.yaml
 +++ b/specifications/operations/organisation_update.yaml
 @@ -18,8 +18,8 @@ parameters:
@@ -275,7 +277,7 @@ index 3b236641..15d321e1 100644
  requestBody:
    description: |
 diff --git a/specifications/operations/person_create.yaml b/specifications/operations/person_create.yaml
-index 28145fed..ba1a1bb8 100644
+index 28145fe..ba1a1bb 100644
 --- a/specifications/operations/person_create.yaml
 +++ b/specifications/operations/person_create.yaml
 @@ -10,8 +10,8 @@ tags:
@@ -290,7 +292,7 @@ index 28145fed..ba1a1bb8 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
 diff --git a/specifications/operations/person_get.yaml b/specifications/operations/person_get.yaml
-index d48c4441..bfb22810 100644
+index d48c444..bfb2281 100644
 --- a/specifications/operations/person_get.yaml
 +++ b/specifications/operations/person_get.yaml
 @@ -17,7 +17,7 @@ tags:
@@ -303,7 +305,7 @@ index d48c4441..bfb22810 100644
    '200':
      $ref: ../responses/200_PERSON_retrieved.yaml
 diff --git a/specifications/operations/person_update.yaml b/specifications/operations/person_update.yaml
-index 715ac8bb..6d9e2fe3 100644
+index 715ac8b..6d9e2fe 100644
 --- a/specifications/operations/person_update.yaml
 +++ b/specifications/operations/person_update.yaml
 @@ -18,8 +18,8 @@ parameters:
@@ -318,7 +320,7 @@ index 715ac8bb..6d9e2fe3 100644
  requestBody:
    description: |
 diff --git a/specifications/operations/role_create.yaml b/specifications/operations/role_create.yaml
-index 01b16c47..0720fcca 100644
+index 01b16c4..0720fcc 100644
 --- a/specifications/operations/role_create.yaml
 +++ b/specifications/operations/role_create.yaml
 @@ -10,8 +10,8 @@ tags:
@@ -333,7 +335,7 @@ index 01b16c47..0720fcca 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
 diff --git a/specifications/operations/role_get.yaml b/specifications/operations/role_get.yaml
-index 0e62dc6b..62696399 100644
+index 0e62dc6..6269639 100644
 --- a/specifications/operations/role_get.yaml
 +++ b/specifications/operations/role_get.yaml
 @@ -17,7 +17,7 @@ tags:
@@ -346,7 +348,7 @@ index 0e62dc6b..62696399 100644
    '200':
      $ref: ../responses/200_ROLE_retrieved.yaml
 diff --git a/specifications/operations/role_update.yaml b/specifications/operations/role_update.yaml
-index 54e5d390..6f34c985 100644
+index 54e5d39..6f34c98 100644
 --- a/specifications/operations/role_update.yaml
 +++ b/specifications/operations/role_update.yaml
 @@ -18,8 +18,8 @@ parameters:
@@ -361,7 +363,7 @@ index 54e5d390..6f34c985 100644
  requestBody:
    description: |
 diff --git a/specifications/responses/200_AGENT_retrieved.yaml b/specifications/responses/200_AGENT_retrieved.yaml
-index 8a5b2eab..0f01cae8 100644
+index 8a5b2ea..0f01cae 100644
 --- a/specifications/responses/200_AGENT_retrieved.yaml
 +++ b/specifications/responses/200_AGENT_retrieved.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -374,7 +376,7 @@ index 8a5b2eab..0f01cae8 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_AGENT_updated.yaml b/specifications/responses/200_AGENT_updated.yaml
-index 23d1599d..70b4c57f 100644
+index 23d1599..70b4c57 100644
 --- a/specifications/responses/200_AGENT_updated.yaml
 +++ b/specifications/responses/200_AGENT_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -387,7 +389,7 @@ index 23d1599d..70b4c57f 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_EHR_STATUS_retrieved.yaml b/specifications/responses/200_EHR_STATUS_retrieved.yaml
-index d3a119dc..d66c7ac5 100644
+index d3a119d..d66c7ac 100644
 --- a/specifications/responses/200_EHR_STATUS_retrieved.yaml
 +++ b/specifications/responses/200_EHR_STATUS_retrieved.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -400,7 +402,7 @@ index d3a119dc..d66c7ac5 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_EHR_STATUS_updated.yaml b/specifications/responses/200_EHR_STATUS_updated.yaml
-index 5240e206..98ef6893 100644
+index 5240e20..98ef689 100644
 --- a/specifications/responses/200_EHR_STATUS_updated.yaml
 +++ b/specifications/responses/200_EHR_STATUS_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -413,7 +415,7 @@ index 5240e206..98ef6893 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_FOLDER_retrieved.yaml b/specifications/responses/200_FOLDER_retrieved.yaml
-index 3d2249cf..bb9396a1 100644
+index 3d2249c..bb9396a 100644
 --- a/specifications/responses/200_FOLDER_retrieved.yaml
 +++ b/specifications/responses/200_FOLDER_retrieved.yaml
 @@ -2,7 +2,7 @@ description: |
@@ -426,7 +428,7 @@ index 3d2249cf..bb9396a1 100644
    application/json:
      schema:
 diff --git a/specifications/responses/200_GROUP_retrieved.yaml b/specifications/responses/200_GROUP_retrieved.yaml
-index 5d892f5b..7171925f 100644
+index 5d892f5..7171925 100644
 --- a/specifications/responses/200_GROUP_retrieved.yaml
 +++ b/specifications/responses/200_GROUP_retrieved.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -439,7 +441,7 @@ index 5d892f5b..7171925f 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_GROUP_updated.yaml b/specifications/responses/200_GROUP_updated.yaml
-index 344972c3..fa938efd 100644
+index 344972c..fa938ef 100644
 --- a/specifications/responses/200_GROUP_updated.yaml
 +++ b/specifications/responses/200_GROUP_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -452,7 +454,7 @@ index 344972c3..fa938efd 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_ORGANISATION_retrieved.yaml b/specifications/responses/200_ORGANISATION_retrieved.yaml
-index ec2bc94b..1556a884 100644
+index ec2bc94..1556a88 100644
 --- a/specifications/responses/200_ORGANISATION_retrieved.yaml
 +++ b/specifications/responses/200_ORGANISATION_retrieved.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -465,7 +467,7 @@ index ec2bc94b..1556a884 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_ORGANISATION_updated.yaml b/specifications/responses/200_ORGANISATION_updated.yaml
-index e0352a92..c97c7417 100644
+index e0352a9..c97c741 100644
 --- a/specifications/responses/200_ORGANISATION_updated.yaml
 +++ b/specifications/responses/200_ORGANISATION_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -478,7 +480,7 @@ index e0352a92..c97c7417 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_PERSON_retrieved.yaml b/specifications/responses/200_PERSON_retrieved.yaml
-index 50152803..44bb9243 100644
+index 5015280..44bb924 100644
 --- a/specifications/responses/200_PERSON_retrieved.yaml
 +++ b/specifications/responses/200_PERSON_retrieved.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -491,7 +493,7 @@ index 50152803..44bb9243 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_PERSON_updated.yaml b/specifications/responses/200_PERSON_updated.yaml
-index 1acb7dde..236d0cfc 100644
+index 1acb7dd..236d0cf 100644
 --- a/specifications/responses/200_PERSON_updated.yaml
 +++ b/specifications/responses/200_PERSON_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -504,7 +506,7 @@ index 1acb7dde..236d0cfc 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_ROLE_retrieved.yaml b/specifications/responses/200_ROLE_retrieved.yaml
-index 19b52f5c..25704414 100644
+index 19b52f5..2570441 100644
 --- a/specifications/responses/200_ROLE_retrieved.yaml
 +++ b/specifications/responses/200_ROLE_retrieved.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -517,7 +519,7 @@ index 19b52f5c..25704414 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_ROLE_updated.yaml b/specifications/responses/200_ROLE_updated.yaml
-index b91f079c..4db88a64 100644
+index b91f079..4db88a6 100644
 --- a/specifications/responses/200_ROLE_updated.yaml
 +++ b/specifications/responses/200_ROLE_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -530,7 +532,7 @@ index b91f079c..4db88a64 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/200_directory_updated.yaml b/specifications/responses/200_directory_updated.yaml
-index 0c0e943f..e0f29cc2 100644
+index 0c0e943..e0f29cc 100644
 --- a/specifications/responses/200_directory_updated.yaml
 +++ b/specifications/responses/200_directory_updated.yaml
 @@ -6,7 +6,7 @@ headers:
@@ -543,7 +545,7 @@ index 0c0e943f..e0f29cc2 100644
    application/json:
      schema:
 diff --git a/specifications/responses/201_AGENT.yaml b/specifications/responses/201_AGENT.yaml
-index d54bb3f1..09bbccfc 100644
+index d54bb3f..09bbccf 100644
 --- a/specifications/responses/201_AGENT.yaml
 +++ b/specifications/responses/201_AGENT.yaml
 @@ -8,7 +8,7 @@ headers:
@@ -556,7 +558,7 @@ index d54bb3f1..09bbccfc 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/201_GROUP.yaml b/specifications/responses/201_GROUP.yaml
-index e91c1338..51fc966e 100644
+index e91c133..51fc966 100644
 --- a/specifications/responses/201_GROUP.yaml
 +++ b/specifications/responses/201_GROUP.yaml
 @@ -8,7 +8,7 @@ headers:
@@ -569,7 +571,7 @@ index e91c1338..51fc966e 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/201_ORGANISATION.yaml b/specifications/responses/201_ORGANISATION.yaml
-index ba4c18de..2c136215 100644
+index ba4c18d..2c13621 100644
 --- a/specifications/responses/201_ORGANISATION.yaml
 +++ b/specifications/responses/201_ORGANISATION.yaml
 @@ -8,7 +8,7 @@ headers:
@@ -582,7 +584,7 @@ index ba4c18de..2c136215 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/201_PERSON.yaml b/specifications/responses/201_PERSON.yaml
-index 6871ca99..52fbfcc0 100644
+index 6871ca9..52fbfcc 100644
 --- a/specifications/responses/201_PERSON.yaml
 +++ b/specifications/responses/201_PERSON.yaml
 @@ -8,7 +8,7 @@ headers:
@@ -595,7 +597,7 @@ index 6871ca99..52fbfcc0 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/201_ROLE.yaml b/specifications/responses/201_ROLE.yaml
-index 78d3fa5b..8bf9af5a 100644
+index 78d3fa5..8bf9af5 100644
 --- a/specifications/responses/201_ROLE.yaml
 +++ b/specifications/responses/201_ROLE.yaml
 @@ -8,7 +8,7 @@ headers:
@@ -608,7 +610,7 @@ index 78d3fa5b..8bf9af5a 100644
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
 diff --git a/specifications/responses/201_directory.yaml b/specifications/responses/201_directory.yaml
-index 39d5e7e9..e4fc7792 100644
+index 39d5e7e..e4fc779 100644
 --- a/specifications/responses/201_directory.yaml
 +++ b/specifications/responses/201_directory.yaml
 @@ -8,7 +8,7 @@ headers:

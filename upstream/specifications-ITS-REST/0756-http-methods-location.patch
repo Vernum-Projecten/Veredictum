@@ -1,5 +1,5 @@
 diff --git a/specifications/docs/overview/Requests_and_responses.md b/specifications/docs/overview/Requests_and_responses.md
-index bc37e680..70277f32 100644
+index e3957a6..1ab0320 100644
 --- a/specifications/docs/overview/Requests_and_responses.md
 +++ b/specifications/docs/overview/Requests_and_responses.md
 @@ -23,6 +23,7 @@ The following subset is used in this specification:
@@ -10,7 +10,7 @@ index bc37e680..70277f32 100644
  
  
  # Authentication and authorization
-@@ -137,7 +138,7 @@ It MUST NOT be used to indicate an alternate representation of an existing resou
+@@ -141,7 +142,7 @@ It MUST NOT be used to indicate an alternate representation of an existing resou
  
  > DEPRECATION: [Prior to Release 1.1.0](https://specifications.openehr.org/releases/ITS-REST/Release-1.0.3/overview.html#tag/Requests_and_responses/HTTP-headers), the `Location` header was used to indicate the canonical location of a representation in a response.
  > This usage is now deprecated. 

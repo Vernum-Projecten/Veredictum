@@ -28,15 +28,17 @@ error.
 | `xml-write-bodies.sh` | every canonical-XML request body of a document an `*-xml-write-accepted` arm names validates against the vendored ITS-XML schemas (`specs/its-xml-schemas/`), chosen by the root's namespace and checked with `xmllint`, and every such document sends one | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `test-modules-declared.sh` | every `.rs` file of a one-binary integration-test tree (`tests/<dir>/main.rs`) is declared by its parent module, so no topic file is silently never compiled | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `release-tags-after-smoke.sh` | every release job that applies the image tags needs, directly or transitively, every image smoke job, so a digest that does not run is never tagged or deployed | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
+| `upstream-patches-apply.sh` | every proposed fix under `upstream/<repository>/` applies with `git apply --check` to the pinned `master` snapshot of that repository under `specs/openehr-development/<repository>/`, and no patch names a repository without a snapshot | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 
-Seven of these take a single file or no argument rather than the three modes
+Eight of these take a single file or no argument rather than the three modes
 above: `changelog-structure.sh` reads one changelog,
 `ci-conclusion-complete.sh` reads one workflow,
 `citation-version.sh` reads the three files that carry the version,
 `hosted-deploy-script.sh` reads one cloud-init document,
 `release-tags-after-smoke.sh` reads one workflow, `test-modules-declared.sh`
-walks the integration-test trees, and
-`vendored-trees.sh` reads the vendored trees and `scripts/vendor/`. The mode contract
+walks the integration-test trees, `upstream-patches-apply.sh` reads `upstream/`
+and the snapshots, and `vendored-trees.sh` reads the vendored trees and
+`scripts/vendor/`. The mode contract
 applies to guards that scan a file set.
 
 Guards still to port with the code: the spec-citation resolver, the

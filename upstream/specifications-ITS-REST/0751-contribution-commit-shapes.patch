@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/contribution_create.yaml b/specifications/operations/contribution_create.yaml
-index 667bb891..0eafdec7 100644
+index 667bb89..0eafdec 100644
 --- a/specifications/operations/contribution_create.yaml
 +++ b/specifications/operations/contribution_create.yaml
 @@ -41,3 +41,5 @@ responses:
@@ -9,7 +9,7 @@ index 667bb891..0eafdec7 100644
 +  '422':
 +    $ref: ../responses/422.yaml
 diff --git a/specifications/schemas/ehr/NewContribution.yaml b/specifications/schemas/ehr/NewContribution.yaml
-index ef70ec51..5b1b3b67 100644
+index ef70ec5..5b1b3b6 100644
 --- a/specifications/schemas/ehr/NewContribution.yaml
 +++ b/specifications/schemas/ehr/NewContribution.yaml
 @@ -9,6 +9,7 @@ properties:
@@ -21,7 +21,7 @@ index ef70ec51..5b1b3b67 100644
        $ref: ../ehr/UpdateVersion.yaml
    audit:
 diff --git a/specifications/schemas/ehr/UpdateVersion.yaml b/specifications/schemas/ehr/UpdateVersion.yaml
-index 550fe711..4b6a5d66 100644
+index 550fe71..4b6a5d6 100644
 --- a/specifications/schemas/ehr/UpdateVersion.yaml
 +++ b/specifications/schemas/ehr/UpdateVersion.yaml
 @@ -1,8 +1,10 @@

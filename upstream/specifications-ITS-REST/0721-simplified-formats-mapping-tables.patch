@@ -1,5 +1,5 @@
 diff --git a/docs/simplified_formats/master04-basic_concepts.adoc b/docs/simplified_formats/master04-basic_concepts.adoc
-index 6fe34b35..0f7a2d49 100644
+index 6fe34b3..0f7a2d4 100644
 --- a/docs/simplified_formats/master04-basic_concepts.adoc
 +++ b/docs/simplified_formats/master04-basic_concepts.adoc
 @@ -665,7 +665,7 @@ This feature allows incorporating fully-formed openEHR Reference Model (RM) obje
@@ -12,7 +12,7 @@ index 6fe34b35..0f7a2d49 100644
  }
  ----
 diff --git a/docs/simplified_formats/master05-rm_mapping.adoc b/docs/simplified_formats/master05-rm_mapping.adoc
-index 33396b8d..0a19af9a 100644
+index 33396b8..0a19af9 100644
 --- a/docs/simplified_formats/master05-rm_mapping.adoc
 +++ b/docs/simplified_formats/master05-rm_mapping.adoc
 @@ -1028,7 +1028,7 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates

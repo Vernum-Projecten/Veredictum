@@ -1,5 +1,5 @@
 diff --git a/specifications/admin.openapi.yaml b/specifications/admin.openapi.yaml
-index b5f27cd3..a7c00866 100644
+index b5f27cd..a7c0086 100644
 --- a/specifications/admin.openapi.yaml
 +++ b/specifications/admin.openapi.yaml
 @@ -25,7 +25,7 @@ paths:
@@ -12,7 +12,7 @@ index b5f27cd3..a7c00866 100644
        $ref: ./operations/admin_ehr_delete_all.yaml
  tags:
 diff --git a/specifications/parameters/query/ehr_id_Admin.yaml b/specifications/parameters/query/ehr_id_Admin.yaml
-index 94e066ee..bf631174 100644
+index 94e066e..bf63117 100644
 --- a/specifications/parameters/query/ehr_id_Admin.yaml
 +++ b/specifications/parameters/query/ehr_id_Admin.yaml
 @@ -1,16 +1,19 @@

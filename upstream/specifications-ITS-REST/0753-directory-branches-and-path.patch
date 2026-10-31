@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/directory_create.yaml b/specifications/operations/directory_create.yaml
-index 880dc179..488c13a3 100644
+index 880dc17..488c13a 100644
 --- a/specifications/operations/directory_create.yaml
 +++ b/specifications/operations/directory_create.yaml
 @@ -2,6 +2,9 @@ operationId: directory_create
@@ -19,7 +19,7 @@ index 880dc179..488c13a3 100644
 +  '409':
 +    $ref: ../responses/409.yaml
 diff --git a/specifications/operations/directory_delete.yaml b/specifications/operations/directory_delete.yaml
-index 1a3c2de2..6690a092 100644
+index 1a3c2de..6690a09 100644
 --- a/specifications/operations/directory_delete.yaml
 +++ b/specifications/operations/directory_delete.yaml
 @@ -2,6 +2,7 @@ operationId: directory_delete
@@ -31,7 +31,7 @@ index 1a3c2de2..6690a092 100644
    The existing latest `version_uid` of directory FOLDER resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
  tags:
 diff --git a/specifications/operations/directory_update.yaml b/specifications/operations/directory_update.yaml
-index dae1daf1..78a31098 100644
+index dae1daf..78a3109 100644
 --- a/specifications/operations/directory_update.yaml
 +++ b/specifications/operations/directory_update.yaml
 @@ -2,6 +2,7 @@ operationId: directory_update
@@ -43,7 +43,7 @@ index dae1daf1..78a31098 100644
    The existing latest `version_uid` of directory FOLDER resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
  tags:
 diff --git a/specifications/parameters/query/path.yaml b/specifications/parameters/query/path.yaml
-index fe440c76..89f5606c 100644
+index fe440c7..89f5606 100644
 --- a/specifications/parameters/query/path.yaml
 +++ b/specifications/parameters/query/path.yaml
 @@ -2,6 +2,8 @@ name: path

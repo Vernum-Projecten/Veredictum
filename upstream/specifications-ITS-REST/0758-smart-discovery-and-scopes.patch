@@ -1,5 +1,5 @@
 diff --git a/docs/smart_app_launch/master04-service_discovery.adoc b/docs/smart_app_launch/master04-service_discovery.adoc
-index 6d1f679b..0f3ebb1a 100644
+index 6d1f679..0f3ebb1 100644
 --- a/docs/smart_app_launch/master04-service_discovery.adoc
 +++ b/docs/smart_app_launch/master04-service_discovery.adoc
 @@ -63,7 +63,7 @@ Responses to `/.well-known/smart-configuration` endpoint must be served with the
@@ -21,7 +21,7 @@ index 6d1f679b..0f3ebb1a 100644
  - `issuer`
  - `jwks_uri`
 diff --git a/docs/smart_app_launch/master08-scopes.adoc b/docs/smart_app_launch/master08-scopes.adoc
-index cdb65d0e..3dbed325 100644
+index cdb65d0..3dbed32 100644
 --- a/docs/smart_app_launch/master08-scopes.adoc
 +++ b/docs/smart_app_launch/master08-scopes.adoc
 @@ -13,7 +13,7 @@ The _Platform_ must validate requested scopes against the _Application_ registra

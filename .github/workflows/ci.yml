@@ -267,6 +267,14 @@ jobs:
       - name: Release tags after the smoke — seeded-violation proof
         run: bash scripts/checks/release-tags-after-smoke.sh --self-test
 
+      # Every proposed fix under `upstream/` is written against the pinned
+      # `master` snapshot of its openEHR repository and must apply there (#906).
+      - name: Every upstream patch applies to its master snapshot
+        run: bash scripts/checks/upstream-patches-apply.sh
+
+      - name: Upstream patches — seeded-case proof
+        run: bash scripts/checks/upstream-patches-apply.sh --self-test
+
       # JUnit XML has no single owner, so the export is held to the schemas
       # the tools that read it publish: Jenkins xUnit junit-10 for the
       # document and Apache Maven Surefire for each testsuite. xmllint

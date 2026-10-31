@@ -148,9 +148,17 @@ is not an `upstream-report` issue here); the narrative lives only on the issue.
   with citations and quotes, `## What this implementation does`,
   `## Resolution sought upstream`, `## What the patch changes`,
   `## Points for the SEC to decide`. No report exists without its patch under
-  `upstream/<openEHR repository>/`, written against the vendored commit and
-  checked with `git apply --check`. Never ticket-draft framing, and no
-  Channel/Status/Ask fields.
+  `upstream/<openEHR repository>/`, unless `master` already fixes the defect.
+  Never ticket-draft framing, and no Channel/Status/Ask fields.
+- **The release is quoted, `master` is patched** (owner ruling 2026-10-30,
+  #906). The report quotes the released text under `specs/openehr/`, which
+  stays the oracle. Its patch is written against the repository's `master`,
+  the newest openEHR text, at the commit pinned by the snapshot under
+  `specs/openehr-development/<openEHR repository>/`, and CI's
+  `scripts/checks/upstream-patches-apply.sh` refuses a patch that does not
+  apply there with `git apply --check`. A defect `master` already fixes
+  carries no patch: the report records the fixing commit and quotes the
+  `master` text that fixes it.
 - **Grounding**: docs text first. The released OAS is citable only where the
   docs text is silent, is always cited as the OAS, and loses every conflict. A
   behaviour the OAS DEFINES is not a reportable silence, and a "defect" that
