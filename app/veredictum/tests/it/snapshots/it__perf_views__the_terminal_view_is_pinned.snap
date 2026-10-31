@@ -1,0 +1,81 @@
+---
+source: app/veredictum/tests/it/perf_views.rs
+expression: view
+---
+perf-result: example-mix against https://cdr.example/openehr/v1
+
+target       https://cdr.example/openehr/v1 (example-cdr 2.4.0)
+environment  example 8-vCPU VM, 8 cores, 8 GiB, NVMe storage, single node
+host         no prescription claimed; generator on x86_64 linux, 8 threads,
+             Example CPU @ 3.0GHz
+workload     example-mix v1, custom: a document the instrument does not pin
+digest       sha256:b819e2e11c055b4440addf…
+corpus       scale S: 100,000 EHRs, 1,000,000 compositions, seeded by this run
+scout        knee estimate 200.9/s, from scout window 15
+noise        1 pass; between-run noise unmeasured, no A/A floor attached
+scope        A run of at most ten minutes measures steady-state capacity and
+             says nothing about memory growth, data growth or behaviour over
+             hours.
+
+Plateaus (operations/s; latency ms)
+    offered  achieved     p50     p95     p99   p99.9     max  errors
+✓     100.4     100.4     7.9    41.7     100     n/r     615   0.00%
+✓     150.6     150.6     8.1    44.1     125     n/r     750   0.00%
+✓     180.8     180.7    15.7     232     795     n/r  12,091   0.00% unsteady
+✕     210.9     210.3    16.0   2,370   7,246     n/r  30,015   0.22%
+✓ qualifies, ✕ fails; unsteady: the second half's p50 or p95 over the first's
+lies outside 0.8 to 1.25.
+n/r: not resolvable, fewer than 10 samples lie above the quantile.
+
+Operations at the knee, 180.8/s offered (ms)
+  operation               share     p50     p95     p99 judged   value  budget
+✓ aql:cohort_count         1.0%     423     n/r     n/r    p50     423   5,000
+✓ aql:patient_summary     10.0%    62.0     654     n/r    p95     654   1,000
+✓ composition_create      25.0%    32.0     344     892    p99     892   1,000
+✓ ehr_read                64.0%    10.7     114     297    p99     297   1,000
+  aql:cohort_count is judged at p50: its 54 samples resolve no higher quantile.
+  aql:patient_summary is judged at p95: its 542 samples resolve no higher
+  quantile.
+
+Operations at the lowest plateau, 100.4/s offered (ms)
+  operation               share     p50     p95     p99 judged   value  budget
+✓ aql:cohort_count         1.0%     240     n/r     n/r    p50     240   5,000
+✓ aql:patient_summary     10.0%    35.0    76.0     n/r    p95    76.0   1,000
+✓ composition_create      25.0%    18.0    39.0    48.9    p99    48.9   1,000
+✓ ehr_read                64.0%     6.0    13.0    16.3    p99    16.3   1,000
+  aql:cohort_count is judged at p50: its 50 samples resolve no higher quantile.
+  aql:patient_summary is judged at p95: its 502 samples resolve no higher
+  quantile.
+
+Knee: between 180.8/s offered, the highest plateau that qualifies with every one
+below it (achieved 180.7/s), and 210.9/s, the first plateau that fails.
+Peak: 246.0/s achieved, in scout window 16, whatever its latency.
+Population: 241,024 to 1,390,524 people at their peak, at 13 to 75 peak
+arrivals/s per 100,000, read only at corpus scale S (100,000 EHRs) on example
+8-vCPU VM, 8 cores, 8 GiB, NVMe storage, single node.
+Scalability fit (an explanatory model, never a verdict): α 0.3526, β 0.000000,
+R² 0.975 over 21 points; no finite maximum.
+
+p99 by offered rate
+  8.9/s ············▁··▁·▄·█· 247.3/s
+  scout windows and plateaus, log scale; · where p99 does not resolve
+
+Server readings (context, never part of qualification)
+  settings PostgreSQL 18.6; shared_buffers 262144 8kB, work_mem 16384 kB,
+           effective_cache_size 524288 8kB, max_connections 200, jit off
+      100.4/s  sut cpu 31% (max 32%), rss 636 MB
+               db cpu 18% (max 19%), rss 1.4 GB
+               database +7.8 MB
+      150.6/s  sut cpu 46% (max 48%), rss 628 MB
+               db cpu 27% (max 28%), rss 1.4 GB
+               database +7.9 MB
+      180.8/s  sut cpu 55% (max 58%), rss 626 MB
+               db cpu 32% (max 34%), rss 1.4 GB
+               database +8.4 MB
+      210.9/s  sut cpu 64% (max 67%), rss 626 MB
+               db cpu 37% (max 39%), rss 1.4 GB, truncated
+               database +9.8 MB
+  costliest statements at the knee:
+    28,532 ms, 54 calls: SELECT count(*) FROM ehr.comp_data c WHERE c.archetype…
+    7,262 ms, 1,356 calls: INSERT INTO ehr.comp_data (id, ehr_id, data) VALUES …
+    833 ms, 3,471 calls: SELECT e.id, e.created FROM ehr.ehr e WHERE e.id = $1

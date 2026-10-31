@@ -174,7 +174,7 @@ typed is a defect. The recording step and the judging step are separate, so
 the record survives the judgement and anyone holding the same files can
 re-derive the same documents.
 
-Two verdict machineries share that discipline
+Two machineries share that discipline
 ([`docs/ARCHITECTURE.md`][architecture] §8):
 
 - **Conformance by assertion:** the statement selects the applicable
@@ -183,28 +183,32 @@ Two verdict machineries share that discipline
   (`not-claimed`, `option-not-selected`, `not-declared`), so a thin claim is
   visible instead of silently green, and a red row carries what was checked,
   why, what was expected and what came back.
-- **Conformance by measurement:** a performance class is earned when every
-  threshold holds in one measured run. The class verdict is re-derived from
-  the HDR histograms embedded in the record, so a stored summary is
-  tamper-checked rather than trusted.
+- **Measured performance:** a declared clinical workload is offered on a
+  load ladder up to the knee, and every number of the record is re-derived
+  from the HDR histograms embedded in it, so a stored summary is
+  tamper-checked rather than trusted. A performance record earns no class and
+  enters no conformance verdict.
 
-Load is offered open-loop: arrivals follow a seeded schedule of planned
-instants, and latency is measured from the planned instant rather than the
-actual send. A stalled server therefore accumulates the delay it caused, which
-is what stops coordinated omission from hiding a stall behind a slowed-down
-client.
+Load is offered open-loop: arrivals follow a seeded Poisson schedule of
+planned instants, and latency is measured from the planned instant rather than
+the actual send. A stalled server therefore accumulates the delay it caused,
+which is what stops coordinated omission from hiding a stall behind a
+slowed-down client.
 
-The performance classes anchor to population served rather than to a
-concurrent-user guess, with the full derivation from OECD, Eurostat and NHS
-activity statistics in
-[`docs/ARCHITECTURE.md`][architecture] §8.14:
+A record puts its knee in context with a population reading rather than a
+concurrent-user guess: about 46 clinical documents per person per year, a busy
+hour of about eight times the average rate and 10 to 50 reads per write give
+13 to 75 peak API arrivals per second per 100,000 people, with the full
+derivation from OECD, Eurostat and NHS activity statistics in
+[`docs/ARCHITECTURE.md`][architecture] §8.14. The corpus is seeded at a named
+scale, which is a size and never a pass or fail:
 
-| Class | Population served | Corpus | Sustained arrival floor | p99 budget | Error rate |
-|---|---|---|---|---|---|
-| POC | demonstration | 10k EHRs | 2/s | ≤ 1 s | 0 |
-| S | 100 thousand | 100k EHRs | 15/s | ≤ 1 s | 0 |
-| L | 1 million | 1M EHRs | 150/s | ≤ 1 s | 0 |
-| R | 10 million | 10M EHRs | 1,500/s | ≤ 1 s | 0 |
+| Scale | Corpus |
+|---|---|
+| POC | 10,000 EHRs |
+| S | 100,000 EHRs |
+| L | 1,000,000 EHRs |
+| R | 10,000,000 EHRs |
 
 ## Coverage is a mandate
 

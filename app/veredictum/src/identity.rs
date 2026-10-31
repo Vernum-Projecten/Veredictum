@@ -327,7 +327,7 @@ pub fn read(
 /// the exchange cannot be performed.
 pub fn identify(
     base_url: &str,
-    auth: crate::bench::client::AuthKind,
+    auth: crate::arazzo::credential::AuthKind,
 ) -> Result<IdentityRead, IdentityError> {
     let source = CredentialSource::locate(auth, Role::Ordinary)?;
     let inner = crate::exec::transport::HttpTransport::new().map_err(IdentityError::Transport)?;

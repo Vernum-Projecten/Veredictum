@@ -1,0 +1,3918 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:perf-result:0.1.0",
+  "title": "Veredictum performance result",
+  "description": "One performance run against one server: the `raw` evidence (the target's System OPTIONS answer, the environment, the generator, the embedded workload and corpus, the seed, the scout windows and per plateau the encoded HDR histograms per hold half and operation) and the `derived` numbers, which `veredictum perf-judge` recomputes from `raw` byte for byte. Percentiles come from summed histograms, never an average of percentiles. No openEHR specification governs performance; this is the instrument's own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "family",
+    "raw",
+    "derived"
+  ],
+  "properties": {
+    "family": {
+      "const": "perf-result"
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument",
+        "target",
+        "environment",
+        "generator",
+        "workload",
+        "corpus",
+        "seeding",
+        "mix",
+        "qualification",
+        "seed",
+        "plateaus"
+      ],
+      "properties": {
+        "instrument": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "base_url",
+            "options"
+          ],
+          "properties": {
+            "base_url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "options": {
+              "type": "object",
+              "required": [
+                "read"
+              ],
+              "description": "The answer to ITS-REST System OPTIONS (specifications/operations/options.yaml), or the transport failure that prevented one.",
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "read",
+                    "answer"
+                  ],
+                  "properties": {
+                    "read": {
+                      "const": "answered"
+                    },
+                    "answer": {
+                      "type": "object",
+                      "required": [
+                        "outcome",
+                        "status"
+                      ],
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "outcome",
+                            "status",
+                            "options"
+                          ],
+                          "properties": {
+                            "outcome": {
+                              "const": "offered"
+                            },
+                            "status": {
+                              "const": 200
+                            },
+                            "options": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "description": "The members of the `Options` document the server sent; a member the schema does not name is not carried.",
+                              "properties": {
+                                "solution": {
+                                  "type": "string",
+                                  "description": "The product name."
+                                },
+                                "solution_version": {
+                                  "type": "string",
+                                  "description": "The product version."
+                                },
+                                "vendor": {
+                                  "type": "string",
+                                  "description": "The vendor."
+                                },
+                                "restapi_specs_version": {
+                                  "type": "string",
+                                  "description": "The ITS-REST release the server states it implements."
+                                },
+                                "conformance_profile": {
+                                  "type": "string",
+                                  "description": "The conformance profile the server states."
+                                },
+                                "endpoints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "The endpoints the server lists."
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "outcome",
+                            "status"
+                          ],
+                          "properties": {
+                            "outcome": {
+                              "const": "not_offered"
+                            },
+                            "status": {
+                              "type": "integer",
+                              "minimum": 100,
+                              "maximum": 599,
+                              "not": {
+                                "minimum": 200,
+                                "maximum": 299
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "outcome",
+                            "status",
+                            "reason"
+                          ],
+                          "properties": {
+                            "outcome": {
+                              "const": "not_options_document"
+                            },
+                            "status": {
+                              "type": "integer",
+                              "minimum": 200,
+                              "maximum": 299
+                            },
+                            "reason": {
+                              "type": "string",
+                              "description": "Why the body is not an `Options` document, in the parser's own words."
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "outcome",
+                            "status"
+                          ],
+                          "properties": {
+                            "outcome": {
+                              "const": "invalid_status"
+                            },
+                            "status": {
+                              "type": "integer",
+                              "minimum": 600,
+                              "maximum": 999,
+                              "description": "A three-digit code outside 100..599, which RFC 9110 §15 makes invalid."
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "read",
+                    "error"
+                  ],
+                  "properties": {
+                    "read": {
+                      "const": "unanswered"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hardware_class",
+            "cores",
+            "memory_gb",
+            "storage_class",
+            "topology"
+          ],
+          "properties": {
+            "exclusive_server": {
+              "type": "boolean"
+            },
+            "hardware_class": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cores": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "memory_gb": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "storage_class": {
+              "type": "string",
+              "minLength": 1
+            },
+            "topology": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "generator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "host",
+            "in_flight_budget",
+            "lag_limit_us",
+            "workers"
+          ],
+          "properties": {
+            "host": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "arch",
+                "os"
+              ],
+              "properties": {
+                "arch": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "os": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "available_parallelism": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "cpu_model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "total_memory_bytes": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "in_flight_budget": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "lag_limit_us": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "workers": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "host_prescription": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version",
+            "description",
+            "derivation",
+            "machine_class",
+            "vcpu",
+            "memory_gib",
+            "storage_class",
+            "network_leg",
+            "idle"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "description": "The prescription's id, its file stem under perf/hosts/."
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "derivation": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Where the prescription comes from; a field the source does not name is `unstated`."
+            },
+            "machine_class": {
+              "enum": [
+                "bare_metal",
+                "virtual_machine",
+                "hosted_ci_runner",
+                "unstated"
+              ]
+            },
+            "vcpu": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "memory_gib": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "storage_class": {
+              "enum": [
+                "nvme",
+                "ssd",
+                "network_block",
+                "hdd",
+                "unstated"
+              ]
+            },
+            "container_ceilings": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "cpus",
+                "memory_gib"
+              ],
+              "properties": {
+                "cpus": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "memory_gib": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "network_leg": {
+              "enum": [
+                "same-host",
+                "same-zone",
+                "cross-region"
+              ],
+              "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+            },
+            "idle": {
+              "type": "boolean",
+              "description": "Whether the host runs nothing but the measurement."
+            }
+          }
+        },
+        "network_leg": {
+          "enum": [
+            "same-host",
+            "same-zone",
+            "cross-region"
+          ],
+          "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+        },
+        "interleaving": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "side",
+            "partner",
+            "shared_estimate",
+            "sequence"
+          ],
+          "description": "The interleaved run this record is one side of: both sides were offered the same rates and holds, and on each rung the plateaus alternate in ABBA order.",
+          "properties": {
+            "mode": {
+              "enum": [
+                "aa",
+                "ab"
+              ]
+            },
+            "side": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            },
+            "partner": {
+              "type": "string",
+              "minLength": 1
+            },
+            "shared_estimate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "sequence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "rung",
+                  "planned_rate",
+                  "side"
+                ],
+                "properties": {
+                  "rung": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "planned_rate": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  },
+                  "side": {
+                    "enum": [
+                      "a",
+                      "b"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "aa_floor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ratios",
+            "pairs"
+          ],
+          "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+          "properties": {
+            "ratios": {
+              "type": "object",
+              "propertyNames": {
+                "enum": [
+                  "p50",
+                  "p95",
+                  "p99",
+                  "p99_9",
+                  "achieved"
+                ]
+              },
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 1.0
+              }
+            },
+            "pairs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "posture": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "What was switched on behind these numbers. A run declares exactly one named posture profile, and black-box canaries bracket the run, after seeding and after the last plateau: every item is labelled `verified` when both brackets observed the declared value first-hand, and `declared-only` when nothing on the wire discloses it. A canary that contradicted the declaration, or a pair of brackets that disagreed, refused the run, so no such record exists.",
+          "required": [
+            "profile",
+            "summary",
+            "items"
+          ],
+          "properties": {
+            "profile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "comparability": {
+              "description": "Every item on which the measured deployment's own configuration departs from the profile named above. A same-host baseline is composed from somebody else's pinned recipe, so where that recipe configures an item differently the run declares, and the canaries check, what the deployment actually does; this block is how the record says so. Absent for a run that declared its profile as the instrument defines it.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "item",
+                  "profile_declares",
+                  "deployment_configures",
+                  "source"
+                ],
+                "properties": {
+                  "item": {
+                    "enum": [
+                      "audit",
+                      "version_signing",
+                      "commit_validation",
+                      "authn",
+                      "tls",
+                      "compression",
+                      "tenancy"
+                    ]
+                  },
+                  "profile_declares": {
+                    "enum": [
+                      "basic",
+                      "bearer",
+                      "digest",
+                      "external-sink",
+                      "internal",
+                      "multi",
+                      "none",
+                      "off",
+                      "on",
+                      "pgp",
+                      "queryable-api",
+                      "response",
+                      "single",
+                      "syntax",
+                      "template"
+                    ]
+                  },
+                  "deployment_configures": {
+                    "enum": [
+                      "basic",
+                      "bearer",
+                      "digest",
+                      "external-sink",
+                      "internal",
+                      "multi",
+                      "none",
+                      "off",
+                      "on",
+                      "pgp",
+                      "queryable-api",
+                      "response",
+                      "single",
+                      "syntax",
+                      "template"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "item",
+                  "declared",
+                  "assurance",
+                  "readings"
+                ],
+                "properties": {
+                  "item": {
+                    "enum": [
+                      "audit",
+                      "version_signing",
+                      "commit_validation",
+                      "authn",
+                      "tls",
+                      "compression",
+                      "tenancy"
+                    ]
+                  },
+                  "declared": {
+                    "enum": [
+                      "basic",
+                      "bearer",
+                      "digest",
+                      "external-sink",
+                      "internal",
+                      "multi",
+                      "none",
+                      "off",
+                      "on",
+                      "pgp",
+                      "queryable-api",
+                      "response",
+                      "single",
+                      "syntax",
+                      "template"
+                    ]
+                  },
+                  "assurance": {
+                    "enum": [
+                      "verified",
+                      "declared-only"
+                    ]
+                  },
+                  "readings": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "bracket",
+                        "outcome",
+                        "observed",
+                        "evidence"
+                      ],
+                      "properties": {
+                        "bracket": {
+                          "enum": [
+                            "before",
+                            "after"
+                          ]
+                        },
+                        "outcome": {
+                          "enum": [
+                            "confirmed",
+                            "not-observable",
+                            "contradicted"
+                          ]
+                        },
+                        "observed": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "evidence": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "workload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "label",
+            "version",
+            "sha256",
+            "document"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "label": {
+              "type": "string",
+              "pattern": "^(custom|[a-z0-9][a-z0-9-]*@[0-9]+)$",
+              "description": "`<id>@<version>` for a workload the instrument pins by digest, `custom` for any other document."
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "description": "The digest of `document`."
+            },
+            "document": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "corpus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scale",
+            "recipe_sha256",
+            "digest",
+            "origin",
+            "ehrs",
+            "compositions"
+          ],
+          "properties": {
+            "scale": {
+              "enum": [
+                "POC",
+                "S",
+                "L",
+                "R"
+              ]
+            },
+            "recipe_sha256": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "description": "The digest of the recipe the corpus was seeded from."
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "description": "The digest of the seeded corpus listing."
+            },
+            "origin": {
+              "enum": [
+                "seeded",
+                "reused"
+              ]
+            },
+            "ehrs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The EHRs the server held when the clock started, as read back."
+            },
+            "compositions": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The compositions the server held when the clock started, as read back."
+            }
+          }
+        },
+        "seeding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "workers",
+            "requests",
+            "wall_ms"
+          ],
+          "description": "The seeding before the clock, a closed-loop bulk load reported apart from every measured number.",
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "workers": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "walk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "reads",
+            "requests",
+            "wall_ms"
+          ],
+          "description": "The closed-loop read walk after seeding, reported apart from every measured number.",
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "reads": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "mix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operations_per_interaction"
+          ],
+          "properties": {
+            "operations_per_interaction": {
+              "type": "number",
+              "exclusiveMinimum": 0.0,
+              "description": "Planned rates count operation arrivals per second; the generator draws interactions at the rate divided by this."
+            },
+            "dropped": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "interaction",
+                  "share",
+                  "missing"
+                ],
+                "properties": {
+                  "interaction": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "share": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "missing": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "qualification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "default_budget_ms",
+            "max_error_ppm",
+            "min_achieved_ppm"
+          ],
+          "properties": {
+            "default_budget_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "budgets_ms": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^\\S+$"
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "max_error_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "min_achieved_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          }
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phase",
+              "planned_ms",
+              "wall_ms",
+              "exchanges"
+            ],
+            "properties": {
+              "phase": {
+                "enum": [
+                  "settle",
+                  "warm_up",
+                  "scout",
+                  "drain",
+                  "ladder",
+                  "extra_plateau",
+                  "closing"
+                ]
+              },
+              "planned_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "wall_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "exchanges": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "errors": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "timeout": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "transport": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "rate_limited": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "client_error": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "server_error": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unexpected_status": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unfinished": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "no_target": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "scout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_rate",
+            "end_rate",
+            "window_ms",
+            "windows"
+          ],
+          "properties": {
+            "start_rate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "end_rate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "halted_at_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "window_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "windows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "planned_rate",
+                  "window"
+                ],
+                "properties": {
+                  "planned_rate": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  },
+                  "window": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "start_ms",
+                      "end_ms",
+                      "operations",
+                      "lag_hdr",
+                      "in_flight",
+                      "budget_wait_ms",
+                      "budget_exhausted"
+                    ],
+                    "properties": {
+                      "start_ms": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "end_ms": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "operations": {
+                        "type": "object",
+                        "propertyNames": {
+                          "pattern": "^\\S+$"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "ok_hdr"
+                          ],
+                          "properties": {
+                            "ok_hdr": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds."
+                            },
+                            "failed_hdr": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds."
+                            },
+                            "errors": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "timeout": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "transport": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "rate_limited": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "client_error": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "server_error": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "unexpected_status": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "unfinished": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "no_target": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            "refused": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Refusals of an optional operation the workload counts apart from errors (`on_refusal: count_apart`)."
+                            }
+                          }
+                        }
+                      },
+                      "lag_hdr": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds."
+                      },
+                      "in_flight": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "budget_wait_ms": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "budget_exhausted": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "server_settings": {
+          "description": "The database server's settings, read once before the settle: every setting not at its built-in default, and the planner, memory, WAL and parallelism settings whatever their source.",
+          "type": "object",
+          "required": [
+            "state"
+          ],
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "server_version",
+                "settings"
+              ],
+              "properties": {
+                "state": {
+                  "const": "present"
+                },
+                "server_version": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "settings": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "setting",
+                      "source"
+                    ],
+                    "properties": {
+                      "setting": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "reason"
+              ],
+              "properties": {
+                "state": {
+                  "const": "absent"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "plateaus": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "planned_rate",
+              "ramp_in_ms",
+              "hold_ms",
+              "halves"
+            ],
+            "properties": {
+              "planned_rate": {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              "ramp_in_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hold_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "halves": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "start_ms",
+                    "end_ms",
+                    "operations",
+                    "lag_hdr",
+                    "in_flight",
+                    "budget_wait_ms",
+                    "budget_exhausted"
+                  ],
+                  "properties": {
+                    "start_ms": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "end_ms": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "operations": {
+                      "type": "object",
+                      "propertyNames": {
+                        "pattern": "^\\S+$"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "ok_hdr"
+                        ],
+                        "properties": {
+                          "ok_hdr": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds."
+                          },
+                          "failed_hdr": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds."
+                          },
+                          "errors": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "timeout": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "transport": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "rate_limited": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "client_error": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "server_error": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "unexpected_status": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "unfinished": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "no_target": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
+                            }
+                          },
+                          "refused": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Refusals of an optional operation the workload counts apart from errors (`on_refusal: count_apart`)."
+                          }
+                        }
+                      }
+                    },
+                    "lag_hdr": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds."
+                    },
+                    "in_flight": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "budget_wait_ms": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "budget_exhausted": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              },
+              "stopped_at_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "multiple": {
+                "type": "number",
+                "exclusiveMinimum": 0.0,
+                "description": "The planned rate as a multiple of the scout's knee estimate."
+              },
+              "server": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "containers",
+                  "database",
+                  "statements"
+                ],
+                "description": "The server-side readings over the hold: context that never bears on qualification. Each is present, or absent with its reason.",
+                "properties": {
+                  "containers": {
+                    "description": "The declared containers' cumulative counters from the Docker Engine API stats endpoint, read at a fixed interval from the hold's start and once at its end. A failed reading ends that container's series, with the reason.",
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "series"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "present"
+                          },
+                          "series": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "role",
+                                "name",
+                                "interval_ms",
+                                "samples"
+                              ],
+                              "properties": {
+                                "role": {
+                                  "enum": [
+                                    "sut",
+                                    "db"
+                                  ]
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "interval_ms": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "samples": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "offset_ms",
+                                      "cpu_ns",
+                                      "rss_bytes",
+                                      "blk_read_bytes",
+                                      "blk_write_bytes",
+                                      "net_rx_bytes",
+                                      "net_tx_bytes"
+                                    ],
+                                    "properties": {
+                                      "offset_ms": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "cpu_ns": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "rss_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "blk_read_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "blk_write_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "net_rx_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "net_tx_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                },
+                                "truncated": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "at_ms",
+                                    "reason"
+                                  ],
+                                  "properties": {
+                                    "at_ms": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "reason"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "absent"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "database": {
+                    "description": "The database's pg_database_size and per-schema pg_total_relation_size at the hold's start and end.",
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "database",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "present"
+                          },
+                          "database": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "start": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "database_bytes",
+                              "schemas"
+                            ],
+                            "properties": {
+                              "database_bytes": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "schemas": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "end": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "database_bytes",
+                              "schemas"
+                            ],
+                            "properties": {
+                              "database_bytes": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "schemas": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "reason"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "absent"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "statements": {
+                    "description": "The statements pg_stat_statements counted over the hold, by execution and planning time, costliest first.",
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "statements"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "present"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "maxItems": 10,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "query",
+                                "calls",
+                                "total_exec_ms",
+                                "total_plan_ms",
+                                "rows",
+                                "shared_blks_hit",
+                                "shared_blks_read"
+                              ],
+                              "properties": {
+                                "query": {
+                                  "type": "string",
+                                  "maxLength": 1000
+                                },
+                                "calls": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "total_exec_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "total_plan_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rows": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "shared_blks_hit": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "shared_blks_read": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "reason"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "absent"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "failed_exchanges": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^\\S+$"
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "request_line",
+                      "body",
+                      "truncated"
+                    ],
+                    "properties": {
+                      "status": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 999
+                      },
+                      "request_line": {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      "body": {
+                        "type": "string"
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passes",
+        "between_run_noise",
+        "scope",
+        "seeding",
+        "plateaus",
+        "knee",
+        "usl",
+        "population",
+        "host"
+      ],
+      "properties": {
+        "passes": {
+          "const": 1
+        },
+        "between_run_noise": {
+          "description": "`unmeasured` for one pass, which measures sampling intervals only; the A/A floor when an interleaved A/A comparison is attached.",
+          "oneOf": [
+            {
+              "const": "unmeasured"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "aa_floor"
+              ],
+              "properties": {
+                "aa_floor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ratios",
+                    "pairs"
+                  ],
+                  "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+                  "properties": {
+                    "ratios": {
+                      "type": "object",
+                      "propertyNames": {
+                        "enum": [
+                          "p50",
+                          "p95",
+                          "p99",
+                          "p99_9",
+                          "achieved"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "number",
+                        "minimum": 1.0
+                      }
+                    },
+                    "pairs": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "host": {
+          "type": "object",
+          "required": [
+            "state"
+          ],
+          "description": "The generator's measured fingerprint and the record's network leg read against the host prescription the record claims.",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "required": [
+                "state"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unclaimed"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "prescription"
+              ],
+              "properties": {
+                "state": {
+                  "const": "matched"
+                },
+                "prescription": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "prescription",
+                "mismatches"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unmatched"
+                },
+                "prescription": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mismatches": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "prescription",
+                "missing"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unverifiable"
+                },
+                "prescription": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "missing": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "scope": {
+          "const": "A run of at most ten minutes measures steady-state capacity and says nothing about memory growth, data growth or behaviour over hours."
+        },
+        "seeding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "requests_per_s": {
+              "type": "number",
+              "minimum": 0.0
+            }
+          }
+        },
+        "walk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "description": "The closed-loop walk's whole-loop average, the figure a single-client harness reports.",
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "mean_us_per_request": {
+              "type": "number",
+              "minimum": 0.0
+            }
+          }
+        },
+        "knee": {
+          "description": "The highest offered rate whose plateau and every lower one qualify: a bracket up to the first failing plateau, a lower bound when the top plateau qualifies, or below the ladder when the lowest fails.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound",
+                "qualified_rate",
+                "achieved_per_s",
+                "failing_rate"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "bracket"
+                },
+                "qualified_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "achieved_per_s": {
+                  "type": "number",
+                  "minimum": 0.0
+                },
+                "failing_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound",
+                "qualified_rate",
+                "achieved_per_s"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "lower_bound"
+                },
+                "qualified_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "achieved_per_s": {
+                  "type": "number",
+                  "minimum": 0.0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound",
+                "failing_rate"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "below_ladder"
+                },
+                "failing_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "no_plateau"
+                }
+              }
+            }
+          ]
+        },
+        "peak": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "achieved_per_s",
+            "source",
+            "index"
+          ],
+          "description": "The highest achieved throughput of the run, whatever its latency.",
+          "properties": {
+            "achieved_per_s": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "source": {
+              "enum": [
+                "plateau",
+                "scout"
+              ]
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "usl": {
+          "description": "The Universal Scalability Law X(N) = γN / (1 + α(N − 1) + βN(N − 1)) fitted to achieved throughput against mean in flight over the scout windows and the plateaus: an explanatory model, never a verdict. The fit is pinned arithmetic, so `perf-judge` reproduces it.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "alpha",
+                "beta",
+                "gamma",
+                "r_squared",
+                "points",
+                "iterations"
+              ],
+              "properties": {
+                "state": {
+                  "const": "fitted"
+                },
+                "alpha": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "exclusiveMaximum": 1.0
+                },
+                "beta": {
+                  "type": "number",
+                  "minimum": 0.0
+                },
+                "gamma": {
+                  "type": "number"
+                },
+                "n_star": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "predicted_max_per_s": {
+                  "type": "number"
+                },
+                "r_squared": {
+                  "type": "number"
+                },
+                "points": {
+                  "type": "integer",
+                  "minimum": 4
+                },
+                "iterations": {
+                  "const": 200
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "points",
+                "reason"
+              ],
+              "properties": {
+                "state": {
+                  "const": "not_fitted"
+                },
+                "points": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "population": {
+          "description": "The population the knee could serve at its peak: the knee divided by 13 to 75 peak API arrivals per second per 100,000 population, read at the run's corpus scale and environment.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "knee_rate",
+                "lower_bound",
+                "arrivals_per_100k",
+                "population",
+                "corpus_scale",
+                "corpus_ehrs",
+                "environment",
+                "derivation"
+              ],
+              "properties": {
+                "state": {
+                  "const": "read"
+                },
+                "knee_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "lower_bound": {
+                  "type": "boolean"
+                },
+                "arrivals_per_100k": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  }
+                },
+                "population": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  }
+                },
+                "corpus_scale": {
+                  "enum": [
+                    "POC",
+                    "S",
+                    "L",
+                    "R"
+                  ]
+                },
+                "corpus_ehrs": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "environment": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "derivation": {
+                  "const": "About 46 clinical documents per capita per year (consultations, discharges and ED visits from OECD Health at a Glance 2023 and Eurostat; laboratory results from RCPath; imaging from the NHS Diagnostic Imaging Dataset 2023/24; prescription items from NHS BSA PCA 2024/25) give 0.15 writes per second per 100,000 population; a peak factor of 8 (the ITU-T E.500 busy hour) and a read multiplier of 10:1 to 50:1 (OLTP-Bench and YCSB; PMC10148376) give 13 to 75 peak API arrivals per second per 100,000. The knee divided by that band is the population a deployment of this shape could serve at its peak, read only at the corpus scale and on the environment the run used."
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "reason"
+              ],
+              "properties": {
+                "state": {
+                  "const": "not_read"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "scout_estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rate"
+          ],
+          "description": "K̂, the knee estimate the ladder's rates are multiples of: the midpoint rate of the first breaching scout window, or the ramp's end rate as a lower bound when no window breached.",
+          "properties": {
+            "rate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "breached_window": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "scout": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "start_ms",
+              "planned_rate",
+              "throughput",
+              "latency",
+              "generator"
+            ],
+            "properties": {
+              "start_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "planned_rate": {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              "throughput": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "offered_per_s",
+                  "achieved_per_s",
+                  "requests",
+                  "succeeded",
+                  "mean_in_flight"
+                ],
+                "properties": {
+                  "offered_per_s": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "achieved_per_s": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "succeeded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "refused": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Refusals counted apart from errors."
+                  },
+                  "errors": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "timeout": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "transport": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "rate_limited": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "client_error": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "server_error": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "unexpected_status": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "unfinished": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "no_target": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  },
+                  "error_share": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0
+                  },
+                  "mean_in_flight": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "description": "Little's law: the rate of the timed exchanges times their mean latency."
+                  }
+                }
+              },
+              "latency": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "p50",
+                  "p90",
+                  "p95",
+                  "p99",
+                  "p99_9"
+                ],
+                "properties": {
+                  "p50": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p90": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p95": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p99": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p99_9": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "max_ms": {
+                    "type": "number",
+                    "minimum": 0.0
+                  }
+                }
+              },
+              "generator": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "budget_exhausted",
+                  "generator_bound"
+                ],
+                "properties": {
+                  "lag_p99_ms": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "lag_max_ms": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "budget_exhausted": {
+                    "type": "boolean"
+                  },
+                  "generator_bound": {
+                    "type": "boolean",
+                    "description": "The lag p99 exceeded the generator's limit while the in-flight budget never ran out: the generator, not the server, failed to hold the rate."
+                  }
+                }
+              },
+              "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "qualified"
+                ],
+                "description": "A plateau qualifies when its successes are at least the achieved share of the exchanges not refused, its errors at most the error share, every operation within its budget at its judged quantile, and the generator neither bound nor stopped.",
+                "properties": {
+                  "qualified": {
+                    "type": "boolean"
+                  },
+                  "shortfalls": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "criterion"
+                      ],
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "no_exchanges"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "achieved"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "error_share"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "operation",
+                            "judged_at",
+                            "value_ms",
+                            "budget_ms"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "latency"
+                            },
+                            "operation": {
+                              "type": "string",
+                              "pattern": "^\\S+$"
+                            },
+                            "judged_at": {
+                              "enum": [
+                                "p99",
+                                "p95",
+                                "p90",
+                                "p50",
+                                "none"
+                              ]
+                            },
+                            "value_ms": {
+                              "type": "number",
+                              "minimum": 0.0
+                            },
+                            "budget_ms": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "generator_bound"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "stopped"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "plateaus": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "planned_rate",
+              "hold_s",
+              "throughput",
+              "latency",
+              "operations",
+              "halves",
+              "generator",
+              "stopped",
+              "qualification"
+            ],
+            "properties": {
+              "planned_rate": {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              "hold_s": {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              "throughput": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "offered_per_s",
+                  "achieved_per_s",
+                  "requests",
+                  "succeeded",
+                  "mean_in_flight"
+                ],
+                "properties": {
+                  "offered_per_s": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "achieved_per_s": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "succeeded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "refused": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Refusals counted apart from errors."
+                  },
+                  "errors": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "timeout": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "transport": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "rate_limited": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "client_error": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "server_error": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "unexpected_status": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "unfinished": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "no_target": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  },
+                  "error_share": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0
+                  },
+                  "mean_in_flight": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "description": "Little's law: the rate of the timed exchanges times their mean latency."
+                  }
+                }
+              },
+              "latency": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "p50",
+                  "p90",
+                  "p95",
+                  "p99",
+                  "p99_9"
+                ],
+                "properties": {
+                  "p50": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p90": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p95": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p99": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "p99_9": {
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "value_ms",
+                          "rank",
+                          "low_ms",
+                          "low_rank",
+                          "high_ms",
+                          "high_rank"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "resolved"
+                          },
+                          "value_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "low_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "low_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "high_ms": {
+                            "type": "number",
+                            "minimum": 0.0
+                          },
+                          "high_rank": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "samples_above"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "not_resolvable"
+                          },
+                          "samples_above": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "max_ms": {
+                    "type": "number",
+                    "minimum": 0.0
+                  }
+                }
+              },
+              "operations": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^\\S+$"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "requests",
+                    "succeeded",
+                    "share",
+                    "latency",
+                    "judged_at",
+                    "budget_ms"
+                  ],
+                  "properties": {
+                    "requests": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "succeeded": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "refused": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "budget_ms": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "The latency budget at the judged quantile."
+                    },
+                    "errors": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "timeout": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "transport": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "rate_limited": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "client_error": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "server_error": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "unexpected_status": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "unfinished": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "no_target": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      }
+                    },
+                    "error_share": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 1.0
+                    },
+                    "share": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 1.0
+                    },
+                    "latency": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "p50",
+                        "p90",
+                        "p95",
+                        "p99",
+                        "p99_9"
+                      ],
+                      "properties": {
+                        "p50": {
+                          "type": "object",
+                          "required": [
+                            "state"
+                          ],
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "value_ms",
+                                "rank",
+                                "low_ms",
+                                "low_rank",
+                                "high_ms",
+                                "high_rank"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "resolved"
+                                },
+                                "value_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "low_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "low_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "high_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "high_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "samples_above"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "not_resolvable"
+                                },
+                                "samples_above": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "p90": {
+                          "type": "object",
+                          "required": [
+                            "state"
+                          ],
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "value_ms",
+                                "rank",
+                                "low_ms",
+                                "low_rank",
+                                "high_ms",
+                                "high_rank"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "resolved"
+                                },
+                                "value_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "low_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "low_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "high_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "high_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "samples_above"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "not_resolvable"
+                                },
+                                "samples_above": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "p95": {
+                          "type": "object",
+                          "required": [
+                            "state"
+                          ],
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "value_ms",
+                                "rank",
+                                "low_ms",
+                                "low_rank",
+                                "high_ms",
+                                "high_rank"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "resolved"
+                                },
+                                "value_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "low_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "low_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "high_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "high_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "samples_above"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "not_resolvable"
+                                },
+                                "samples_above": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "p99": {
+                          "type": "object",
+                          "required": [
+                            "state"
+                          ],
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "value_ms",
+                                "rank",
+                                "low_ms",
+                                "low_rank",
+                                "high_ms",
+                                "high_rank"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "resolved"
+                                },
+                                "value_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "low_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "low_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "high_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "high_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "samples_above"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "not_resolvable"
+                                },
+                                "samples_above": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "p99_9": {
+                          "type": "object",
+                          "required": [
+                            "state"
+                          ],
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "value_ms",
+                                "rank",
+                                "low_ms",
+                                "low_rank",
+                                "high_ms",
+                                "high_rank"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "resolved"
+                                },
+                                "value_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "low_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "low_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "high_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "high_rank": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "required": [
+                                "state",
+                                "samples_above"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "const": "not_resolvable"
+                                },
+                                "samples_above": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "Fewer than 10 samples lie above the quantile, so it is not reported."
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "max_ms": {
+                          "type": "number",
+                          "minimum": 0.0
+                        }
+                      }
+                    },
+                    "judged_at": {
+                      "enum": [
+                        "p99",
+                        "p95",
+                        "p90",
+                        "p50",
+                        "none"
+                      ],
+                      "description": "The highest of p99, p95, p90 and p50 that resolves."
+                    }
+                  }
+                }
+              },
+              "halves": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "steadiness"
+                ],
+                "properties": {
+                  "p50_ratio": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  },
+                  "p95_ratio": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  },
+                  "steadiness": {
+                    "enum": [
+                      "steady",
+                      "unsteady",
+                      "not_measurable"
+                    ],
+                    "description": "Unsteady when the second half's overall p50 or p95 over the first's lies outside 0.8 to 1.25."
+                  }
+                }
+              },
+              "generator": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "budget_exhausted",
+                  "generator_bound"
+                ],
+                "properties": {
+                  "lag_p99_ms": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "lag_max_ms": {
+                    "type": "number",
+                    "minimum": 0.0
+                  },
+                  "budget_exhausted": {
+                    "type": "boolean"
+                  },
+                  "generator_bound": {
+                    "type": "boolean",
+                    "description": "The lag p99 exceeded the generator's limit while the in-flight budget never ran out: the generator, not the server, failed to hold the rate."
+                  }
+                }
+              },
+              "stopped": {
+                "type": "boolean"
+              },
+              "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "qualified"
+                ],
+                "description": "A plateau qualifies when its successes are at least the achieved share of the exchanges not refused, its errors at most the error share, every operation within its budget at its judged quantile, and the generator neither bound nor stopped.",
+                "properties": {
+                  "qualified": {
+                    "type": "boolean"
+                  },
+                  "shortfalls": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "criterion"
+                      ],
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "no_exchanges"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "achieved"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "error_share"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "operation",
+                            "judged_at",
+                            "value_ms",
+                            "budget_ms"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "latency"
+                            },
+                            "operation": {
+                              "type": "string",
+                              "pattern": "^\\S+$"
+                            },
+                            "judged_at": {
+                              "enum": [
+                                "p99",
+                                "p95",
+                                "p90",
+                                "p50",
+                                "none"
+                              ]
+                            },
+                            "value_ms": {
+                              "type": "number",
+                              "minimum": 0.0
+                            },
+                            "budget_ms": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "generator_bound"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "stopped"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "server": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The server-side readings summarized from the raw series alone: context that never bears on qualification.",
+                "properties": {
+                  "containers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "role",
+                        "name",
+                        "samples",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "sut",
+                            "db"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "samples": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        },
+                        "cpu_mean_pct": {
+                          "type": "number",
+                          "minimum": 0.0
+                        },
+                        "cpu_max_pct": {
+                          "type": "number",
+                          "minimum": 0.0
+                        },
+                        "rss_max_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "blk_read_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "blk_write_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "net_rx_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "net_tx_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  },
+                  "database_growth_bytes": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

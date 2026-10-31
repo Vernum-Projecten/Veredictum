@@ -1,0 +1,600 @@
+# The reference workload: the operations, AQL shapes and payloads a clinical
+# front end sends to an openEHR CDR, offered as Poisson interaction arrivals.
+#
+# No openEHR specification governs the mix (CNF guide master03-overview.adoc:
+# "Non-functional conformance (performance, etc) is not addressed by this
+# guide"), so every share rests on derivation and names its source. No
+# published per-operation trace of a production openEHR CDR exists in the
+# sources read. The mix is provisional, for SEC ratification. Each
+# operation's wire realization is a released ITS-REST operation, cited by the
+# instrument's operation vocabulary.
+#
+# Shares are of interaction arrivals. One chart_review arrival sends five
+# operations, every other interaction one, and the expanded per-operation mix
+# must sit inside the 10:1 to 50:1 read band of the population model.
+id: clinical-mix
+version: 1
+status: provisional
+description: >-
+  A hospital front end at its busy hour: clinicians opening charts (a
+  partly-open session of subject lookup, summary query, document reads and an
+  observation trend), ward boards and problem lists polling AQL, the
+  monitoring, order, result and correction writes of ward work, and the
+  definition, folder, tag, demographic and bootstrap traffic around them.
+  Carried over from the 24 class-run journeys of perf/journeys.yaml at
+  commit 20864091 (removed in #892) without their minute-scale offsets.
+  Provisional, for SEC ratification.
+seed: 20261030
+corpus:
+  scale: S
+  compositions_per_ehr: 10
+  templates:
+    cnf.ckm.vital_signs: 40%
+    cnf.ckm.lab_result: 15%
+    cnf.ckm.ips: 10%
+    cnf.ckm.gp_data_set: 10%
+    cnf.ckm.eprescription: 10%
+    cnf.ckm.medicines_list: 5%
+    cnf.ckm.problem_list: 5%
+    cnf.ckm.ereferral: 5%
+arrival: poisson
+sample_target: 5000
+
+interactions:
+  # ── chart review: the read-heavy bulk, as a partly-open session ─────────
+  chart_review:
+    share: 48.8%
+    description: >-
+      A clinician opens a patient's chart: finds the EHR by subject, runs the
+      patient summary, reads a document at its version and the current
+      version of another, and looks at the blood-pressure trend.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): chart_review (52.6% of journey arrivals in the class
+      cases), reshaped into a session: ~597 EHR interactions per inpatient
+      encounter, overwhelmingly reads (Rule, Chiang and Hribar, JAMIA 2020;
+      PMC10148376). The share is what remains after every other interaction,
+      so it rests on derivation.
+    session:
+      think_time_mean_ms: 2000
+      stages:
+        - { op: ehr_read_by_subject }
+        - { op: aql, query: patient_summary }
+        - { op: composition_read }
+        - { op: composition_read_current }
+        - { op: aql, query: observation_trend }
+
+  # ── query traffic beside the chart ──────────────────────────────────────
+  ward_board:
+    share: 8%
+    description: The ward board refreshing over the beds of one ward.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard (12%), its cross-EHR worklist query;
+      busy-hour polling per the ITU-T E.500 convention the population model's
+      peak factor cites.
+    op: aql
+    query: ward_board
+  problem_list:
+    share: 4%
+    description: The current problem list of the patient in front of the clinician.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard (12%), its stored-query half, as the
+      per-patient list a ward front end shows beside the board.
+    op: aql
+    query: problem_list
+  problem_list_terminology:
+    share: 0.5%
+    description: The problem list narrowed to a SNOMED CT value set through TERMINOLOGY().
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): analytics_review (1.5%), its terminology-expanded
+      filter, held at a third of that journey's share because it runs only
+      where the aql-terminology option arm is claimed.
+    op: aql
+    query: problem_list_terminology
+  cohort_count:
+    share: 1%
+    description: A cohort count over the population for a service-line dashboard.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): analytics_review (1.5%), its population analytic
+      read (PMC10148376: the read bulk includes analytic access).
+    op: aql
+    query: cohort_count
+  aql_point_lookup:
+    share: 1%
+    description: One composition addressed by its uid inside one EHR.
+    derivation: >-
+      The aql-mix bench pack's point-lookup class, at the equal share that
+      pack gives each of its six classes, scaled to 6% of interactions in
+      all.
+    op: aql
+    query: aql_point_lookup
+  aql_ehr_scan:
+    share: 1%
+    description: Every composition in one EHR, projected by uid.
+    derivation: The aql-mix bench pack's EHR-scan class, at an equal sixth of 6%.
+    op: aql
+    query: aql_ehr_scan
+  aql_filtered:
+    share: 1%
+    description: A systolic threshold over one EHR's observations.
+    derivation: The aql-mix bench pack's filtered class, at an equal sixth of 6%.
+    op: aql
+    query: aql_filtered
+  aql_population:
+    share: 1%
+    description: The systolic threshold across the population, fetch-bounded.
+    derivation: The aql-mix bench pack's population class, at an equal sixth of 6%.
+    op: aql
+    query: aql_population
+  aql_aggregate:
+    share: 1%
+    description: One COUNT over the population the threshold matches.
+    derivation: The aql-mix bench pack's aggregate class, at an equal sixth of 6%.
+    op: aql
+    query: aql_aggregate
+  aql_ordered_page:
+    share: 1%
+    description: An ORDER BY over composition start time, read one page at a time.
+    derivation: The aql-mix bench pack's ordered-page class, at an equal sixth of 6%.
+    op: aql
+    query: aql_ordered_page
+
+  # ── monitoring, orders and results ──────────────────────────────────────
+  vitals_round:
+    share: 5%
+    description: A nursing observation round committing one vital-signs composition.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): vitals_round (6%): ward observation cadence of 4 to 6
+      observation sets per patient-day (RCP NEWS2 monitoring guidance), held
+      slightly below the journey share so the expanded mix stays read-heavy.
+    op: composition_commit
+    payload: cnf.ckm.vital_signs
+  lab_order:
+    share: 1%
+    description: A laboratory or imaging request committed as a referral.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): lab_pipeline (1.5%) and imaging_pipeline (1%), their
+      order stage: 15 laboratory results per capita per year (RCPath) and
+      0.82 imaging tests per capita per year (NHS DID 2023/24).
+    op: composition_commit
+    payload: cnf.ckm.ereferral
+  lab_result:
+    share: 1.5%
+    description: A laboratory result landing as its own contribution.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): lab_pipeline (1.5%), its result stage (RCPath
+      pathology activity).
+    op: contribution_commit
+    payload: cnf.ckm.lab_result
+  imaging_report:
+    share: 0.5%
+    description: An imaging report committed after its turnaround.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): imaging_pipeline (1%), its report stage (NHS DID
+      2023/24: 0.82 imaging tests per capita per year).
+    op: composition_commit
+    payload: cnf.ckm.ccta_report
+  medication_order:
+    share: 1.5%
+    description: A medication order committed (the eMAR loop's order stage).
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): medication_round (1.5%): 21.8 prescription items per
+      capita per year (NHS BSA Prescription Cost Analysis 2024/25).
+    op: composition_commit
+    payload: cnf.ckm.eprescription
+  medicines_reconciliation:
+    share: 1%
+    description: The standing medicines list amended as a new version.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): medicines_reconciliation (1.5%): reconciliation on
+      admission and transfer (NICE NG5), its update stage.
+    op: composition_update
+    payload: cnf.ckm.medicines_list
+  specialist_report:
+    share: 0.5%
+    description: A specialist synoptic report committed.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): specialist_report (1.5%), its commit stage (RCPA
+      cancer reporting protocols), held at a third because its revision
+      history read is its own interaction here.
+    op: composition_commit
+    payload: cnf.ckm.breast_cancer_report
+  registry_submission:
+    share: 0.5%
+    description: A registry report committed as its own contribution.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): registry_submission (1.5%), its commit stage; its
+      contribution read is part of audit_review here.
+    op: contribution_commit
+    payload: cnf.ckm.treat_registry_report
+  admission_summary:
+    share: 0.5%
+    description: The admission or discharge patient summary committed.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their summary
+      commit: 0.128 inpatient discharges per capita per year at about 10
+      documents per stay (OECD Health at a Glance 2023).
+    op: composition_commit
+    payload: cnf.ckm.ips
+  public_health_notification:
+    share: 0.2%
+    description: A statutory notification committed at detection.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): public_health_notification (0.3%), its notification
+      stage (UKHSA notifiable diseases reporting duty).
+    op: composition_commit
+    payload: cnf.ckm.sars_notification
+  confirmed_case_report:
+    share: 0.2%
+    description: The confirmed-case report following a notification.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): public_health_notification (0.3%), its confirmation
+      stage.
+    op: composition_commit
+    payload: cnf.ckm.covid19_report
+  case_investigation:
+    share: 0.2%
+    description: A public-health case investigation form committed.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): case_investigation (0.3%), the rare structured-form
+      write.
+    op: composition_commit
+    payload: cnf.ckm.poisoning_investigation
+  flat_commit:
+    share: 0.5%
+    description: A form integration committing in the Simplified Flat format.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): simplified_formats_exchange (0.5%): the declared
+      FLAT share of composition commits, run only where Simplified Formats
+      are claimed; the remaining commits are canonical JSON.
+    op: composition_commit_flat
+    payload: cnf.flat.vitals.minimal_ctx
+  deletion:
+    share: 0.3%
+    description: An erroneous record logically deleted after review.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): deletion (0.3%): logical deletes are rare governance
+      events (RM common change_control, the deleted lifecycle state).
+    op: composition_delete
+
+  # ── corrections, provenance and audit ───────────────────────────────────
+  correction:
+    share: 2%
+    description: A document amended as a new version.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): correction (3%): about one amendment event per
+      patient-day (PMC10148376), its update stage.
+    op: composition_update
+    payload: cnf.ckm.gp_data_set
+  revision_history:
+    share: 2%
+    description: The version history of a document reviewed.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): correction, specialist_report and signature_review,
+      their revision-history stages.
+    op: composition_revision_history
+  version_read:
+    share: 1.5%
+    description: The ORIGINAL_VERSION envelope of a committed document read.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): signature_review (2%), its version read (RM common
+      change_control, the version signature's carrier).
+    op: composition_version_read
+  contribution_read:
+    share: 1.5%
+    description: A committed contribution inspected.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%) and registry_submission, their
+      contribution reads.
+    op: contribution_read
+  ehr_read:
+    share: 1.5%
+    description: The EHR a contribution belongs to read by id.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read.
+    op: ehr_read
+
+  # ── ADT and folders ─────────────────────────────────────────────────────
+  admission:
+    share: 0.8%
+    description: An EHR created at admission.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission (0.8%), its EHR create: 0.128 inpatient
+      discharges per capita per year (OECD Health at a Glance 2023).
+    op: ehr_create
+  status_read:
+    share: 0.8%
+    description: The EHR_STATUS read at admission or discharge.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status reads.
+    op: ehr_status_read
+  status_update:
+    share: 0.8%
+    description: The EHR_STATUS updated at admission or discharge.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status updates.
+    op: ehr_status_update
+  directory_read:
+    share: 1%
+    description: The episode folder tree read.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge and chart_review, their directory reads.
+    op: directory_read
+  directory_update:
+    share: 0.4%
+    description: The episode folder tree updated.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge (0.8%), its directory update, held at half.
+    op: directory_update
+
+  # ── tags, definitions, demographics, bootstrap ──────────────────────────
+  tags_put:
+    share: 1%
+    description: The tag set of a hot composition replaced.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its write half.
+    op: tags_put
+  tags_read:
+    share: 1%
+    description: The tag set of a composition read.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its read half.
+    op: tags_read
+  template_list:
+    share: 0.75%
+    description: The ADL 1.4 template store listed.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter each to its four released reads.
+    op: template_list
+  template_get:
+    share: 0.75%
+    description: One ADL 1.4 template fetched.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
+    op: template_get
+  template_example:
+    share: 0.75%
+    description: The generated example of one template fetched.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
+    op: template_example
+  template_adl2_list:
+    share: 0.75%
+    description: The ADL 2 template store listed.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
+    op: template_adl2_list
+  party_create:
+    share: 0.2%
+    description: A person registered on the demographic side.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its registration: a
+      person is registered once and admitted repeatedly.
+    op: party_create
+    payload: cnf.demographic.person.v1
+  party_read:
+    share: 0.2%
+    description: A registered person read back.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its read.
+    op: party_read
+  party_update:
+    share: 0.1%
+    description: A registered identity amended as a new version.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its update, held at half.
+    op: party_update
+    payload: cnf.demographic.person.v2
+  system_options:
+    share: 0.5%
+    description: A client bootstrapping against the System API.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): platform_probe (0.5%): every integration client reads
+      the service options before its first clinical call.
+    op: system_options
+
+queries:
+  patient_summary:
+    description: The patient's latest documents by name and start time.
+    text: >-
+      SELECT c/uid/value AS uid, c/name/value AS name, c/context/start_time/value AS start_time
+      FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+      ORDER BY c/context/start_time/value DESC LIMIT 20
+    scope: single_subject
+    tier: metadata
+    parameters:
+      ehr_uid: ehr
+    transport:
+      adhoc_post: 50%
+      stored_get: 25%
+      stored_post: 25%
+    fetch: 20
+    on_refusal: error
+    derivation: >-
+      The summary list a chart opens on; the ordered, limited shape of QUERY
+      AQL master03-syntax.adoc §LIMIT. The transport split follows ITS-REST
+      docs/query/Request.md §GET vs POST, which recommends POST for long
+      queries, with the stored half of a front end's registered queries.
+  observation_trend:
+    description: The patient's latest blood-pressure readings, newest first.
+    text: >-
+      SELECT o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude AS systolic,
+      o/data[at0001]/events[at0006]/data[at0003]/items[at0005]/value/magnitude AS diastolic,
+      c/context/start_time/value AS start_time
+      FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      ORDER BY c/context/start_time/value DESC LIMIT 10
+    scope: single_subject
+    tier: content
+    parameters:
+      ehr_uid: ehr
+    transport:
+      adhoc_post: 50%
+      stored_get: 25%
+      stored_post: 25%
+    fetch: 10
+    on_refusal: error
+    derivation: >-
+      QUERY AQL_examples master04-single_subject.adoc, the latest blood
+      pressure values of one patient, over the blood_pressure.v2 archetype
+      the vital-signs template carries.
+  ward_board:
+    description: The latest systolic reading of each of eight beds.
+    text: >-
+      SELECT e/ehr_id/value AS ehr_id, c/uid/value AS uid,
+      o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude AS systolic
+      FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE e/ehr_id/value matches {$bed_1, $bed_2, $bed_3, $bed_4, $bed_5, $bed_6, $bed_7, $bed_8}
+      ORDER BY c/context/start_time/value DESC LIMIT 50
+    scope: population
+    tier: content
+    parameters:
+      bed_1: other_ehr
+      bed_2: other_ehr
+      bed_3: other_ehr
+      bed_4: other_ehr
+      bed_5: other_ehr
+      bed_6: other_ehr
+      bed_7: other_ehr
+      bed_8: other_ehr
+    transport:
+      stored_get: 50%
+      stored_post: 50%
+    fetch: 50
+    on_refusal: error
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard, the registered stored query a
+      dashboard polls; a list of EHRs is a multi-patient query, so it carries
+      no EHR scope (ITS-REST docs/query/Request.md §About the ehr_id
+      parameter).
+  problem_list:
+    description: The patient's recorded problems and diagnoses.
+    text: >-
+      SELECT ev/data[at0001]/items[at0002]/value/value AS problem,
+      c/context/start_time/value AS recorded
+      FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+      CONTAINS EVALUATION ev[openEHR-EHR-EVALUATION.problem_diagnosis.v1]
+    scope: single_subject
+    tier: content
+    parameters:
+      ehr_uid: ehr
+    transport:
+      adhoc_post: 50%
+      stored_get: 50%
+    on_refusal: error
+    derivation: >-
+      The problem list a front end shows, over the problem_diagnosis.v1
+      archetype the IPS and GP data set templates carry.
+  problem_list_terminology:
+    description: The patient's problems that fall under SNOMED CT clinical finding.
+    text: >-
+      SELECT ev/data[at0001]/items[at0002]/value/value AS problem
+      FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+      CONTAINS EVALUATION ev[openEHR-EHR-EVALUATION.problem_diagnosis.v1]
+      WHERE ev/data[at0001]/items[at0002]/value/defining_code/code_string
+      matches TERMINOLOGY('expand', 'hl7.org/fhir/r4', 'url=http://snomed.info/sct?fhir_vs=isa/404684003')
+    scope: single_subject
+    tier: content
+    parameters:
+      ehr_uid: ehr
+    transport:
+      adhoc_post: 100%
+    requires: [aql-terminology-supported]
+    on_refusal: count_apart
+    derivation: >-
+      QUERY AQL master03-syntax.adoc §TERMINOLOGY and AQL_examples
+      master03-syntax-function.adoc §TERMINOLOGY Example 1 (expand a value
+      set); the release leaves the terminology server to the implementation,
+      which catalogue/capabilities.yaml records as the aql-terminology
+      option.
+  cohort_count:
+    description: How many patients have a systolic reading at or above a threshold.
+    text: >-
+      SELECT COUNT(DISTINCT e/ehr_id/value) AS patients
+      FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: population
+    tier: content
+    parameters:
+      systolic:
+        int_range: [130, 180]
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: >-
+      QUERY AQL master03-syntax.adoc §COUNT ("COUNT([DISTINCT] expression|*)")
+      over the population, the cohort question a service-line dashboard asks.
+  aql_point_lookup:
+    description: One composition addressed by its own uid inside one EHR.
+    text: >-
+      SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid]
+      CONTAINS COMPOSITION c WHERE c/uid/value = $uid
+    scope: single_subject
+    tier: metadata
+    parameters:
+      ehr_uid: ehr
+      uid: composition
+    transport:
+      adhoc_post: 50%
+      adhoc_get: 50%
+    on_refusal: error
+    derivation: The aql-mix bench pack's point-lookup class, the indexed-read floor.
+  aql_ehr_scan:
+    description: Every composition in one EHR, projected by uid.
+    text: >-
+      SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+    scope: single_subject
+    tier: metadata
+    parameters:
+      ehr_uid: ehr
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: The aql-mix bench pack's EHR-scan class, whose cost follows how much the EHR holds.
+  aql_filtered:
+    description: A systolic threshold over the observations of one EHR.
+    text: >-
+      SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: single_subject
+    tier: content
+    parameters:
+      ehr_uid: ehr
+      systolic:
+        int_range: [90, 150]
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: The aql-mix bench pack's filtered class, the value index with a drawn threshold.
+  aql_population:
+    description: The systolic threshold with no EHR scope, bounded by a fetch count.
+    text: >-
+      SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: population
+    tier: content
+    parameters:
+      systolic:
+        int_range: [90, 150]
+    transport:
+      adhoc_post: 100%
+    fetch: 50
+    on_refusal: error
+    derivation: The aql-mix bench pack's population class, the cross-EHR planner.
+  aql_aggregate:
+    description: One COUNT over the population a systolic threshold matches.
+    text: >-
+      SELECT COUNT(c/uid/value) FROM EHR e CONTAINS COMPOSITION c
+      CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2]
+      WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic
+    scope: population
+    tier: content
+    parameters:
+      systolic:
+        int_range: [90, 150]
+    transport:
+      adhoc_post: 100%
+    on_refusal: error
+    derivation: The aql-mix bench pack's aggregate class, one row that reads every value behind it.
+  aql_ordered_page:
+    description: Compositions ordered by start time, one page at a time.
+    text: >-
+      SELECT c/uid/value, c/context/start_time/value
+      FROM EHR e CONTAINS COMPOSITION c ORDER BY c/context/start_time/value DESC
+    scope: population
+    tier: metadata
+    transport:
+      adhoc_post: 100%
+    fetch: 20
+    on_refusal: error
+    derivation: >-
+      The aql-mix bench pack's ordered-page class, the shape a paged user
+      interface issues (QUERY AQL master03-syntax.adoc §ORDER BY).

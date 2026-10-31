@@ -15,11 +15,12 @@ input alone.
 Veredictum is a command-line instrument, not a server, so "attacker-controlled"
 needs saying rather than assuming. Three inputs come from outside:
 
-- **A party's published record.** `veredictum verdicts` re-derives a conformance
-  verdict from a `results.json` and a `statement.json` written by the
-  organization whose product is being judged. Re-checking somebody else's claim
-  is the entire purpose of the verdict pipeline, and the encoded HDR histograms
-  inside a results record are bytes this runner did not produce.
+- **A party's published record.** `veredictum perf-judge` re-derives every
+  number of a `perf-result` written by whoever ran it, and
+  `validate --statement` reads a `statement.json` written by the organization
+  whose product is being judged. Re-checking somebody else's claim is the
+  purpose of both, and the encoded HDR histograms inside a record are bytes
+  this runner did not produce.
 - **A third-party catalogue.** `validate --root <their catalogue>` is an
   advertised use: anyone may author workflows and run them, and the literal
   grammar reads the cells of their rows files.
@@ -36,8 +37,8 @@ stopped by a document it is judging is one a party can stop.
 | target | reads | entry points |
 |---|---|---|
 | `literal_grammar` | every decision-table cell and `violates` entry of a rows file | `Literal::from_text`, `Literal::from_cell`, `ViolationRef::parse` |
-| `party_document` | the IXIT, the statement and the results record | `Ixit`/`Statement`/`Results` deserialization, `check_invariants` |
-| `hdr_v2` | the encoded latency histograms a measured record publishes | `OperationMeasurement::decode_histogram`, then the quantiles `class_verdict` reads |
+| `party_document` | the IXIT and the statement | `Ixit`/`Statement` deserialization, the IXIT accessors |
+| `hdr_v2` | the encoded latency histograms a `perf-result` publishes | `perf_result::hdr::decode_hdr_v2`, then the quantiles a record reports |
 
 One target asserts a property beyond the absence of a crash: `party_document`
 requires that every declared IXIT instance is reachable by the name it was
@@ -58,8 +59,8 @@ fuzz/seeds.sh literal_grammar  # one target
 The script fails loud when a source directory has moved or a harvest matches
 nothing, so a renamed path can never quietly degrade into an empty seed set. Two
 targets seed from written shapes as well: the grammar forms no artifact happens
-to carry, and — for `hdr_v2`, where this repository has no committed histogram —
-the V2 cookie with plausible and implausible headers behind it.
+to carry, and, for `hdr_v2`, the V2 cookie with plausible and implausible
+headers behind it, beside the example `perf-result`'s own encoding.
 
 Selection is size-bounded and deterministic. libFuzzer re-reads every seed on
 each run and derives its default input length from the largest one.

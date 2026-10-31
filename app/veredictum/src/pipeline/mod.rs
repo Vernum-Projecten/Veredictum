@@ -5,18 +5,18 @@
 //!
 //! Each module here is one whole operation: gating and listing the Arazzo
 //! catalogue ([`listing`]), driving it against a running system under test or
-//! re-judging its recording ([`arazzo_run`]), exporting its results document
-//! to the views a vendor's CI shows ([`export`]), judging a measured campaign
-//! ([`judgement`]), rendering the deterministic published assets
-//! ([`assets`]), running the measured instruments ([`measured`]), and driving
-//! the universal benchmark ([`mod@bench`]). Every seam returns typed facts —
-//! never pre-rendered console text — so a second consumer renders its own
-//! views over the same values the command line prints.
+//! re-judging its recording ([`arazzo_run`]), exporting a result document to
+//! the views a vendor's CI shows ([`export`]), rendering the deterministic
+//! published assets ([`assets`]), running a workload against a live server
+//! ([`perf_workload`]), re-judging a performance record ([`perf_judge`]), and
+//! comparing performance records ([`perf_compare`]). Every seam returns typed
+//! facts, never pre-rendered console text, so a second consumer renders its
+//! own views over the same values the command line prints.
 //!
 //! Two things stay outside: argument parsing and the rendering of results to
 //! a console. A seam writes to the filesystem only where the write is part of
-//! the computation, such as the measured run's merge into an existing
-//! `results.json`; artifacts a seam has finished are handed back as
+//! the computation, such as a performance record or the corpus state a later
+//! run reuses; artifacts a seam has finished are handed back as
 //! [`RenderedFile`] values for the caller to serve or write.
 
 #![expect(
@@ -27,11 +27,11 @@
 
 pub mod arazzo_run;
 pub mod assets;
-pub mod bench;
 pub mod export;
-pub mod judgement;
 pub mod listing;
-pub mod measured;
+pub mod perf_compare;
+pub mod perf_judge;
+pub mod perf_workload;
 
 use std::path::{Path, PathBuf};
 
@@ -113,19 +113,6 @@ pub enum Error {
         #[source]
         source: serde_json::Error,
     },
-    /// The party results violate their own invariants, as read by the
-    /// judging seam. Rendered with the same prefix as
-    /// [`Error::RecordedInvariants`] so both seams report one violation the
-    /// same way.
-    #[error("{}", join_prefixed(.0, "results invariant: "))]
-    ResultsInvariants(Vec<crate::party::PartyError>),
-    /// The results a live run just produced violate their own invariants.
-    #[error("{}", join_prefixed(.0, "results invariant: "))]
-    RecordedInvariants(Vec<crate::party::PartyError>),
-    /// A caller-supplied selector names something this instrument does not
-    /// define, such as a class token that is not on the ladder.
-    #[error("{0}")]
-    Selector(String),
     /// A sub-instrument reported a failure; the message carries its own
     /// prefix so the caller can print it unchanged.
     #[error("{0}")]
@@ -159,14 +146,6 @@ fn join_lines<T: std::fmt::Display>(items: &[T]) -> String {
     items
         .iter()
         .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn join_prefixed<T: std::fmt::Display>(items: &[T], prefix: &str) -> String {
-    items
-        .iter()
-        .map(|item| format!("{prefix}{item}"))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -369,27 +348,5 @@ mod tests {
         let document = to_json_document(&serde_json::json!({ "b": 1, "a": 2 }), "example")
             .expect("the value serializes");
         assert_eq!(document, "{\n  \"b\": 1,\n  \"a\": 2\n}\n");
-    }
-
-    /// The invariant families render with one prefixed line each, so two
-    /// seams reporting the same violation report it the same way.
-    #[test]
-    fn results_invariants_render_one_prefixed_line_per_violation() {
-        let missing = |case: &str| crate::party::PartyError::MissingCitation {
-            case: case.to_owned(),
-            status: "skipped",
-        };
-        let violations = || vec![missing("CASE-one"), missing("CASE-two")];
-        let recorded = Error::RecordedInvariants(violations()).to_string();
-        assert_eq!(
-            recorded,
-            Error::ResultsInvariants(violations()).to_string(),
-            "both seams report one violation the same way"
-        );
-        let lines: Vec<&str> = recorded.lines().collect();
-        assert_eq!(lines.len(), 2, "{recorded}");
-        for line in lines {
-            assert!(line.starts_with("results invariant: "), "{line}");
-        }
     }
 }

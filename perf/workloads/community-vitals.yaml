@@ -1,0 +1,79 @@
+# The openEHR community's vital-signs benchmark harness, reproduced as a
+# workload: the population it builds, the closed-loop read walk it times,
+# and the same seven reads offered open-loop on the load ladder.
+#
+# No openEHR specification governs this (CNF guide master03-overview.adoc:
+# "Non-functional conformance (performance, etc) is not addressed by this
+# guide"). Every read is a released ITS-REST operation, cited by the
+# instrument's operation vocabulary. The operational template and the
+# composition are pinned by sha256 in perf/payloads.yaml.
+id: community-vitals
+version: 1
+status: provisional
+reproduces: >-
+  The openEHR community's vital-signs benchmark harness
+  (https://discourse.openehr.org/t/17224): 100 EHRs, the Vital signs
+  composition of post 8 committed 1,000 times into each on one worker, then a
+  sequential walk of seven reads over every committed composition.
+description: >-
+  The community harness's population and read walk, labelled closed-loop as
+  the harness runs them, followed by the same seven reads at equal shares as
+  Poisson arrivals on the load ladder, which is where latency is measured
+  from the instant each read was due. Carried over from the community-vitals
+  bench pack, version 1.1.0.
+seed: 4859222839474415988
+corpus:
+  scale: POC
+  ehrs: 100
+  compositions_per_ehr: 1000
+  templates:
+    community.vital_signs: 100%
+  commit: verbatim
+  seed_workers: 1
+  walk:
+    reads:
+      - composition_read_current
+      - composition_read_at_time
+      - versioned_composition_read
+      - composition_version_read_latest
+      - composition_version_read_at_time
+      - composition_version_read
+      - composition_revision_history
+arrival: poisson
+
+interactions:
+  read_latest:
+    share: 14.2858%
+    description: The latest version of a composition, the read a client issues most.
+    derivation: The harness's first read, at the equal share its walk gives each of seven.
+    op: composition_read_current
+  read_at_time:
+    share: 14.2857%
+    description: A composition at an instant, which resolves a version by time.
+    derivation: The harness's second read, at an equal seventh.
+    op: composition_read_at_time
+  read_versioned:
+    share: 14.2857%
+    description: The VERSIONED_COMPOSITION container itself.
+    derivation: The harness's third read, at an equal seventh.
+    op: versioned_composition_read
+  read_version_latest:
+    share: 14.2857%
+    description: The latest version through the versioned object.
+    derivation: The harness's fourth read, at an equal seventh.
+    op: composition_version_read_latest
+  read_version_at_time:
+    share: 14.2857%
+    description: The version at an instant through the versioned object.
+    derivation: The harness's fifth read, at an equal seventh.
+    op: composition_version_read_at_time
+  read_version_by_id:
+    share: 14.2857%
+    description: One version by its own identifier.
+    derivation: The harness's sixth read, at an equal seventh.
+    op: composition_version_read
+  read_revision_history:
+    share: 14.2857%
+    description: The revision history, which walks every version of the object.
+    derivation: The harness's seventh read, at an equal seventh.
+    op: composition_revision_history

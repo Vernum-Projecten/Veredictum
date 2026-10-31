@@ -3,8 +3,9 @@
 Veredictum is the independent conformance instrument for openEHR clinical data
 repositories: a machine-readable catalogue of spec-cited test cases, executed
 against any running CDR over its own wire, judged by pure functions over the
-recorded exchanges. One tool covers functional conformance, measured
-performance, step-load stress, and the comparative-speed benchmark. The
+recorded exchanges. One tool covers functional conformance and measured
+performance: a declared clinical workload driven open-loop to the knee,
+compared A/A and A/B on one host. The
 released openEHR specifications are the
 only authority it accepts, and every expectation in the catalogue cites the
 section it comes from. The instrument is independent on purpose: a CDR must
@@ -30,12 +31,12 @@ and the container image through the pipeline the Releasing section describes.
 
 | Path | Contents |
 |---|---|
-| `app/veredictum/src/**` | the runner machinery: the Arazzo reader, gates, evaluator and HAR recording, the measured-verdict pipeline, the perf/stress/probe instruments |
+| `app/veredictum/src/**` | the runner machinery: the Arazzo reader, gates, evaluator and HAR recording, the performance instrument (workloads, the open-loop generator, the run, the `perf-result` record, `perf-judge` and `perf-compare`) |
 | `app/veredictum/src/bin/veredictum.rs` | the instrument binary; every instrument is a subcommand of it |
 | `app/veredictum/tests/**` | the integration suite: catalogue gates, seeded-defect rejection, schema drift, the verification pack, the perf driver |
 | `app/veredictum-console/**` | the web console: the Leptos frontend the container image serves (#6, design #52); its rules are `.claude/rules/leptos-ui.md` |
 | `catalogue/**` | the conformance catalogue: Arazzo workflows per capability folder under `cases/`, `capabilities.yaml` options, rows files, the test signing material under `keys/`, `id-map.yaml` (docs/ARCHITECTURE.md §15) |
-| `perf/**` | the performance schedule: its cases, journeys and payloads (docs/ARCHITECTURE.md §8.14) |
+| `perf/**` | the performance material: the workload documents under `workloads/`, the payloads, and the host prescriptions under `hosts/` (docs/ARCHITECTURE.md §8.14) |
 | `fixtures/**` | test material: the named ICS fixture, a declaration and its ixit |
 | `schemas/**` | the published JSON Schemas for every artifact family (emitted, drift-guarded) |
 | `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
@@ -443,8 +444,8 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
    console's `veredictum = "=X"` moves in the same commit. The console's
    `ENGINE_PIN` follows on its own: `app/veredictum-console/build.rs` reads
    that dependency line and substitutes the value. The committed example
-   results document embeds this version, so whichever PR moves the version
-   also runs `cargo run --example make_example_results` and commits the
+   perf-result embeds this version, so whichever PR moves the version also
+   runs `cargo run --example make_example_perf_result` and commits the
    result — the PR-level path filter does not catch the drift, and the push
    run to main does (#521).
 3. `CITATION.cff`: `version` and `date-released`.

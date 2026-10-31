@@ -3,8 +3,9 @@
 
 //! The fake-SUT harness the wire-speaking modules are driven against.
 //!
-//! `wiremock` answers on a real socket, so the evaluator, the AQL probe and
-//! the stress ladder run over the same `reqwest` path a live campaign uses —
+//! `wiremock` answers on a real socket, so the evaluator, the server-side
+//! sampler and the stress ladder run over the same `reqwest` path a live
+//! campaign uses —
 //! request construction, transport, status, headers and body all real. What
 //! the harness controls is the answer, which is the half a live SUT cannot be
 //! asked to produce on demand.

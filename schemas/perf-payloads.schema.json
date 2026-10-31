@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:perf-payloads:0.1.0",
   "title": "Performance schedule payload manifest",
-  "description": "Every payload the measured instruments send, keyed by the name a journey stage or the seeder uses: its file under payloads/, the operational template's wire identifier where it has one, and its provenance. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design.",
+  "description": "Every payload a workload sends, keyed by the name a workload or the seeder reads it by: its file under payloads/, the operational template's wire identifier where it has one, the digest a reproduced payload is pinned at, and its provenance. A template's `.example` skeleton and `.invalid_twin` sit beside it under the template's key. No openEHR spec governs measured performance (CNF guide master03-overview.adoc: \"Non-functional conformance (performance, etc) is not addressed by this guide\") — our own design.",
   "type": "object",
   "minProperties": 1,
   "propertyNames": {
@@ -23,6 +23,11 @@
       "template_id": {
         "type": "string",
         "minLength": 1
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+        "description": "The lowercase hex sha256 the file's bytes are pinned at, for a payload reproduced from a published source; loading refuses bytes that hash otherwise."
       },
       "provenance": {
         "type": "string",

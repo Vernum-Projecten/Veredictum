@@ -74,6 +74,42 @@ the console put in front of you.
 - **Capability:** a folder under `catalogue/cases/`, the unit a statement
   claims.
 
+## Measured performance
+
+- **Workload:** a versioned document under `perf/workloads/` declaring the
+  traffic a performance run offers: a corpus recipe, interactions with their
+  shares, and AQL query classes. A document that matches no pinned digest is
+  labelled `custom`.
+- **Open loop:** arrivals fire at their planned instants whatever the server
+  does, and latency is measured from the planned instant, so a stall shows up
+  as latency. Seeding and a reproduced harness's read walk are closed loop:
+  each request waits for the previous answer, and the record labels them so.
+- **Scout:** the 60 s exponential ramp that finds the knee estimate K̂, the
+  rate of the first 2 s window that breaches the qualification.
+- **Plateau:** one rung of the load ladder, a fixed offered rate held long
+  enough for about 5,000 samples. It qualifies when every operation holds its
+  latency budget, errors stay at or below 0.1 % and the achieved throughput
+  is at least 95 % of the offered rate.
+- **Knee:** the highest offered rate whose plateau and every lower one
+  qualify, stated as a bracket up to the first failing plateau, or as a lower
+  bound when every plateau qualifies.
+- **`judged_at`:** the quantile an operation is judged at, the highest of
+  p99, p95, p90 and p50 that has at least 10 samples above it. A quantile
+  with fewer is `not_resolvable` and prints as `n/r`.
+- **Population reading:** the knee divided by 13 to 75 peak API arrivals per
+  second per 100,000 people, printed as the band of population a deployment
+  of that shape could serve, at the run's corpus scale (POC, S, L or R).
+- **A/A floor:** the largest ratio per metric between two sides of one
+  target run interleaved against itself. A difference between two servers
+  counts only above it.
+- **Posture canary:** a black-box probe that checks the declared posture
+  profile (signing, commit validation, authentication, compression, TLS)
+  after seeding and after the last plateau, and refuses a run whose server
+  contradicts it.
+- **Host prescription:** a versioned description of the machine a record
+  claims to have run on, under `perf/hosts/`, read against the generator's
+  measured fingerprint.
+
 ## The authorities
 
 - **Oracle:** the released openEHR specification text vendored under

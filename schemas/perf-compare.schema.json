@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:perf-compare:0.1.0",
+  "title": "Veredictum performance comparison",
+  "description": "Two or more perf-result records aligned into one table, with every mismatch that makes their numbers describe different things named above it. Two records of one interleaved run carry ratios rung by rung, each with both values, judged against the declared tolerance and the attached A/A floor. No openEHR specification governs performance; this is the instrument's own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "family",
+    "mode",
+    "records",
+    "table",
+    "tolerance"
+  ],
+  "properties": {
+    "family": {
+      "const": "perf-compare"
+    },
+    "mode": {
+      "enum": [
+        "aligned",
+        "aa",
+        "ab"
+      ]
+    },
+    "records": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "base_url",
+          "fields"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "base_url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "object",
+            "propertyNames": {
+              "enum": [
+                "workload",
+                "corpus",
+                "posture",
+                "host_prescription",
+                "fingerprint",
+                "network_leg"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "mismatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "values"
+        ],
+        "properties": {
+          "field": {
+            "enum": [
+              "workload",
+              "corpus",
+              "posture",
+              "host_prescription",
+              "fingerprint",
+              "network_leg"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "table": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "cells"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "tolerance": {
+      "type": "number",
+      "minimum": 0.0
+    },
+    "floor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ratios",
+        "pairs"
+      ],
+      "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+      "properties": {
+        "ratios": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "p50",
+              "p95",
+              "p99",
+              "p99_9",
+              "achieved"
+            ]
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 1.0
+          }
+        },
+        "pairs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "sequence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rung",
+          "planned_rate",
+          "side"
+        ],
+        "properties": {
+          "rung": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "planned_rate": {
+            "type": "number",
+            "exclusiveMinimum": 0.0
+          },
+          "side": {
+            "enum": [
+              "a",
+              "b"
+            ]
+          }
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rung",
+          "planned_rate",
+          "operation",
+          "metric",
+          "reading"
+        ],
+        "properties": {
+          "rung": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "planned_rate": {
+            "type": "number",
+            "exclusiveMinimum": 0.0
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metric": {
+            "enum": [
+              "p50",
+              "p95",
+              "p99",
+              "p99_9",
+              "achieved"
+            ]
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0.0
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0.0
+          },
+          "ratio": {
+            "type": "number",
+            "exclusiveMinimum": 0.0
+          },
+          "overlap": {
+            "type": "boolean"
+          },
+          "reading": {
+            "enum": [
+              "difference",
+              "within_noise",
+              "not_resolvable",
+              "different_rates"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

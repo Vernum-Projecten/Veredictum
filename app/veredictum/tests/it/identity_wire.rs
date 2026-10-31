@@ -7,7 +7,7 @@
 //! shape.
 
 use serde_json::json;
-use veredictum::bench::client::AuthKind;
+use veredictum::arazzo::credential::AuthKind;
 use veredictum::identity::{IdentityRead, identify};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, ResponseTemplate};

@@ -451,7 +451,7 @@ impl DeclaredEnvironment {
 /// `Serialize` because every measurement record embeds the environment it was
 /// taken in (an earned class is reported WITH its environment, never bare).
 /// An IXIT declares it as a [`DeclaredEnvironment`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Environment {
     /// Whether the SUT instance was exclusively owned by the run.
@@ -482,6 +482,10 @@ pub struct Containers {
     pub sut: String,
     /// The database container name (also the disk-anchor probe target).
     pub db: String,
+    /// The `PostgreSQL` database the SUT keeps its data in, inside `db`: the
+    /// database whose sizes and `pg_stat_statements` table a run reads.
+    #[serde(default)]
+    pub database: Option<String>,
 }
 
 /// The whole IXIT document.

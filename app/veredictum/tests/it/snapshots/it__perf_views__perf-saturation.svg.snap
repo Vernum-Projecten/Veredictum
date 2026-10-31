@@ -1,0 +1,134 @@
+---
+source: app/veredictum/tests/it/perf_views.rs
+expression: file.body
+---
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" width="760" height="430" role="img">
+<title>Latency against achieved throughput</title>
+<desc>p50, p95 and p99 over 17 scout windows and 4 plateaus of example-mix. Knee: between 180.8/s offered, the highest plateau that qualifies with every one below it (achieved 180.7/s), and 210.9/s, the first plateau that fails.</desc>
+<style>
+text { fill: #52514e; font: 12px -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+.title { fill: #0b0b0b; font-weight: 600; }
+.muted { fill: #8a8880; font-size: 11px; }
+.grid { stroke: #e4e2dd; stroke-width: 1; }
+.axis { stroke: #8a8880; stroke-width: 1; }
+.p50 { stroke: #7db4ea; fill: #7db4ea; } .p95 { stroke: #3d7fd0; fill: #3d7fd0; }
+.p99 { stroke: #1b4f94; fill: #1b4f94; }
+.line { fill: none; stroke-width: 2.2; }
+.scoutline { fill: none; stroke-width: 1; stroke-opacity: 0.55; }
+.hollow { fill: #ffffff; stroke-width: 1.4; }
+.nr { fill: none; stroke-width: 1.4; }
+.fit { fill: none; stroke: #6b6a64; stroke-width: 1.8; stroke-dasharray: 7 4; }
+.identity { stroke: #8a8880; stroke-width: 1.2; stroke-dasharray: 3 3; }
+.bracket { fill: #1baf7a; fill-opacity: 0.12; stroke: #1baf7a; stroke-width: 1; }
+.ok { fill: #1baf7a; stroke: #1baf7a; } .bad { fill: #b3261e; stroke: #b3261e; }
+.okt { fill: #1baf7a; } .badt { fill: #b3261e; }
+.bar { fill: #3d7fd0; }
+.budget { stroke: #b3261e; stroke-width: 2; }
+@media (prefers-color-scheme: dark) {
+text { fill: #c3c2b7; }
+.title { fill: #ffffff; }
+.muted { fill: #8f8e85; }
+.grid { stroke: #3a3a38; }
+.axis { stroke: #8f8e85; }
+.p50 { stroke: #3d5f82; fill: #3d5f82; } .p95 { stroke: #3987e5; fill: #3987e5; }
+.p99 { stroke: #9ec7ef; fill: #9ec7ef; }
+.hollow { fill: #1d1d1b; }
+.fit { stroke: #a8a79e; }
+.identity { stroke: #8f8e85; }
+.bracket { fill: #26c78d; stroke: #26c78d; }
+.ok { fill: #26c78d; stroke: #26c78d; } .bad { fill: #e5484d; stroke: #e5484d; }
+.okt { fill: #26c78d; } .badt { fill: #e5484d; }
+.bar { fill: #3987e5; }
+.budget { stroke: #e5484d; }
+}
+</style>
+<text x="24" y="28" class="title">Latency against achieved throughput: example-mix</text>
+<text x="24" y="46" class="muted">Scout windows: hollow circles on thin lines. Plateaus: squares on thick lines. ◇ below the plot: the quantile does not resolve.</text>
+<text x="24" y="62" class="muted">Dashed: the Universal Scalability Law fit, mean latency by Little's law; an explanatory model, never a verdict.</text>
+<rect x="24.0" y="70" width="10" height="10" class="p50"/><text x="38.0" y="79">p50</text>
+<rect x="88.0" y="70" width="10" height="10" class="p95"/><text x="102.0" y="79">p95</text>
+<rect x="152.0" y="70" width="10" height="10" class="p99"/><text x="166.0" y="79">p99</text>
+<line x1="84" y1="352.0" x2="720" y2="352.0" class="grid"/><text x="76.0" y="356.0" class="muted" text-anchor="end">1 ms</text>
+<line x1="84" y1="287.0" x2="720" y2="287.0" class="grid"/><text x="76.0" y="291.0" class="muted" text-anchor="end">10 ms</text>
+<line x1="84" y1="222.0" x2="720" y2="222.0" class="grid"/><text x="76.0" y="226.0" class="muted" text-anchor="end">100 ms</text>
+<line x1="84" y1="157.0" x2="720" y2="157.0" class="grid"/><text x="76.0" y="161.0" class="muted" text-anchor="end">1 s</text>
+<line x1="84" y1="92.0" x2="720" y2="92.0" class="grid"/><text x="76.0" y="96.0" class="muted" text-anchor="end">10 s</text>
+<line x1="84.0" y1="92" x2="84.0" y2="352" class="grid"/><text x="84.0" y="386.0" class="muted" text-anchor="middle">0</text>
+<line x1="243.0" y1="92" x2="243.0" y2="352" class="grid"/><text x="243.0" y="386.0" class="muted" text-anchor="middle">75</text>
+<line x1="402.0" y1="92" x2="402.0" y2="352" class="grid"/><text x="402.0" y="386.0" class="muted" text-anchor="middle">150</text>
+<line x1="561.0" y1="92" x2="561.0" y2="352" class="grid"/><text x="561.0" y="386.0" class="muted" text-anchor="middle">225</text>
+<line x1="720.0" y1="92" x2="720.0" y2="352" class="grid"/><text x="720.0" y="386.0" class="muted" text-anchor="middle">300</text>
+<text x="402.0" y="404.0" class="muted" text-anchor="middle">achieved throughput, operations per second</text>
+<text x="76.0" y="370.0" class="muted" text-anchor="end">n/r</text>
+<rect x="467.2" y="92" width="62.6" height="260.0" class="bracket"/>
+<text x="498.5" y="86.0" class="okt" text-anchor="middle">knee bracket</text>
+<path d="M381.8,264.5 L434.4,254.5 L462.7,247.1 L480.4,241.2 L492.5,236.4 L501.3,232.2 L508.1,228.6 L513.3,225.4 L517.6,222.5 L521.1,219.9 L524.0,217.6 L526.5,215.4 L528.6,213.3 L530.5,211.4 L532.1,209.6 L533.6,208.0 L534.9,206.4 L536.0,204.9 L537.1,203.4 L538.0,202.1 L538.9,200.8 L539.7,199.6 L540.4,198.4 L541.1,197.2 L541.7,196.2 L542.3,195.1 L542.8,194.1 L543.3,193.1 L543.7,192.2 L544.2,191.2 L544.6,190.4 L545.0,189.5 L545.3,188.7 L545.7,187.9 L546.0,187.1 L546.3,186.3 L546.6,185.6 L546.8,184.8 L547.1,184.1 L547.3,183.4 L547.6,182.8 L547.8,182.1 L548.0,181.4 L548.2,180.8 L548.4,180.2 L548.6,179.6 L548.8,179.0 L548.9,178.4 L549.1,177.9 L549.3,177.3 L549.4,176.8 L549.6,176.2 L549.7,175.7 L549.8,175.2 L550.0,174.7 L550.1,174.2 L550.2,173.7 L550.3,173.2 L550.5,172.8 L550.6,172.3 L550.7,171.8 L550.8,171.4 L550.9,170.9 L551.0,170.5 L551.1,170.1 L551.2,169.7 L551.3,169.2 L551.3,168.8 L551.4,168.4 L551.5,168.0 L551.6,167.6 L551.7,167.2 L551.7,166.9 L551.8,166.5 L551.9,166.1 L552.0,165.7 L552.0,165.4 L552.1,165.0 L552.2,164.7 L552.2,164.3" class="fit"/>
+<path d="M106.3,295.6 L110.5,295.9 L117.9,295.8 L126.4,295.5 L135.9,295.1 L147.6,295.2 L162.4,295.1 L181.5,295.0 L203.8,294.5 L232.4,294.3 L267.4,294.1 L309.8,293.7 L362.8,293.3 L427.4,289.7 L509.1,274.0 L605.5,272.9" class="p50 scoutline"/>
+<circle cx="106.3" cy="295.6" r="2.6" class="p50 hollow"/>
+<circle cx="110.5" cy="295.9" r="2.6" class="p50 hollow"/>
+<circle cx="117.9" cy="295.8" r="2.6" class="p50 hollow"/>
+<circle cx="126.4" cy="295.5" r="2.6" class="p50 hollow"/>
+<circle cx="135.9" cy="295.1" r="2.6" class="p50 hollow"/>
+<circle cx="147.6" cy="295.2" r="2.6" class="p50 hollow"/>
+<circle cx="162.4" cy="295.1" r="2.6" class="p50 hollow"/>
+<circle cx="181.5" cy="295.0" r="2.6" class="p50 hollow"/>
+<circle cx="203.8" cy="294.5" r="2.6" class="p50 hollow"/>
+<circle cx="232.4" cy="294.3" r="2.6" class="p50 hollow"/>
+<circle cx="267.4" cy="294.1" r="2.6" class="p50 hollow"/>
+<circle cx="309.8" cy="293.7" r="2.6" class="p50 hollow"/>
+<circle cx="362.8" cy="293.3" r="2.6" class="p50 hollow"/>
+<circle cx="427.4" cy="289.7" r="2.6" class="p50 hollow"/>
+<circle cx="509.1" cy="274.0" r="2.6" class="p50 hollow"/>
+<circle cx="605.5" cy="272.9" r="2.6" class="p50 hollow"/>
+<path d="M98.0,362.0 L101.0,359.0 L104.0,362.0 L101.0,365.0 Z" class="p50 nr"/>
+<path d="M296.8,293.6 L403.2,293.0 L467.2,274.3 L529.8,273.7" class="p50 line"/>
+<rect x="293.3" y="290.1" width="7" height="7" class="p50"/>
+<rect x="399.7" y="289.5" width="7" height="7" class="p50"/>
+<rect x="463.7" y="270.8" width="7" height="7" class="p50"/>
+<rect x="526.3" y="270.2" width="7" height="7" class="p50"/>
+<path d="M309.8,246.8 L362.8,246.1 L427.4,237.0 L509.1,134.4 L605.5,124.0" class="p95 scoutline"/>
+<circle cx="309.8" cy="246.8" r="2.6" class="p95 hollow"/>
+<circle cx="362.8" cy="246.1" r="2.6" class="p95 hollow"/>
+<circle cx="427.4" cy="237.0" r="2.6" class="p95 hollow"/>
+<circle cx="509.1" cy="134.4" r="2.6" class="p95 hollow"/>
+<circle cx="605.5" cy="124.0" r="2.6" class="p95 hollow"/>
+<path d="M98.0,366.0 L101.0,363.0 L104.0,366.0 L101.0,369.0 Z" class="p95 nr"/>
+<path d="M103.3,366.0 L106.3,363.0 L109.3,366.0 L106.3,369.0 Z" class="p95 nr"/>
+<path d="M107.5,366.0 L110.5,363.0 L113.5,366.0 L110.5,369.0 Z" class="p95 nr"/>
+<path d="M114.9,366.0 L117.9,363.0 L120.9,366.0 L117.9,369.0 Z" class="p95 nr"/>
+<path d="M123.4,366.0 L126.4,363.0 L129.4,366.0 L126.4,369.0 Z" class="p95 nr"/>
+<path d="M132.9,366.0 L135.9,363.0 L138.9,366.0 L135.9,369.0 Z" class="p95 nr"/>
+<path d="M144.6,366.0 L147.6,363.0 L150.6,366.0 L147.6,369.0 Z" class="p95 nr"/>
+<path d="M159.4,366.0 L162.4,363.0 L165.4,366.0 L162.4,369.0 Z" class="p95 nr"/>
+<path d="M178.5,366.0 L181.5,363.0 L184.5,366.0 L181.5,369.0 Z" class="p95 nr"/>
+<path d="M200.8,366.0 L203.8,363.0 L206.8,366.0 L203.8,369.0 Z" class="p95 nr"/>
+<path d="M229.4,366.0 L232.4,363.0 L235.4,366.0 L232.4,369.0 Z" class="p95 nr"/>
+<path d="M264.4,366.0 L267.4,363.0 L270.4,366.0 L267.4,369.0 Z" class="p95 nr"/>
+<path d="M296.8,246.7 L403.2,245.1 L467.2,198.3 L529.8,132.6" class="p95 line"/>
+<rect x="293.3" y="243.2" width="7" height="7" class="p95"/>
+<rect x="399.7" y="241.6" width="7" height="7" class="p95"/>
+<rect x="463.7" y="194.8" width="7" height="7" class="p95"/>
+<rect x="526.3" y="129.1" width="7" height="7" class="p95"/>
+<path d="M98.0,370.0 L101.0,367.0 L104.0,370.0 L101.0,373.0 Z" class="p99 nr"/>
+<path d="M103.3,370.0 L106.3,367.0 L109.3,370.0 L106.3,373.0 Z" class="p99 nr"/>
+<path d="M107.5,370.0 L110.5,367.0 L113.5,370.0 L110.5,373.0 Z" class="p99 nr"/>
+<path d="M114.9,370.0 L117.9,367.0 L120.9,370.0 L117.9,373.0 Z" class="p99 nr"/>
+<path d="M123.4,370.0 L126.4,367.0 L129.4,370.0 L126.4,373.0 Z" class="p99 nr"/>
+<path d="M132.9,370.0 L135.9,367.0 L138.9,370.0 L135.9,373.0 Z" class="p99 nr"/>
+<path d="M144.6,370.0 L147.6,367.0 L150.6,370.0 L147.6,373.0 Z" class="p99 nr"/>
+<path d="M159.4,370.0 L162.4,367.0 L165.4,370.0 L162.4,373.0 Z" class="p99 nr"/>
+<path d="M178.5,370.0 L181.5,367.0 L184.5,370.0 L181.5,373.0 Z" class="p99 nr"/>
+<path d="M200.8,370.0 L203.8,367.0 L206.8,370.0 L203.8,373.0 Z" class="p99 nr"/>
+<path d="M229.4,370.0 L232.4,367.0 L235.4,370.0 L232.4,373.0 Z" class="p99 nr"/>
+<path d="M264.4,370.0 L267.4,367.0 L270.4,370.0 L267.4,373.0 Z" class="p99 nr"/>
+<path d="M306.8,370.0 L309.8,367.0 L312.8,370.0 L309.8,373.0 Z" class="p99 nr"/>
+<path d="M359.8,370.0 L362.8,367.0 L365.8,370.0 L362.8,373.0 Z" class="p99 nr"/>
+<path d="M424.4,370.0 L427.4,367.0 L430.4,370.0 L427.4,373.0 Z" class="p99 nr"/>
+<path d="M506.1,370.0 L509.1,367.0 L512.1,370.0 L509.1,373.0 Z" class="p99 nr"/>
+<path d="M602.5,370.0 L605.5,367.0 L608.5,370.0 L605.5,373.0 Z" class="p99 nr"/>
+<path d="M296.8,221.9 L403.2,215.6 L467.2,163.5 L529.8,101.1" class="p99 line"/>
+<rect x="293.3" y="218.4" width="7" height="7" class="p99"/>
+<rect x="399.7" y="212.1" width="7" height="7" class="p99"/>
+<rect x="463.7" y="160.0" width="7" height="7" class="p99"/>
+<rect x="526.3" y="97.6" width="7" height="7" class="p99"/>
+</svg>

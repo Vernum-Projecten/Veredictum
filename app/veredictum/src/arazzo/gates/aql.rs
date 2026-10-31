@@ -303,7 +303,7 @@ fn overlaps(a: &str, b: &str) -> bool {
 }
 
 /// Where the parser refused, in token indices and source bytes.
-fn position(error: &ParseError) -> String {
+pub(crate) fn position(error: &ParseError) -> String {
     match error {
         ParseError::Lex(lex) => format!(
             "no token at bytes {}..{}, {:?}",

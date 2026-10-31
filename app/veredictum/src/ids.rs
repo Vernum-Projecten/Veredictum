@@ -141,6 +141,34 @@ string_id!(
     is_ident
 );
 
+string_id!(
+    /// A workload id (`clinical-mix`): the file stem of a workload document
+    /// under `perf/workloads/`.
+    WorkloadId,
+    "workload id",
+    "non-empty [a-z0-9-], starting with a letter",
+    |s: &str| {
+        s.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+            && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    }
+);
+
+string_id!(
+    /// The name of one interaction of a workload (`chart_review`).
+    InteractionName,
+    "interaction name",
+    "ASCII identifier",
+    is_ident
+);
+
+string_id!(
+    /// The name of one AQL query class of a workload (`patient_summary`).
+    QueryName,
+    "query name",
+    "ASCII identifier",
+    is_ident
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;

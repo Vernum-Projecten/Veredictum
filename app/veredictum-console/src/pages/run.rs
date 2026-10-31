@@ -1290,7 +1290,7 @@ fn posture_gaps() -> impl IntoView + use<> {
     let body = String::from(
         "SMART App Launch: minting a scope-carrying token needs a signing key on this host, and a public endpoint that names a file is a file-read primitive. The SMART cases stay not-applicable.\n\
          Terminology servers: which servers answer for which namespaces, and what the server does with a value set it cannot resolve, is a topology this form does not collect.\n\
-         Exclusive server: the flag travels in one block with the hardware facts a performance claim rests on, and this console collects no hardware facts.\n\
+         Exclusive server: the flag travels in one block with the hardware facts a perf-result records as the environment it measured, and this console collects no hardware facts.\n\
          A second principal or a second deployment (a read-only role, a second signing posture): each needs its own credentials or its own guarded target, and this wizard composes one.",
     );
     view! { <Pane label="postures this console does not supply" body=body /> }

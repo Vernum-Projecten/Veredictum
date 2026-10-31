@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:perf-workloads:0.1.0",
+  "title": "Performance workload manifest",
+  "description": "What `veredictum perf-workloads` writes: every pinned workload with its digest, its expanded per-operation mix with the released ITS-REST operation each entry is sent as, its query classes, its read:write ratio, its planned run range after seeding, and every payload it sends or seeds with its size and digest. Byte-deterministic. No openEHR spec governs measured performance — our own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workloads"
+  ],
+  "properties": {
+    "workloads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "label",
+          "status",
+          "file",
+          "sha256",
+          "description",
+          "seed",
+          "arrival",
+          "sample_target",
+          "qualification",
+          "corpus",
+          "planned_run",
+          "read_write_ratio",
+          "mean_operations_per_interaction",
+          "interactions",
+          "operations",
+          "queries",
+          "payloads"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "provisional",
+              "ratified"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reproduces": {
+            "type": "string"
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "arrival": {
+            "enum": [
+              "poisson",
+              "uniform"
+            ]
+          },
+          "sample_target": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "qualification": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation_p99_ms",
+              "population_aql_p99_ms",
+              "max_error_share",
+              "min_achieved_share"
+            ],
+            "properties": {
+              "operation_p99_ms": {
+                "type": "integer"
+              },
+              "population_aql_p99_ms": {
+                "type": "integer"
+              },
+              "max_error_share": {
+                "type": "string",
+                "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+              },
+              "min_achieved_share": {
+                "type": "string",
+                "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+              }
+            }
+          },
+          "corpus": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scale",
+              "ehrs",
+              "compositions_per_ehr",
+              "templates"
+            ],
+            "properties": {
+              "scale": {
+                "enum": [
+                  "POC",
+                  "S",
+                  "L",
+                  "R"
+                ]
+              },
+              "ehrs": {
+                "type": "integer"
+              },
+              "compositions_per_ehr": {
+                "type": "integer"
+              },
+              "templates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "key",
+                    "share"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "share": {
+                      "type": "string",
+                      "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "planned_run": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "min_s",
+              "max_s",
+              "session_tail_s",
+              "limit_s"
+            ],
+            "properties": {
+              "min_s": {
+                "type": "integer"
+              },
+              "max_s": {
+                "type": "integer"
+              },
+              "session_tail_s": {
+                "type": "integer"
+              },
+              "limit_s": {
+                "type": "integer"
+              }
+            }
+          },
+          "read_write_ratio": {
+            "type": "string",
+            "pattern": "^([0-9]+\\.[0-9]{2}:1|reads only)$"
+          },
+          "mean_operations_per_interaction": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "interactions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "share",
+                "kind",
+                "stages",
+                "requires",
+                "description",
+                "derivation"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "share": {
+                  "type": "string",
+                  "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+                },
+                "kind": {
+                  "enum": [
+                    "single",
+                    "session"
+                  ]
+                },
+                "think_time_mean_ms": {
+                  "type": "integer"
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "requires": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "description": {
+                  "type": "string"
+                },
+                "derivation": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "share_of_operations",
+                "write",
+                "released"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "share_of_operations": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]{2}%$"
+                },
+                "write": {
+                  "type": "boolean"
+                },
+                "released": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "operation_id",
+                      "method",
+                      "path",
+                      "citation"
+                    ],
+                    "properties": {
+                      "operation_id": {
+                        "type": "string"
+                      },
+                      "method": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "citation": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "share_of_operations",
+                "scope",
+                "tier",
+                "budget_ms",
+                "text",
+                "parameters",
+                "transport",
+                "requires",
+                "on_refusal",
+                "description",
+                "derivation"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "share_of_operations": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]{2}%$"
+                },
+                "scope": {
+                  "enum": [
+                    "single_subject",
+                    "population"
+                  ]
+                },
+                "tier": {
+                  "enum": [
+                    "metadata",
+                    "content"
+                  ]
+                },
+                "budget_ms": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "parameters": {
+                  "type": "object"
+                },
+                "transport": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "transport",
+                      "share",
+                      "released"
+                    ],
+                    "properties": {
+                      "transport": {
+                        "type": "string"
+                      },
+                      "share": {
+                        "type": "string",
+                        "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+                      },
+                      "released": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "operation_id",
+                          "method",
+                          "path",
+                          "citation"
+                        ],
+                        "properties": {
+                          "operation_id": {
+                            "type": "string"
+                          },
+                          "method": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "citation": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "requires": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "on_refusal": {
+                  "enum": [
+                    "error",
+                    "count_apart"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                },
+                "derivation": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "payloads": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "source",
+                "bytes",
+                "sha256",
+                "provenance"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "template_id": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "provenance": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

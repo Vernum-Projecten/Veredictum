@@ -1,0 +1,23 @@
+# The reference host: the machine a published absolute figure claims to
+# have run on. A record names the prescription it claims beside the
+# fingerprint its generator measured, and its derived part says whether the
+# two agree.
+#
+# No openEHR specification governs this: our own design. Fields the source
+# does not name are `unstated`, never guessed.
+id: reference-8cpu-8gb
+version: 1
+description: >-
+  The idle 8-CPU, 8 GB host FerroEHR's published performance figures are
+  measured on, with the load generator and the server on the same machine.
+derivation: >-
+  FerroEHR#4188: "a quiet run on the idle 8-CPU, 8 GB reference host, which a
+  CI runner cannot reproduce". The issue names the CPU count, the memory and
+  that the host is idle; it names no machine class, storage class or
+  container ceilings.
+machine_class: unstated
+vcpu: 8
+memory_gib: 8
+storage_class: unstated
+network_leg: same-host
+idle: true
