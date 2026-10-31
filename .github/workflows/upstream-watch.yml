@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# .github/workflows/upstream-watch.yml — has openEHR moved past our pins? (#975)
+#
+# The development snapshot pins each openEHR specification repository's
+# `master` by commit, and the released oracle pins each released component at
+# its `Release-*` tag. Nothing else notices when upstream moves past either, so
+# this lane reads both tables once a day and keeps one tracking issue per
+# repository and signal. All the behaviour, and the rules it files by, live in
+# `scripts/gh/upstream-watch.sh`, whose stub-driven self-test runs in the CI
+# guard tier.
+#
+# It only READS the openEHR repositories (`git ls-remote` and the compare API)
+# and writes nothing anywhere but this repository's issues.
+#
+# RUN COLOUR. A finding files, rewrites or closes an issue and the run stays
+# GREEN. The run goes RED only when the probe cannot answer: an empty
+# ls-remote or a refused compare call.
+name: upstream-watch
+
+on:
+  schedule:
+    # Daily 04:41 UTC: off the hour, because GitHub delays on-the-hour runs
+    # under load, and in a slot of its own. Read the estate's slots with
+    # `grep -rE '^ +- cron:' .github/workflows/`.
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Print what would be filed and write no issue.
+        type: boolean
+        default: false
+
+# A scheduled probe: only the newest run is interesting, so cancel freely.
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  watch:
+    name: compare the pins with openEHR
+    if: github.repository == 'Vernum-Projecten/Veredictum'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write # file, rewrite or close the tracking issues
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read upstream and file what moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "${DRY_RUN:-false}" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          bash scripts/gh/upstream-watch.sh "${args[@]}"

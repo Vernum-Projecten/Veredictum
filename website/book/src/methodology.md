@@ -120,6 +120,45 @@ refuses a development record, so a certificate needs an explicit
 and zero findings stays the only passing result; `validate --profile
 development` adds the snapshot's absences as information.
 
+### Keeping the pinned text current
+
+Both profiles are pins. The `COMPONENTS` table of
+`scripts/vendor/spec-docs-development.sh` pins each repository's `master` by
+commit, and the one in `scripts/vendor/spec-docs.sh` pins each released
+component at its `Release-*` tag. A scheduled workflow, `upstream-watch`, reads
+both tables once a day, asks each openEHR repository for its current `master`
+head and its `Release-*` tags, and opens an issue labelled `upstream-change`
+when either has moved past the pin:
+
+- `openEHR <repository>: master moved past the development snapshot`
+- `openEHR <repository>: <tag> released`
+
+The body lists the commits since the pin and the files they touch, with the
+files a catalogue citation or an `upstream/` patch names listed first. A later
+move rewrites the body and adds a comment, and the issue closes by itself once
+the pin catches up. Released components whose pin is a frozen commit rather
+than a tag (CNF, ITS-JSON, ITS-XML) get no release issue. The workflow reads
+the openEHR repositories and writes nothing outside this one.
+
+What to do with one:
+
+1. Read the listed commits, starting with the files a citation or a patch
+   names.
+2. For a `master` move, re-vendor the development snapshot: move the commit in
+   the development table and run `scripts/vendor/spec-docs-development.sh`.
+   For a release, move the tag and commit in the released table and run
+   `scripts/vendor/spec-docs.sh`, which changes the released oracle and needs
+   the same care as any expectation change.
+3. Run `validate` under both profiles. Every citation whose sentence moved is
+   re-read first-hand: an unchanged requirement gains or updates its
+   `development` member, and a changed requirement goes through the
+   attribution law like any other spec change.
+4. Re-apply every patch under `upstream/<repository>/`
+   (`scripts/checks/upstream-patches-apply.sh`). A patch that no longer applies
+   means upstream touched the reported text. If upstream fixed the defect, the
+   `upstream-report` issue records the fixing commit. Otherwise the patch is
+   rewritten against the new snapshot.
+
 ## The catalogue's shape: one behaviour, one case
 
 A case is an Arazzo workflow: its steps call the operations of the released
