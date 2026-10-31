@@ -2042,10 +2042,15 @@ vendor reads why a row is red without opening `results.json`.
   verbatim in its file.
 - **Profile**: no `simple` string comparison, no regex lookaround or
   backreferences, and every expression parses.
-- **Level**: a citation's `level` agrees with its quote. A quote carrying
-  SHOULD or RECOMMENDED but no MUST, SHALL or REQUIRED needs `level: should`,
-  and the reverse is refused; a quote whose only keyword is MAY or OPTIONAL is
-  refused outright, because permission is never asserted.
+- **Level**: a citation's `level` agrees with its quote, by the one rule of
+  §15.6 rule 10 for every citation the gates read: a workflow criterion, a
+  rows aggregate, an `applies` range, and an option or `decides` citation in
+  `capabilities.yaml`. A quote carrying SHOULD or RECOMMENDED but no MUST,
+  SHALL or REQUIRED needs `level: should`, and the reverse is refused; a quote
+  whose only keyword is MAY or OPTIONAL needs `level: may`, and is refused at
+  the default `must`. A `may` criterion is then judged like a `must` one,
+  while an option citation is judged by no row: it grounds the option whose
+  arm a statement selects.
 - **Unknown keys**: a key that is neither an Arazzo field nor one of the six
   extensions, in the place §15.4 allows it, is refused. A parser that captures extensions through a catch-all
   map drops a misspelled key such as `succesCriteria` without an error, so the

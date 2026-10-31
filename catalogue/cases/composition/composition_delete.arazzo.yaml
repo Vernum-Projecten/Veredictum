@@ -1,6 +1,7 @@
 # Deleting a COMPOSITION: the logical delete of its latest version and the
 # VERSION it commits, the misses a delete answers with 404, a delete repeated
-# on a deleted COMPOSITION or addressed to a superseded version, an If-Match
+# on a deleted COMPOSITION or addressed to a superseded version or to its
+# container, the identifier of the version a delete commits, an If-Match
 # precondition a client volunteers, the committal headers, the headers of
 # the answer, and an EHR that is not modifiable, as Arazzo 1.1.0 workflows
 # over the released ITS-REST `-validation` OAS. Every criterion resolves to
@@ -14,9 +15,10 @@ info:
   description: >-
     Deleting a COMPOSITION by the version_uid of its latest version: the
     204 of a successful delete and the VERSION it commits, a second delete
-    of the same COMPOSITION, a delete of a superseded version, an unknown
-    version or EHR, a volunteered If-Match that does or does not match, the
-    committal headers, the ETag and Location headers of the answer, and a
+    of the same COMPOSITION, a delete of a superseded version or addressed
+    to the container, the identifier of the version a delete commits, an
+    unknown version or EHR, a volunteered If-Match that does or does not
+    match, the committal headers, the ETag and Location headers of the answer, and a
     delete in an EHR that is not modifiable.
 sourceDescriptions:
   - name: ehr
@@ -833,3 +835,70 @@ workflows:
           - { name: uid_based_id, in: path, value: $steps.updated.outputs.version_uid }
         successCriteria:
           - *no_content
+
+  - workflowId: delete_composition-versioned_object_uid
+    x-veredictum-control: delete_composition-event
+    summary: A COMPOSITION delete addressed by a versioned_object_uid is refused with 400 and not performed
+    description: >-
+      Creates an EHR and an event COMPOSITION, then deletes it addressing the
+      versioned_object_uid of its container, where the operation takes the
+      version_uid of the latest version. The parameter is invalid, so the
+      delete is answered 400 Bad Request, and the latest VERSION is still
+      the one the create committed.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/composition_delete.yaml
+      section: description
+      quote: "The `uid_based_id` MUST be in a form of an OBJECT_VERSION_ID identifier taken from the last (most recent) VERSION.uid.value, representing the `preceding_version_uid` to be deleted."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - stepId: delete
+        description: Delete the COMPOSITION by the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)"
+      - stepId: latest
+        description: Read the latest VERSION again; the refused delete committed nothing.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: delete_composition-version_identifier
+    summary: The version a delete commits is identified within the deleted COMPOSITION's container
+    description: >-
+      Creates an EHR and an event COMPOSITION, deletes it, then reads the
+      latest VERSION. The deletion adds its version to the existing
+      container, so the object_id part of that version's uid is the
+      container's versioned_object_uid.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Version Identification
+      quote: "in which the `__object_id()__` part is a copy of the `__uid__` of the owning `VERSIONED_OBJECT` version container."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - *delete
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, the one the delete committed, and its identifier.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.versioned_object_uid}::'

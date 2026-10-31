@@ -944,6 +944,55 @@ mod tests {
     }
 
     #[test]
+    fn a_permission_only_quote_needs_level_may_on_a_criterion_and_on_an_option() {
+        let permits = "The server MAY answer 202.";
+        let levels = |dir: &assert_fs::TempDir| -> Vec<String> {
+            gates(dir)
+                .into_iter()
+                .filter(|(gate, _)| *gate == Gate::Level)
+                .map(|(_, message)| message)
+                .collect()
+        };
+        let needs_may = |found: &[String]| {
+            found.len() == 1 && found.iter().all(|m| m.contains("needs `level: may`"))
+        };
+        let dir = world("");
+        let criterion = |level: &str| {
+            document("").replace(
+                "section: openapi, quote: x }",
+                &format!("section: openapi, quote: '{permits}'{level} }}"),
+            )
+        };
+        let case = "catalogue/cases/ehr/ehr.arazzo.yaml";
+        dir.child(case).write_str(&criterion("")).unwrap();
+        let found = levels(&dir);
+        assert!(needs_may(&found), "case criterion at `must`: {found:?}");
+        dir.child(case)
+            .write_str(&criterion(", level: may"))
+            .unwrap();
+        assert_eq!(
+            levels(&dir),
+            Vec::<String>::new(),
+            "case criterion at `may`"
+        );
+        let option = |level: &str| {
+            format!(
+                "options:\n  o:\n    description: d\n    arms:\n      a: {{ documents: [ehr] }}\n      b: {{ documents: [] }}\n    x-veredictum-cite: {{ source: specs/openehr/x.md, section: s, quote: '{permits}'{level} }}\n"
+            )
+        };
+        let caps = "catalogue/capabilities.yaml";
+        dir.child(caps).write_str(&option("")).unwrap();
+        let found = levels(&dir);
+        assert!(needs_may(&found), "option citation at `must`: {found:?}");
+        dir.child(caps).write_str(&option(", level: may")).unwrap();
+        assert_eq!(
+            levels(&dir),
+            Vec::<String>::new(),
+            "option citation at `may`"
+        );
+    }
+
+    #[test]
     fn every_gate_token_is_distinct_and_prefixed() {
         let all = [
             Gate::Load,

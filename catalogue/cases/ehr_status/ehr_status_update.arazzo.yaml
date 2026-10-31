@@ -878,3 +878,86 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: HTTP status codes
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+
+  - workflowId: update-new_version
+    summary: An update adds a version to the EHR_STATUS container that follows the one it names
+    description: >-
+      Creates an EHR, reads the latest version of its EHR_STATUS, updates the
+      EHR_STATUS under that version, then reads the latest version again. A
+      modification adds a new ORIGINAL_VERSION to the existing container, so
+      the new version's uid has the container's uid as its object_id, and
+      its preceding_version_uid is the version the update named.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "_modification of existing item_: a new `ORIGINAL_VERSION` whose data contains the updated form of the item content is added to an existing `VERSIONED_OBJECT`;"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid, and derive the uid of its container.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - *first_update
+      - stepId: latest
+        description: Read the latest version of the EHR_STATUS, the one the update committed, and its identifiers.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.current.outputs.versioned_object_uid}::'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Version Identification
+              quote: "in which the `__object_id()__` part is a copy of the `__uid__` of the owning `VERSIONED_OBJECT` version container."
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.current.outputs.version_uid}$'
+
+  - workflowId: update-change_type_modification
+    summary: The version an EHR_STATUS update commits records the change type modification
+    description: >-
+      Creates an EHR, updates its EHR_STATUS with no committal header, then
+      reads the latest version. A change to the content is committed with the
+      change type 251|modification|.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "if the change is logically a change, addition etc to the content, the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `251|modification|`;"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *first_update
+      - stepId: latest
+        description: Read the latest version of the EHR_STATUS and its commit audit.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^251$'
