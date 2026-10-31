@@ -1172,10 +1172,12 @@ jobs:
           exit 1
 
   # ── The GitHub Action drives a server ───────────────────────────────────────
-  # The action at the repository root (#770) runs against a fake server three
+  # The action at the repository root (#770) runs against a fake server five
   # times, and each outcome is asserted: a run whose rows all pass exits 0, a
-  # run with failed rows fails the step with exit status 1, and a run whose
-  # credential is an empty secret cannot start and fails it with 2. The image
+  # run with failed rows fails the step with exit status 1, a run whose
+  # credential is an empty secret cannot start and fails it with 2, and a run
+  # against no server, whose rows are all inconclusive, exits 3: it fails the
+  # step by default and passes it with `fail-on-inconclusive: false`. The image
   # is a stand-in built from this tree, because a pull request has no release
   # image: the engine, the catalogue and the specification trees at the release
   # image's paths (scripts/action/test/engine.Dockerfile, which also builds the
@@ -1298,6 +1300,51 @@ jobs:
           [[ "$OUTCOME" == "failure" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not failure" >&2; exit 1; }
           [[ "$EXIT_CODE" == "2" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 2" >&2; exit 1; }
           [[ ! -e "${OUT_DIR}/results.json" ]] || { echo "::error::a run that could not start wrote results" >&2; exit 1; }
+
+      # Nothing listens on port 9, so every row the System API workflows drive
+      # is errored with the instrument named: inconclusive, exit status 3.
+      - id: inconclusive
+        name: A run whose only red rows are inconclusive fails the step by default
+        continue-on-error: true
+        uses: ./
+        with:
+          base-url: http://127.0.0.1:9/openehr/v1
+          statement: ${{ runner.temp }}/statements/system.json
+          out-dir: ${{ runner.temp }}/inconclusive
+          image: veredictum-action-stand-in:local
+          pull: "false"
+
+      - name: The inconclusive run failed the step with exit status 3
+        env:
+          OUTCOME: ${{ steps.inconclusive.outcome }}
+          EXIT_CODE: ${{ steps.inconclusive.outputs.exit-code }}
+          RESULTS: ${{ steps.inconclusive.outputs.results }}
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "failure" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not failure" >&2; exit 1; }
+          [[ "$EXIT_CODE" == "3" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 3" >&2; exit 1; }
+          jq -e '[.rows[] | select(.status == "errored" and .explanation.whose == "instrument")] | length > 0' "$RESULTS" >/dev/null \
+            || { echo "::error::no inconclusive row" >&2; exit 1; }
+
+      - id: tolerated
+        name: With fail-on-inconclusive false the same run passes the step
+        uses: ./
+        with:
+          base-url: http://127.0.0.1:9/openehr/v1
+          statement: ${{ runner.temp }}/statements/system.json
+          out-dir: ${{ runner.temp }}/tolerated
+          image: veredictum-action-stand-in:local
+          pull: "false"
+          fail-on-inconclusive: "false"
+
+      - name: The tolerated run passed the step and still reports exit status 3
+        env:
+          OUTCOME: ${{ steps.tolerated.outcome }}
+          EXIT_CODE: ${{ steps.tolerated.outputs.exit-code }}
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "success" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not success" >&2; exit 1; }
+          [[ "$EXIT_CODE" == "3" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 3" >&2; exit 1; }
 
   # ── The single required check ───────────────────────────────────────────────
   # Branch protection points at `conclusion` alone, which is what lets jobs be
