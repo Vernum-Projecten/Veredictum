@@ -129,6 +129,12 @@ enumset = "1.1.14"
 # The Arazzo `jsonpath` criterion: RFC 9535 queries over a response, the
 # JSONPath Arazzo 1.1.0 names (https://docs.rs/serde_json_path/0.7.2).
 serde_json_path = "0.7.2"
+# The Arazzo `xpath` criterion: XPath 3.1, the default Arazzo 1.1.0 names
+# (https://docs.rs/oxixml-xpath/0.1.2), over an XDM tree `oxixml-infoset`
+# builds from the response body. Pinned exactly: pure Rust, no unsafe, no
+# third-party dependency.
+oxixml-xpath = "=0.1.2"
+oxixml-infoset = "=0.1.2"
 # The condition profile's regex dialect: the parser behind `regex`, already in
 # the graph through it, read for its syntax tree so a pattern outside the
 # ECMA-262 and Rust shared subset is refused by construct.

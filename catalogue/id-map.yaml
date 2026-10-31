@@ -2231,8 +2231,8 @@ cases:
       - composition_read_xml/get_composition-at_time-xml
       - composition_read_xml_not_acceptable/get_composition-at_time-xml_not_acceptable
     open: &xml_part >-
-      The root element of the XML document is not judged: the evaluator
-      reads no XML body (#637).
+      The root element of the XML document is not judged: no workflow asserts
+      the `composition` document element of the ITS-XML Composition.xsd yet.
   I_EHR_COMPOSITION.get_composition_at_times:
     new: []
     open: >-
@@ -2262,8 +2262,8 @@ cases:
   I_EHR_COMPOSITION.get_composition_at_version-xml:
     new: &xml [composition_read_xml/get_composition-xml]
     open: &xml_root >-
-      The root element of the XML document is not judged: the evaluator
-      reads no XML body (#637).
+      The root element of the XML document is not judged: no workflow asserts
+      the `composition` document element of the ITS-XML Composition.xsd yet.
   I_EHR_COMPOSITION.get_composition_latest:
     new: [composition_read_container/get_composition-latest]
   I_EHR_COMPOSITION.get_composition_latest-bad_composition:
@@ -2798,9 +2798,8 @@ cases:
       - contribution_read_xml/get_contribution-xml
       - contribution_read_xml_not_acceptable/get_contribution-xml_not_acceptable
     open: &contribution_xml_root >-
-      The root element of the XML document is not judged: the evaluator reads
-      no XML body (#637), and no published XSD declares a document element for
-      CONTRIBUTION.
+      The root element of the XML document is not judged: no published XSD
+      declares a document element for CONTRIBUTION.
   I_EHR_CONTRIBUTION.has_contribution-bad_contribution:
     new: [contribution_read/get_contribution-unknown_contribution]
   I_EHR_CONTRIBUTION.has_contribution-bad_ehr:
@@ -2963,9 +2962,8 @@ cases:
       - directory_read_xml/get_directory-xml
       - directory_read_xml_not_acceptable/get_directory-xml_not_acceptable
     open: &directory_xml_root >-
-      The root element of the XML document is not judged: the evaluator reads
-      no XML body (#637), and no published XSD declares a document element for
-      FOLDER.
+      The root element of the XML document is not judged: no published XSD
+      declares a document element for FOLDER.
   I_EHR_DIRECTORY.get_directory-xml_not_acceptable:
     new: *directory_xml
     open: *directory_xml_root
@@ -3003,7 +3001,8 @@ cases:
     new: *directory_xml
     open: >-
       The XML read sends no version_at_time, and the root element of the XML
-      document is not judged: the evaluator reads no XML body (#637).
+      document is not judged: no published XSD declares a document element for
+      FOLDER.
   I_EHR_DIRECTORY.get_directory_at_version-bad_ehr:
     new: [directory_read/get_directory_version-unknown_ehr]
   I_EHR_DIRECTORY.get_directory_at_version-deleted_version:

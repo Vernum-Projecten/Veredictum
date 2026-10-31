@@ -289,6 +289,7 @@ fn target_shape_holds(
     let response = ResponseView {
         status: 200,
         headers: BTreeMap::new(),
+        text: body.to_string(),
         body: Ok(Some(body)),
     };
     let inputs = BTreeMap::new();
