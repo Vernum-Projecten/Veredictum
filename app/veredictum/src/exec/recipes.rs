@@ -196,79 +196,6 @@ pub fn synth_template_id(case_id: &str, row: usize, cells: &[MatrixCell]) -> Str
     format!("cnf.tpl.{slug}.r{row}.{short}")
 }
 
-/// `bp_series` — the generated blood-pressure corpus, under the contract the
-/// corpus manifest digest-pins: composition k has systolic 100+10k,
-/// diastolic 60+5k, event time 2026-01-01T00:00:00Z + k hours.
-///
-/// # Errors
-/// [`RecipeError`] when the index is outside the declared set (0..10).
-pub fn bp_series(k: usize) -> Result<Value, RecipeError> {
-    const NAME: &str = "bp_series";
-    if k >= 10 {
-        return Err(err(
-            NAME,
-            format!("index {k} outside the declared set 0..10"),
-        ));
-    }
-    let systolic = 100 + 10 * k;
-    let diastolic = 60 + 5 * k;
-    let hour = k;
-    let time = format!("2026-01-01T{hour:02}:00:00Z");
-    Ok(json!({
-        "_type": "COMPOSITION",
-        "name": { "_type": "DV_TEXT", "value": format!("blood pressure {k}") },
-        "archetype_node_id": "openEHR-EHR-COMPOSITION.encounter.v1",
-        "archetype_details": {
-            "_type": "ARCHETYPED",
-            "archetype_id": { "_type": "ARCHETYPE_ID", "value": "openEHR-EHR-COMPOSITION.encounter.v1" },
-            "template_id": { "_type": "TEMPLATE_ID", "value": "cnf.blood_pressure" },
-            "rm_version": "1.0.2"
-        },
-        "language": { "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "ISO_639-1" }, "code_string": "en" },
-        "territory": { "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "ISO_3166-1" }, "code_string": "NL" },
-        "category": { "_type": "DV_CODED_TEXT", "value": "event",
-            "defining_code": { "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "openehr" }, "code_string": "433" } },
-        "composer": { "_type": "PARTY_SELF" },
-        "context": { "_type": "EVENT_CONTEXT",
-            "start_time": { "_type": "DV_DATE_TIME", "value": time },
-            "setting": { "_type": "DV_CODED_TEXT", "value": "other care",
-                "defining_code": { "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "openehr" }, "code_string": "238" } } },
-        "content": [{
-            "_type": "OBSERVATION",
-            "name": { "_type": "DV_TEXT", "value": "Blood pressure" },
-            "archetype_node_id": "openEHR-EHR-OBSERVATION.blood_pressure.v2",
-            "archetype_details": {
-                "_type": "ARCHETYPED",
-                "archetype_id": { "_type": "ARCHETYPE_ID", "value": "openEHR-EHR-OBSERVATION.blood_pressure.v2" },
-                "rm_version": "1.0.2"
-            },
-            "language": { "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "ISO_639-1" }, "code_string": "en" },
-            "encoding": { "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "IANA_character-sets" }, "code_string": "UTF-8" },
-            "subject": { "_type": "PARTY_SELF" },
-            "data": { "_type": "HISTORY", "name": { "_type": "DV_TEXT", "value": "history" }, "archetype_node_id": "at0001",
-                "origin": { "_type": "DV_DATE_TIME", "value": time },
-                "events": [{ "_type": "POINT_EVENT", "name": { "_type": "DV_TEXT", "value": "any event" }, "archetype_node_id": "at0006",
-                    "time": { "_type": "DV_DATE_TIME", "value": time },
-                    "data": { "_type": "ITEM_TREE", "name": { "_type": "DV_TEXT", "value": "blood pressure" }, "archetype_node_id": "at0003",
-                        "items": [
-                            { "_type": "ELEMENT", "name": { "_type": "DV_TEXT", "value": "Systolic" }, "archetype_node_id": "at0004",
-                              "value": { "_type": "DV_QUANTITY", "magnitude": systolic, "units": "mm[Hg]" } },
-                            { "_type": "ELEMENT", "name": { "_type": "DV_TEXT", "value": "Diastolic" }, "archetype_node_id": "at0005",
-                              "value": { "_type": "DV_QUANTITY", "magnitude": diastolic, "units": "mm[Hg]" } }
-                        ] } }] } }]
-    }))
-}
-
-/// `query_bp` — the AQL-chapter query corpus: identical series semantics to
-/// [`bp_series`]; separated so the two corpus keys stay independently
-/// digest-pinned by the corpus manifest.
-///
-/// # Errors
-/// As [`bp_series`].
-pub fn query_bp(k: usize) -> Result<Value, RecipeError> {
-    bp_series(k)
-}
-
 /// A decision-table row bound to its column names, with typed accessors that
 /// read only the genuine RM *instance* columns (`null`/`absent` cells return
 /// `None`, so the omitted attribute makes the RM mandatory check fire).
@@ -1200,38 +1127,6 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-    }
-
-    #[test]
-    fn bp_series_matches_its_contract() {
-        let c0 = bp_series(0).unwrap();
-        let c9 = bp_series(9).unwrap();
-        assert_eq!(
-            c0["content"][0]["data"]["events"][0]["data"]["items"][0]["value"]["magnitude"],
-            serde_json::json!(100)
-        );
-        assert_eq!(
-            c9["content"][0]["data"]["events"][0]["data"]["items"][0]["value"]["magnitude"],
-            serde_json::json!(190)
-        );
-        // The COMPOSITION name varies with k and the OBSERVATION name does
-        // not: both are contract terms, so both are pinned here.
-        assert_eq!(c0["name"]["value"], serde_json::json!("blood pressure 0"));
-        assert_eq!(c9["name"]["value"], serde_json::json!("blood pressure 9"));
-        assert_eq!(
-            c0["content"][0]["name"]["value"],
-            c9["content"][0]["name"]["value"]
-        );
-        assert_eq!(
-            c0["context"]["start_time"]["value"],
-            serde_json::json!("2026-01-01T00:00:00Z")
-        );
-        assert_eq!(
-            c9["context"]["start_time"]["value"],
-            serde_json::json!("2026-01-01T09:00:00Z")
-        );
-        assert!(bp_series(10).is_err());
-        assert_eq!(bp_series(4).unwrap(), query_bp(4).unwrap());
     }
 
     fn cols(names: &[&str]) -> Vec<String> {
