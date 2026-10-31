@@ -60,7 +60,7 @@ COMPONENTS=(
   "AM|specifications-AM|Release-2.3.0|244baee6761a2c024944c122f261088975c2720b"
   "TERM|specifications-TERM|Release-3.0.0|d45ef3e21a05d3759101ae7bdb260e8193a3d0da"
   "LANG|specifications-LANG|Release-1.0.0v1|2d28dedf2040a1c0137d8d877526d4282a1de229"
-  "QUERY|specifications-QUERY|Release-1.1.0|a87bb51fa1c515b863c9610a9444a2d5570dc05a"
+  "QUERY|specifications-QUERY|Release-1.1.0|b03c48000d17eeae1e4f8868bfba3dfb59df8b3f"
   "CNF|specifications-CNF|master (never released; guide only, frozen SHA)|33251d2abe5a75c042e11c9385d2e9a79aa15904"
   "ITS-REST|specifications-ITS-REST|Release-1.1.0 (released 19-Jul-2026; matches the vendored OAS identity)|24058992d5fa96e8dfbd855d9c133f328387fc09"
   "ITS-XML|specifications-ITS-XML|master, frozen SHA (the tags carry only XSDs — vendored AT their tags in specs/its-xml-schemas; the prose the catalogue cites, the README release directory and the per-release documents/README, exists only on master)|de8b37ba6c9a5e126623a063cafba3b58ebf1107"
