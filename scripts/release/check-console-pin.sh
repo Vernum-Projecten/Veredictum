@@ -34,83 +34,182 @@
 # (two manifests, the lock, a compose file for operators), and holding them
 # together is a comparison rather than a substitution.
 #
+# One more fact rides the same check (#611): `fuzz/Cargo.lock`, the lockfile of
+# the fuzz harnesses' own workspace, records the engine's version through its
+# path dependency. Nothing else moves it, so a cut that bumps the engine left
+# it behind, and a `--locked` fuzz build then had to rewrite it. The cut moves
+# it with `cargo update -p veredictum --manifest-path fuzz/Cargo.toml`.
+#
 # Usage: scripts/release/check-console-pin.sh [version]
 #   With no argument (the every-pull-request call) the dependency pin, the
-#   engine's `[package] version` and the compose tag must agree. With
-#   <version> — the bare version being published, no leading `v` — they must
-#   all equal it as well.
+#   engine's `[package] version`, the compose tag and the fuzz lock must
+#   agree. With <version> — the bare version being published, no leading
+#   `v` — they must all equal it as well.
+#        scripts/release/check-console-pin.sh --self-test
+#   Seeded trees, each judged as expected.
 #
 # Exit 0 = the pin satisfies the policy, 1 = it does not, 2 = usage.
 set -euo pipefail
-cd "$(dirname "$0")/../.."
 
-if [[ $# -gt 1 ]]; then
-  echo "usage: $0 [version]   # the bare version being published, no leading v" >&2
-  exit 2
-fi
-version="${1:-}"
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+readonly SELF
 
 CONSOLE_MANIFEST=app/veredictum-console/Cargo.toml
 ENGINE_MANIFEST=app/veredictum/Cargo.toml
 ROOT_MANIFEST=Cargo.toml
 LOCK=Cargo.lock
 COMPOSE=deploy/docker/docker-compose.yml
+FUZZ_LOCK=fuzz/Cargo.lock
 
-dep_pin="$(sed -nE 's/^veredictum = \{.*version = "=([^"]+)".*$/\1/p' "$CONSOLE_MANIFEST" | head -1)"
-# The `[package]` table's own version, never the first `version = ` line: the
-# manifest carries dependency versions too.
-engine_version="$(awk -F'"' '/^\[package\]/{p=1} p && /^version = /{print $2; exit}' "$ENGINE_MANIFEST")"
+# check <root> [version]: the policy above, read from the tree at <root>.
+check() {
+  local root="$1" version="${2:-}" dep_pin engine_version compose_tag fuzz_version
 
-if [[ -z "$dep_pin" ]]; then
-  echo "::error::could not read the exact engine pin from ${CONSOLE_MANIFEST} — the seam is \`veredictum = { version = \"=X\", … }\` and this check reads that shape" >&2
-  exit 1
-fi
-if [[ -z "$engine_version" ]]; then
-  echo "::error::could not read the [package] version from ${ENGINE_MANIFEST}" >&2
-  exit 1
-fi
+  dep_pin="$(sed -nE 's/^veredictum = \{.*version = "=([^"]+)".*$/\1/p' "$root/$CONSOLE_MANIFEST" | head -1)"
+  # The `[package]` table's own version, never the first `version = ` line: the
+  # manifest carries dependency versions too.
+  engine_version="$(awk -F'"' '/^\[package\]/{p=1} p && /^version = /{print $2; exit}' "$root/$ENGINE_MANIFEST")"
 
-if [[ "$dep_pin" != "$engine_version" ]]; then
-  echo "::error::the console pins ${dep_pin} while ${ENGINE_MANIFEST} is at ${engine_version}. The pin is ONE value, the workspace engine version: the root manifest's [patch.crates-io] only redirects the console's dependency to app/veredictum while the two agree, and cargo falls back to the registry copy SILENTLY when they do not. Move \`veredictum = \"=X\"\` in ${CONSOLE_MANIFEST} to ${engine_version}, and run \`cargo check\` so ${LOCK} follows." >&2
-  exit 1
-fi
+  if [[ -z "$dep_pin" ]]; then
+    echo "::error::could not read the exact engine pin from ${CONSOLE_MANIFEST} — the seam is \`veredictum = { version = \"=X\", … }\` and this check reads that shape" >&2
+    return 1
+  fi
+  if [[ -z "$engine_version" ]]; then
+    echo "::error::could not read the [package] version from ${ENGINE_MANIFEST}" >&2
+    return 1
+  fi
 
-# The patch entry itself: without it every value above can agree and the build
-# still resolves crates.io.
-if ! grep -qE '^veredictum = \{ path = "app/veredictum" \}$' "$ROOT_MANIFEST"; then
-  echo "::error::${ROOT_MANIFEST} carries no \`[patch.crates-io]\` redirect for veredictum, so the console's exact pin resolves against crates.io and an in-tree build proves nothing about the engine it links" >&2
-  exit 1
-fi
+  if [[ "$dep_pin" != "$engine_version" ]]; then
+    echo "::error::the console pins ${dep_pin} while ${ENGINE_MANIFEST} is at ${engine_version}. The pin is ONE value, the workspace engine version: the root manifest's [patch.crates-io] only redirects the console's dependency to app/veredictum while the two agree, and cargo falls back to the registry copy SILENTLY when they do not. Move \`veredictum = \"=X\"\` in ${CONSOLE_MANIFEST} to ${engine_version}, and run \`cargo check\` so ${LOCK} follows." >&2
+    return 1
+  fi
 
-# The proof the patch actually took. A patched dependency is a path entry with
-# no `source`; a registry-sourced entry means cargo resolved the console's pin
-# against crates.io, which is the silent fallback above.
-if grep -A2 '^name = "veredictum"$' "$LOCK" | grep -q '^source = "registry'; then
-  echo "::error::${LOCK} carries a registry-sourced \`veredictum\` entry, so the [patch.crates-io] redirect went unused and the console links a published engine rather than this tree's. Re-run \`cargo check\` after making the pin and ${ENGINE_MANIFEST} agree." >&2
-  exit 1
-fi
+  # The patch entry itself: without it every value above can agree and the
+  # build still resolves crates.io.
+  if ! grep -qE '^veredictum = \{ path = "app/veredictum" \}$' "$root/$ROOT_MANIFEST"; then
+    echo "::error::${ROOT_MANIFEST} carries no \`[patch.crates-io]\` redirect for veredictum, so the console's exact pin resolves against crates.io and an in-tree build proves nothing about the engine it links" >&2
+    return 1
+  fi
 
-# The operator compose file (#297) rides every release as an asset, and the
-# image tags are the bare version, so its tag is the same one value. A drifted
-# tag would hand operators a release page whose compose file starts a
-# different console.
-compose_tag="$(sed -nE 's|^[[:space:]]+image: ghcr\.io/vernum-projecten/veredictum:([^ ]+)$|\1|p' "$COMPOSE" | head -1)"
-if [[ -z "$compose_tag" ]]; then
-  echo "::error::could not read the console image tag from ${COMPOSE} — the seam is \`image: ghcr.io/vernum-projecten/veredictum:X\` and this check reads that shape" >&2
-  exit 1
-fi
-if [[ "$compose_tag" != "$engine_version" ]]; then
-  echo "::error::${COMPOSE} starts ghcr.io/vernum-projecten/veredictum:${compose_tag} while the workspace engine version is ${engine_version}. The compose file ships on the release page, so its tag moves with the cut like every other copy of the one value." >&2
-  exit 1
-fi
+  # The proof the patch actually took. A patched dependency is a path entry
+  # with no `source`; a registry-sourced entry means cargo resolved the
+  # console's pin against crates.io, which is the silent fallback above.
+  if grep -A2 '^name = "veredictum"$' "$root/$LOCK" | grep -q '^source = "registry'; then
+    echo "::error::${LOCK} carries a registry-sourced \`veredictum\` entry, so the [patch.crates-io] redirect went unused and the console links a published engine rather than this tree's. Re-run \`cargo check\` after making the pin and ${ENGINE_MANIFEST} agree." >&2
+    return 1
+  fi
 
-if [[ -n "$version" && "$dep_pin" != "$version" ]]; then
-  echo "::error::the console pins ${dep_pin}, but the version being published is ${version}. The tag, ${ENGINE_MANIFEST} and the console's \`veredictum = \"=X\"\` are one value at tag time — the cut PR moves all of them together." >&2
-  exit 1
-fi
+  # The operator compose file (#297) rides every release as an asset, and the
+  # image tags are the bare version, so its tag is the same one value. A
+  # drifted tag would hand operators a release page whose compose file starts
+  # a different console.
+  compose_tag="$(sed -nE 's|^[[:space:]]+image: ghcr\.io/vernum-projecten/veredictum:([^ ]+)$|\1|p' "$root/$COMPOSE" | head -1)"
+  if [[ -z "$compose_tag" ]]; then
+    echo "::error::could not read the console image tag from ${COMPOSE} — the seam is \`image: ghcr.io/vernum-projecten/veredictum:X\` and this check reads that shape" >&2
+    return 1
+  fi
+  if [[ "$compose_tag" != "$engine_version" ]]; then
+    echo "::error::${COMPOSE} starts ghcr.io/vernum-projecten/veredictum:${compose_tag} while the workspace engine version is ${engine_version}. The compose file ships on the release page, so its tag moves with the cut like every other copy of the one value." >&2
+    return 1
+  fi
 
-if [[ -n "$version" ]]; then
-  echo "check-console-pin: the console pins ${dep_pin}, which is the workspace engine version and the version being published. OK."
-else
-  echo "check-console-pin: the console pins ${dep_pin}, which is the workspace engine version, and ${LOCK} resolves it to this tree. OK."
-fi
+  # The fuzz workspace's lock records the engine through its path dependency.
+  fuzz_version="$(grep -A1 '^name = "veredictum"$' "$root/$FUZZ_LOCK" | sed -nE 's/^version = "([^"]+)"$/\1/p' | head -1)"
+  if [[ -z "$fuzz_version" ]]; then
+    echo "::error::could not read the \`veredictum\` entry from ${FUZZ_LOCK} — the fuzz harnesses depend on the engine by path, so their lock carries one" >&2
+    return 1
+  fi
+  if [[ "$fuzz_version" != "$engine_version" ]]; then
+    echo "::error::${FUZZ_LOCK} records veredictum ${fuzz_version} while the workspace engine version is ${engine_version}. The fuzz lock moves with the cut: run \`cargo update -p veredictum --manifest-path fuzz/Cargo.toml\` and commit the result." >&2
+    return 1
+  fi
+
+  if [[ -n "$version" && "$dep_pin" != "$version" ]]; then
+    echo "::error::the console pins ${dep_pin}, but the version being published is ${version}. The tag, ${ENGINE_MANIFEST} and the console's \`veredictum = \"=X\"\` are one value at tag time — the cut PR moves all of them together." >&2
+    return 1
+  fi
+
+  if [[ -n "$version" ]]; then
+    echo "check-console-pin: the console pins ${dep_pin}, which is the workspace engine version and the version being published. OK."
+  else
+    echo "check-console-pin: the console pins ${dep_pin}, which is the workspace engine version, ${LOCK} resolves it to this tree, and ${FUZZ_LOCK} records it. OK."
+  fi
+}
+
+self_test() {
+  local tmp fail=0 n=0
+  tmp="$(mktemp -d)"
+  # shellcheck disable=SC2064 # expanded now on purpose: the path is fixed for this run
+  trap "rm -rf '$tmp'" EXIT
+
+  # seed <dir> <engine> <pin> <compose tag> <fuzz lock version>: a tree
+  # carrying the five facts, with a dependency `version` after the engine's
+  # `[package]` one and a `veredictum-fuzz` entry ahead of the fuzz lock's
+  # `veredictum`, so no reader takes the wrong line.
+  seed() {
+    mkdir -p "$1/app/veredictum" "$1/app/veredictum-console" "$1/deploy/docker" "$1/fuzz"
+    printf '[package]\nname = "veredictum"\nversion = "%s"\n\n[dependencies]\nserde = { version = "1" }\n' \
+      "$2" >"$1/$ENGINE_MANIFEST"
+    printf '[package]\nname = "veredictum-console"\nversion = "0.0.0"\n\n[dependencies]\nveredictum = { version = "=%s", optional = true }\n' \
+      "$3" >"$1/$CONSOLE_MANIFEST"
+    printf '[workspace]\n\n[patch.crates-io]\nveredictum = { path = "app/veredictum" }\n' >"$1/$ROOT_MANIFEST"
+    printf '[[package]]\nname = "veredictum"\nversion = "%s"\ndependencies = [\n]\n' "$2" >"$1/$LOCK"
+    printf 'services:\n  console:\n    image: ghcr.io/vernum-projecten/veredictum:%s\n' "$4" >"$1/$COMPOSE"
+    printf '[[package]]\nname = "veredictum-fuzz"\nversion = "0.0.0"\n\n[[package]]\nname = "veredictum"\nversion = "%s"\n' \
+      "$5" >"$1/$FUZZ_LOCK"
+  }
+  # case_ <label> <want exit> <engine> <pin> <compose tag> <fuzz lock> [version]
+  case_() {
+    local label="$1" want="$2" got=0
+    n=$((n + 1))
+    seed "$tmp/case$n" "$3" "$4" "$5" "$6"
+    check "$tmp/case$n" "${7:-}" >"$tmp/out" 2>&1 || got=$?
+    if [[ "$got" -ne "$want" ]]; then
+      echo "self-test: '$label' exited $got, wanted $want:" >&2
+      sed 's/^/  /' "$tmp/out" >&2
+      fail=1
+    fi
+  }
+
+  case_ "all five agree" 0 0.3.2 0.3.2 0.3.2 0.3.2
+  case_ "all five agree with the version being published" 0 0.3.2 0.3.2 0.3.2 0.3.2 0.3.2
+  case_ "a release candidate, all five agree" 0 0.4.0-rc1 0.4.0-rc1 0.4.0-rc1 0.4.0-rc1
+  case_ "the fuzz lock behind the engine" 1 0.3.2 0.3.2 0.3.2 0.3.1
+  case_ "the fuzz lock on the candidate before the final cut" 1 0.4.0 0.4.0 0.4.0 0.4.0-rc1
+  case_ "the console pin behind the engine" 1 0.3.2 0.3.1 0.3.2 0.3.2
+  case_ "the compose tag behind the engine" 1 0.3.2 0.3.2 0.3.1 0.3.2
+  case_ "a tag other than the tree's version" 1 0.3.2 0.3.2 0.3.2 0.3.2 0.3.3
+
+  n=$((n + 1))
+  seed "$tmp/case$n" 0.3.2 0.3.2 0.3.2 0.3.2
+  printf '[[package]]\nname = "veredictum-fuzz"\nversion = "0.0.0"\n' >"$tmp/case$n/$FUZZ_LOCK"
+  if check "$tmp/case$n" >"$tmp/out" 2>&1; then
+    echo "self-test: a fuzz lock with no veredictum entry passed" >&2
+    fail=1
+  fi
+
+  n=$((n + 1))
+  seed "$tmp/case$n" 0.3.2 0.3.2 0.3.2 0.3.2
+  printf '[[package]]\nname = "veredictum"\nversion = "0.3.2"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n' >"$tmp/case$n/$LOCK"
+  if check "$tmp/case$n" >"$tmp/out" 2>&1; then
+    echo "self-test: a registry-sourced veredictum in Cargo.lock passed" >&2
+    fail=1
+  fi
+
+  [[ "$fail" -eq 0 ]] || { echo "check-console-pin: self-test FAILED" >&2; return 1; }
+  echo "check-console-pin: self-test OK ($n seeded trees judged as expected)."
+}
+
+case "${1:-}" in
+  --self-test)
+    [[ $# -eq 1 ]] || { echo "check-console-pin: --self-test takes no arguments" >&2; exit 2; }
+    self_test
+    ;;
+  *)
+    if [[ $# -gt 1 ]]; then
+      echo "usage: $0 [version]   # the bare version being published, no leading v" >&2
+      exit 2
+    fi
+    check "$(cd "$(dirname "$SELF")/../.." && pwd)" "${1:-}"
+    ;;
+esac

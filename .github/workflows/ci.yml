@@ -342,6 +342,10 @@ jobs:
       # request that introduces it, which is the only place it is cheap to fix.
       - name: The console's engine pin names this tree's engine
         run: bash scripts/release/check-console-pin.sh
+      # The same check holds fuzz/Cargo.lock to the engine version (#611);
+      # its seeded trees prove each disagreement is refused.
+      - name: The console's engine pin — seeded self-test
+        run: bash scripts/release/check-console-pin.sh --self-test
 
       # CITATION.cff and the generated .zenodo.json carry the workspace engine
       # version (#812). The release `plan` compares CITATION.cff with the tag,
