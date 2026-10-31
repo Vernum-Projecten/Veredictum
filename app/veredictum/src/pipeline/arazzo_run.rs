@@ -51,9 +51,12 @@ pub const RECORDING_FILE: &str = "recording.har";
 /// The catalogue and the declarations one run reads.
 #[derive(Debug, Clone, Copy)]
 pub struct ArazzoRunRequest<'a> {
-    /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
-    /// parent is the root citations and OAS sources resolve against.
+    /// The catalogue root, holding `capabilities.yaml` and `cases/`.
     pub root: &'a Path,
+    /// The vendored openEHR spec tree (`specs/openehr`), whose grandparent is
+    /// the root citations and OAS sources resolve against. Without it, the
+    /// catalogue root's parent is that root.
+    pub specs: Option<&'a Path>,
     /// The party's statement, whose `claims.capabilities` and `options`
     /// decide what runs.
     pub statement: Option<&'a Path>,
@@ -262,6 +265,26 @@ pub fn repo_root_of(root: &Path) -> PathBuf {
     root.join("..")
 }
 
+impl ArazzoRunRequest<'_> {
+    /// The root citations and OAS sources resolve against: the grandparent
+    /// of [`Self::specs`] when it is given, as `validate --specs` reads it,
+    /// and otherwise [`repo_root_of`] the catalogue root.
+    #[must_use]
+    pub fn repo_root(&self) -> PathBuf {
+        self.specs
+            .map_or_else(|| repo_root_of(self.root), |specs| specs.join("../.."))
+    }
+
+    /// The vendored openEHR spec tree the catalogue is gated against:
+    /// [`Self::specs`] when it is given, and otherwise `specs/openehr` under
+    /// [`Self::repo_root`].
+    #[must_use]
+    pub fn spec_root(&self) -> PathBuf {
+        self.specs
+            .map_or_else(|| self.repo_root().join("specs/openehr"), Path::to_path_buf)
+    }
+}
+
 /// What a run drives.
 #[expect(
     clippy::large_enum_variant,
@@ -321,7 +344,7 @@ pub fn run_catalogue(
     request: &ArazzoRunRequest<'_>,
     drive: Drive<'_>,
 ) -> Result<ArazzoRunOutcome, Error> {
-    let repo_root = repo_root_of(request.root);
+    let repo_root = request.repo_root();
     let read = |path: Option<&Path>, context: &str| -> Result<Option<Value>, Error> {
         path.map(|path| read_json(path, context)).transpose()
     };
@@ -382,7 +405,7 @@ pub fn run_catalogue(
     )?
     .remove(&SpecComponent::ItsRest)
     .map(|version| version.to_string());
-    let findings = check_catalogue(request.root, Some(&repo_root.join("specs/openehr")));
+    let findings = check_catalogue(request.root, Some(&request.spec_root()));
     if !findings.is_empty() {
         return Err(Error::ArazzoGate(findings));
     }
