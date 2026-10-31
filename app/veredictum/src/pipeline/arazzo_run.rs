@@ -54,8 +54,9 @@ pub struct ArazzoRunRequest<'a> {
     /// The catalogue root, holding `capabilities.yaml` and `cases/`.
     pub root: &'a Path,
     /// The vendored openEHR spec tree (`specs/openehr`), whose grandparent is
-    /// the root citations and OAS sources resolve against. Without it, the
-    /// catalogue root's parent is that root.
+    /// the repository root: citations resolve against it, and an OAS source,
+    /// which resolves relative to its document, is named by its path from
+    /// it. Without it, the catalogue root's parent is that root.
     pub specs: Option<&'a Path>,
     /// The party's statement, whose `claims.capabilities` and `options`
     /// decide what runs.
@@ -258,21 +259,36 @@ impl std::fmt::Display for RunVerdict {
     }
 }
 
-/// The root citations and OAS sources resolve against: the catalogue root's
-/// parent, where the vendored `specs/` tree sits beside it.
+/// Returns the repository root of the catalogue under `root`: its parent,
+/// where the vendored `specs/` tree sits beside it.
+///
+/// Citations resolve against it, and an OAS source, which resolves relative
+/// to its document, is named by its path from it.
 #[must_use]
 pub fn repo_root_of(root: &Path) -> PathBuf {
     root.join("..")
 }
 
+/// Returns the repository root of the catalogue under `root` read against
+/// the vendored openEHR spec tree `specs`.
+///
+/// It is the grandparent of `specs` when that is given, and otherwise
+/// [`repo_root_of`] the catalogue root; `test --specs` and
+/// `validate --specs` both read it this way.
+#[must_use]
+pub fn repo_root_with(root: &Path, specs: Option<&Path>) -> PathBuf {
+    specs.map_or_else(|| repo_root_of(root), |specs| specs.join("../.."))
+}
+
 impl ArazzoRunRequest<'_> {
-    /// The root citations and OAS sources resolve against: the grandparent
-    /// of [`Self::specs`] when it is given, as `validate --specs` reads it,
-    /// and otherwise [`repo_root_of`] the catalogue root.
+    /// Returns the repository root, [`repo_root_with`] the catalogue root and
+    /// [`Self::specs`].
+    ///
+    /// Citations resolve against it, and an OAS source, which resolves
+    /// relative to its document, is named by its path from it.
     #[must_use]
     pub fn repo_root(&self) -> PathBuf {
-        self.specs
-            .map_or_else(|| repo_root_of(self.root), |specs| specs.join("../.."))
+        repo_root_with(self.root, self.specs)
     }
 
     /// The vendored openEHR spec tree the catalogue is gated against:

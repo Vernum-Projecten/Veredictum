@@ -28,6 +28,7 @@ use crate::arazzo::gates::{CASES_DIR, Gate};
 use crate::arazzo::spec_profile::SpecProfile;
 use crate::arazzo::structure::workflow_citations;
 use crate::pipeline::Error;
+use crate::pipeline::arazzo_run::repo_root_with;
 use crate::pipeline::listing::{self, Listing};
 
 /// The suffix a rows file carries beside its document.
@@ -145,7 +146,7 @@ pub fn validate(
         })
         .collect();
     if let Some(path) = statement {
-        findings.extend(review_statement(root, path));
+        findings.extend(review_statement(root, spec_root, path));
     }
     Ok(Validation {
         rows_files: rows_files(&root.join(CASES_DIR)),
@@ -286,8 +287,12 @@ pub fn profile_report(
 /// The static review of one supplied statement: its published schema, then
 /// the claims and the option arms against the catalogue under `root`, then
 /// the completeness of every claim.
+///
+/// A skip's citation resolves against [`repo_root_with`] `root` and
+/// `spec_root`, the repository root `validate --specs` and `test --specs`
+/// both read.
 #[must_use]
-pub fn review_statement(root: &Path, path: &Path) -> Vec<Finding> {
+pub fn review_statement(root: &Path, spec_root: Option<&Path>, path: &Path) -> Vec<Finding> {
     let finding = |message: String| Finding {
         check: CheckId::Statement,
         artifact: path.display().to_string(),
@@ -318,7 +323,8 @@ pub fn review_statement(root: &Path, path: &Path) -> Vec<Finding> {
     match Selection::read(root, Some(&value), &[]) {
         Ok(selection) => {
             let mut findings = unclaimed_arm_formats(path, &selection);
-            findings.extend(incomplete_claims(root, path, &selection));
+            let repo_root = repo_root_with(root, spec_root);
+            findings.extend(incomplete_claims(&repo_root, path, &selection));
             findings
         }
         Err(e) => vec![finding(e.to_string())],
@@ -349,8 +355,7 @@ fn unclaimed_arm_formats(path: &Path, selection: &Selection) -> Vec<Finding> {
 /// option arms, its versions and its formats) let run. A claim no workflow
 /// can be run for would verify nothing. No openEHR spec governs this — our
 /// own design.
-fn incomplete_claims(root: &Path, path: &Path, selection: &Selection) -> Vec<Finding> {
-    let repo_root = root.join("..");
+fn incomplete_claims(repo_root: &Path, path: &Path, selection: &Selection) -> Vec<Finding> {
     let Some(claimed) = selection.claimed() else {
         return Vec::new();
     };
@@ -359,7 +364,7 @@ fn incomplete_claims(root: &Path, path: &Path, selection: &Selection) -> Vec<Fin
         let mut reasons = std::collections::BTreeSet::new();
         let mut runs = false;
         for found in selection.paths().iter().filter(|f| &f.capability == folder) {
-            match selection.choice(found).skip(&found.id, &repo_root) {
+            match selection.choice(found).skip(&found.id, repo_root) {
                 None => runs = true,
                 Some(skip) => {
                     reasons.insert(skip.reason.to_string());
@@ -416,7 +421,7 @@ fn rows_files(dir: &Path) -> usize {
               clippy offers no allow-in-tests knob for this lint"
 )]
 mod tests {
-    use super::{CheckId, review_statement, validate};
+    use super::{CheckId, repo_root_with, review_statement, validate};
     use std::path::{Path, PathBuf};
 
     fn repo_root() -> PathBuf {
@@ -449,9 +454,44 @@ mod tests {
         let root = repo_root();
         let findings = review_statement(
             &root.join("catalogue"),
+            None,
             &root.join("fixtures/declaration/statement.json"),
         );
         assert!(findings.is_empty(), "{findings:?}");
+    }
+
+    /// A catalogue that does not sit beside `specs/` is validated, statement
+    /// and all, against the spec tree `--specs` names, and the review reads
+    /// the repository root from it rather than from the catalogue's parent.
+    #[test]
+    fn a_catalogue_away_from_the_specs_validates_its_statement_against_an_explicit_specs_root()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use assert_fs::fixture::{PathChild as _, PathCopy as _};
+
+        let root = repo_root();
+        let dir = assert_fs::TempDir::new()?;
+        let away = dir.child("deep/er/catalogue");
+        away.copy_from(root.join("catalogue"), &["**"])?;
+        // The documents name their OAS sources relative to themselves, so the
+        // OAS travels with the catalogue while the openEHR text stays put.
+        dir.child("deep/er/specs/rest-oas")
+            .copy_from(root.join("specs/rest-oas"), &["**"])?;
+        let specs = root.join("specs/openehr");
+        let statement = root.join("fixtures/declaration/statement.json");
+
+        assert_eq!(
+            repo_root_with(away.path(), Some(&specs)),
+            specs.join("../.."),
+            "the repository root is the spec tree's grandparent"
+        );
+        assert_eq!(
+            repo_root_with(away.path(), None),
+            away.path().join(".."),
+            "without --specs it is the catalogue's parent"
+        );
+        let validation = validate(away.path(), Some(&specs), Some(&statement))?;
+        assert!(validation.is_clean(), "{:?}", validation.findings.first());
+        Ok(())
     }
 
     #[test]
@@ -463,7 +503,7 @@ mod tests {
             &path,
             r#"{"product":{"name":"x","version":"1","vendor":"v","identifier":"urn:x"},"schedule_release":"cnf-2.0-w2","claims":{"capabilities":["NoSuchFolder"]}}"#,
         )?;
-        let findings = review_statement(&repo_root().join("catalogue"), &path);
+        let findings = review_statement(&repo_root().join("catalogue"), None, &path);
         assert_eq!(findings.len(), 1, "{findings:?}");
         let finding = findings.first().ok_or("one finding")?;
         assert_eq!(finding.check, CheckId::Statement);
@@ -492,7 +532,7 @@ mod tests {
             });
             assert!(!validator.is_valid(&statement), "{claims}");
             std::fs::write(&path, statement.to_string())?;
-            let findings = review_statement(&repo_root().join("catalogue"), &path);
+            let findings = review_statement(&repo_root().join("catalogue"), None, &path);
             assert!(
                 findings
                     .iter()
@@ -525,7 +565,7 @@ mod tests {
         let dir = assert_fs::TempDir::new()?;
         let path = dir.path().join("statement.json");
         std::fs::write(&path, statement.to_string())?;
-        let findings = review_statement(&repo_root().join("catalogue"), &path);
+        let findings = review_statement(&repo_root().join("catalogue"), None, &path);
         assert!(
             findings.iter().any(|f| f.check == CheckId::Statement
                 && f.message.contains("/claims")
@@ -551,7 +591,11 @@ mod tests {
                 "options": ["ehr-xml-supported"]
             });
             std::fs::write(&path, statement.to_string())?;
-            Ok(review_statement(&repo_root().join("catalogue"), &path))
+            Ok(review_statement(
+                &repo_root().join("catalogue"),
+                None,
+                &path,
+            ))
         };
         let unclaimed = review(&["canonical-json"])?;
         assert!(
@@ -571,7 +615,7 @@ mod tests {
         let dir = assert_fs::TempDir::new()?;
         let path = dir.path().join("statement.json");
         std::fs::write(&path, r#"{"hello":"world"}"#)?;
-        let findings = review_statement(&repo_root().join("catalogue"), &path);
+        let findings = review_statement(&repo_root().join("catalogue"), None, &path);
         assert!(!findings.is_empty());
         assert!(
             findings
