@@ -51,7 +51,7 @@ gate guard "comment style self-test"  "bash scripts/checks/comment-style.sh --se
 gate guard "TODO issue refs"          "bash scripts/checks/todo-issue-refs.sh"
 gate guard "TODO refs self-test"      "bash scripts/checks/todo-issue-refs.sh --self-test"
 gate guard "report numbers"           "bash scripts/checks/report-refs.sh" gh
-gate guard "report numbers self-test" "bash scripts/checks/report-refs.sh --self-test"
+gate guard "report numbers self-test" "bash scripts/checks/report-refs.sh --self-test" yq
 gate guard "pending numbers"          "bash scripts/checks/pending-refs.sh" gh
 gate guard "pending numbers self-test" "bash scripts/checks/pending-refs.sh --self-test"
 gate guard "vendored trees"           "bash scripts/checks/vendored-trees.sh"

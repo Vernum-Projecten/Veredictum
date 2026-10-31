@@ -5,7 +5,8 @@
 //! fake SUT: a passing, a failed and an errored run and their exit statuses,
 //! skipped and warning rows staying green, the offline re-judgement
 //! reproducing the recorded bytes, the administrative credential sent and
-//! never recorded, and the usage and input errors that stop a run.
+//! never recorded, the usage and input errors that stop a run, and a
+//! catalogue away from the specification tree run against `--specs`.
 //!
 //! Each run names one document with `--document`, so it drives a handful of
 //! requests; the whole catalogue is still gated first, as it is for every
@@ -975,6 +976,96 @@ fn a_run_that_exchanges_system_options_records_that_exchange() -> Fallible {
     let again = dir.path().join("rejudged");
     let rejudged = rejudge(dir.path(), "system_options", &out, &again)?;
     assert_eq!(rejudged.status.code(), output.status.code(), "{rejudged:?}");
+    assert_eq!(
+        std::fs::read(again.join("results.json"))?,
+        std::fs::read(out.join("results.json"))?
+    );
+    Ok(())
+}
+
+/// One `veredictum test` invocation over the catalogue at `root`, with
+/// `--specs` added when `specs` is given.
+fn test_at(root: &Path, specs: Option<&Path>, args: &[&str]) -> Result<Output, std::io::Error> {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_veredictum"));
+    command.arg("test").arg("--root").arg(root);
+    if let Some(specs) = specs {
+        command.arg("--specs").arg(specs);
+    }
+    command.args(args);
+    for var in READ_VARS {
+        command.env_remove(var);
+    }
+    command.output()
+}
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_catalogue_away_from_the_specs_runs_and_rejudges_against_an_explicit_specs_root() -> Fallible {
+    use assert_fs::fixture::{PathChild as _, PathCopy as _};
+
+    let dir = assert_fs::TempDir::new()?;
+    let nested = dir.child("deep/er");
+    let root = nested.child("catalogue");
+    root.copy_from(catalogue(), &["**"])?;
+    // The documents name their OAS sources relative to themselves, so the
+    // OAS travels with the catalogue while the openEHR text stays put.
+    nested
+        .child("specs/rest-oas")
+        .copy_from(catalogue().join("../specs/rest-oas"), &["**"])?;
+    let specs = catalogue().join("../specs/openehr");
+    let statement = statement(
+        dir.path(),
+        &[AUTHENTICATION_CAPABILITY],
+        &[AUTHENTICATION_ARM],
+    )?;
+    let out = dir.path().join("run");
+    let out_arg = out.to_string_lossy().into_owned();
+    let sut = answering(
+        ResponseTemplate::new(401).insert_header("WWW-Authenticate", "Bearer realm=\"cdr\""),
+    );
+    let base_url = sut.base_url();
+    let live = [
+        "--document",
+        AUTHENTICATION,
+        "--statement",
+        &statement,
+        "--base-url",
+        &base_url,
+        "--out",
+        &out_arg,
+    ];
+
+    let beside = test_at(root.path(), None, &live)?;
+    assert_eq!(beside.status.code(), Some(2), "{beside:?}");
+    let stderr = String::from_utf8(beside.stderr)?;
+    assert!(stderr.contains("sits in no vendored component"), "{stderr}");
+    assert!(!out.exists(), "a refused run wrote its output");
+
+    let output = test_at(root.path(), Some(&specs), &live)?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let results = read_json(&out.join("results.json"))?;
+    assert_eq!(statuses(&results), vec!["passed"; 5]);
+
+    let again = dir.path().join("rejudged");
+    let recording = out.join("recording.har");
+    let rejudged = test_at(
+        root.path(),
+        Some(&specs),
+        &[
+            "--document",
+            AUTHENTICATION,
+            "--statement",
+            &statement,
+            "--rejudge",
+            &recording.to_string_lossy(),
+            "--out",
+            &again.to_string_lossy(),
+        ],
+    )?;
+    assert_eq!(rejudged.status.code(), Some(0), "{rejudged:?}");
     assert_eq!(
         std::fs::read(again.join("results.json"))?,
         std::fs::read(out.join("results.json"))?

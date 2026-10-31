@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 # Every `pending:` number in an `x-veredictum-control` names an OPEN issue in
-# this repository (#662), the sibling of report-refs.sh.
+# this repository (#662), the sibling of report-refs.sh, in every Arazzo
+# catalogue root of the tree (`catalogue-roots.sh`, #983).
 #
 # A refusal workflow with no valid twin in the catalogue yet names the issue
 # that tracks authoring one, `x-veredictum-control: { pending: <issue> }`, and
@@ -15,12 +16,15 @@
 # The tracker must answer: a failed lookup other than "not found" stops the
 # guard rather than passing it.
 #
-# Usage: scripts/checks/pending-refs.sh               # the catalogue
+# Usage: scripts/checks/pending-refs.sh               # every catalogue root
 #        scripts/checks/pending-refs.sh --self-test   # against a stub tracker
-# Env:   PENDING_REFS_ROOT the tree to scan (default: catalogue)
+# Env:   PENDING_REFS_TREE the git tree whose catalogue roots are scanned
+#                          (default: the repository)
 #        GITHUB_REPOSITORY the repository to ask (default: Vernum-Projecten/Veredictum)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# shellcheck source=scripts/checks/catalogue-roots.sh
+source scripts/checks/catalogue-roots.sh
 
 numbers() { # $1: root; prints each distinct pending number once, ascending
   if [[ ! -d "$1" ]]; then
@@ -61,6 +65,19 @@ check() { # $1: root, $2: repository; prints findings, returns 1 on any
   return "$found"
 }
 
+scan() { # $1: a git tree, $2: repository; checks every catalogue root in it
+  local tree="$1" repo="$2" root roots status=0
+  roots="$(catalogue_roots "$tree")"
+  if [[ -z "$roots" ]]; then
+    echo "pending-refs: no catalogue root (capabilities.yaml beside cases/) in ${tree}" >&2
+    return 1
+  fi
+  while IFS= read -r root; do
+    check "$tree/$root" "$repo" || status=1
+  done <<< "$roots"
+  return "$status"
+}
+
 if [[ "${1:-}" == "--self-test" ]]; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
@@ -95,8 +112,34 @@ STUB
     echo "self-test: a missing tree yielded pending numbers" >&2
     exit 1
   fi
-  echo "pending-refs: self-test OK (an open issue passes; closed, pull request and missing are refused)."
+  # A second root, three levels down, carries a closed number the first does
+  # not; a capabilities.yaml with no cases/ beside it is no root.
+  tree="$tmp/tree"
+  mkdir -p "$tree/catalogue/cases/ehr" "$tree/fixtures/console/catalogue/cases/ehr" "$tree/notes/ehr"
+  git -C "$tree" init -q
+  printf 'options: {}\n' > "$tree/catalogue/capabilities.yaml"
+  printf '    x-veredictum-control: { pending: 7 }\n' > "$tree/catalogue/cases/ehr/a.arazzo.yaml"
+  printf 'options: {}\n' > "$tree/fixtures/console/catalogue/capabilities.yaml"
+  printf '    x-veredictum-control: { pending: 8 }\n' > "$tree/fixtures/console/catalogue/cases/ehr/a.arazzo.yaml"
+  printf 'options: {}\n' > "$tree/notes/capabilities.yaml"
+  printf '    x-veredictum-control: { pending: 9 }\n' > "$tree/notes/ehr/a.arazzo.yaml"
+  if [[ "$(catalogue_roots "$tree" | tr '\n' ' ')" != "catalogue fixtures/console/catalogue " ]]; then
+    echo "self-test: the catalogue roots are not the two directories holding cases/" >&2
+    exit 1
+  fi
+  out="$(PATH="$tmp/bin:$PATH" scan "$tree" stub/repo 2>&1 || true)"
+  if [[ "$out" != *"pending: 8 is closed"* || "$out" == *"pending: 9"* ]]; then
+    echo "self-test: the second root's closed number was not refused alone: ${out}" >&2
+    exit 1
+  fi
+  mkdir -p "$tmp/empty"
+  git -C "$tmp/empty" init -q
+  if PATH="$tmp/bin:$PATH" scan "$tmp/empty" stub/repo >/dev/null 2>&1; then
+    echo "self-test: a tree with no catalogue root passed" >&2
+    exit 1
+  fi
+  echo "pending-refs: self-test OK (an open issue passes; closed, pull request and missing are refused, in every catalogue root)."
   exit 0
 fi
 
-check "${PENDING_REFS_ROOT:-catalogue}" "${GITHUB_REPOSITORY:-Vernum-Projecten/Veredictum}"
+scan "${PENDING_REFS_TREE:-.}" "${GITHUB_REPOSITORY:-Vernum-Projecten/Veredictum}"

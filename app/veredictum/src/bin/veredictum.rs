@@ -120,10 +120,10 @@ enum Command {
     /// or a recording that does not replay. The line before the exit names
     /// both counts. `--rejudge` exits the same way.
     Test {
-        /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
-        /// parent holds the vendored `specs/` tree its citations and OAS
-        /// sources resolve against. The container image sets it to the
-        /// catalogue it ships.
+        /// The catalogue root, holding `capabilities.yaml` and `cases/`.
+        /// Without `--specs`, its parent holds the vendored `specs/` tree its
+        /// citations and OAS sources resolve against. The container image
+        /// sets it to the catalogue it ships.
         #[arg(
             long,
             env = "VEREDICTUM_CATALOGUE",
@@ -226,6 +226,12 @@ enum Command {
         /// A re-judgement takes the profile the recorded run was given.
         #[arg(long, value_enum, default_value_t = ProfileArg::Development)]
         profile: ProfileArg,
+        /// The vendored openEHR spec tree; citations resolve against the
+        /// directory two levels above it, and the development snapshot sits
+        /// at `specs/openehr-development/` beside it. Without it, the tree is
+        /// `specs/openehr` in the parent of `--root`.
+        #[arg(long)]
+        specs: Option<PathBuf>,
     },
     /// Read a server's identity from the ITS-REST System OPTIONS operation and
     /// print it as one JSON document.
@@ -743,9 +749,11 @@ fn main() -> ExitCode {
             out,
             rejudge,
             profile,
+            specs,
         } => test_command(
             &ArazzoRunRequest {
                 root: &root,
+                specs: specs.as_deref(),
                 statement: statement.as_deref(),
                 ixit: ixit.as_deref(),
                 documents: &documents,

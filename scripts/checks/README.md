@@ -30,6 +30,12 @@ error.
 | `release-tags-after-smoke.sh` | every release job that applies the image tags needs, directly or transitively, every image smoke job, so a digest that does not run is never tagged or deployed | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `upstream-patches-apply.sh` | every proposed fix under `upstream/<repository>/` applies with `git apply --check` to the pinned `master` snapshot of that repository under `specs/openehr-development/<repository>/`, and no patch names a repository without a snapshot | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 
+`catalogue-roots.sh` enforces nothing on its own: it is the one definition of
+an Arazzo catalogue root (a directory git knows of holding `capabilities.yaml`
+beside `cases/`), sourced by `report-refs.sh`, `pending-refs.sh` and
+`xml-write-bodies.sh` so each reads every catalogue in the tree, the console's
+capture fixture included, and proven by their self-tests.
+
 Eight of these take a single file or no argument rather than the three modes
 above: `changelog-structure.sh` reads one changelog,
 `ci-conclusion-complete.sh` reads one workflow,
