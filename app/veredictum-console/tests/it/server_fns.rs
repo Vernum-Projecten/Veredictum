@@ -24,25 +24,7 @@ use crate::engine_gate;
 
 /// A console state over the committed mounts, writing into `out`.
 fn state_over(out: &Path) -> ConsoleState {
-    let root = engine_gate::repo_root().join("catalogue");
-    let specs = engine_gate::repo_root().join("specs/openehr");
-    let catalogue =
-        veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
-    ConsoleState {
-        root,
-        specs,
-        out: out.to_path_buf(),
-        catalogue: std::sync::Arc::new(catalogue),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    }
+    crate::support::state(out, crate::support::validated_listing())
 }
 
 /// Installs `state` as the request context the endpoints read, and hands back

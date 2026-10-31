@@ -7,7 +7,6 @@
 //! CHANGED; this gate catches captures that do not EXIST.
 
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 /// Maps the router's leaf routes to the capture slugs the book carries.
 ///
@@ -31,17 +30,6 @@ const SLUG_OF: &[(&str, &str)] = &[
 /// Routes whose captures are honestly pending, each naming the issue that
 /// delivers them. An entry here is a debt with an owner, never a waiver.
 const PENDING: &[(&str, &str)] = &[];
-
-/// The repository root, from this crate's manifest directory.
-///
-/// # Errors
-/// The canonicalize failure when the crate does not live two levels under
-/// the repository root.
-fn repo_root() -> Result<PathBuf, std::io::Error> {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-}
 
 /// The tags that open a route declaration.
 ///
@@ -157,7 +145,7 @@ fn path_segments(decl: &str) -> Vec<String> {
 )]
 #[test]
 fn every_routed_surface_has_its_captures() -> Result<(), std::io::Error> {
-    let root = repo_root()?;
+    let root = crate::support::repo_root();
     let app_rs = std::fs::read_to_string(root.join("app/veredictum-console/src/app.rs"))?;
     let img = root.join("website/book/src/console/img");
 
