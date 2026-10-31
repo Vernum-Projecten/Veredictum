@@ -559,6 +559,11 @@ jobs:
       - name: The local battery covers this workflow
         run: bash scripts/checks/gates-cover-ci.sh
 
+      # Every gate that runs an external tool names it, so a machine without
+      # the tool reads SKIPPED and never FAILED (#606).
+      - name: The local battery declares every tool it runs — seeded self-test
+        run: bash scripts/checks/gates.sh --self-test
+
       # The image's OCI metadata is declared in two places and must agree. It
       # lives in THIS job rather than the image tier because it reads
       # `release.yml` and `build-image.yml` as well as the Dockerfile — the

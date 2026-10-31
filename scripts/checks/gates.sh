@@ -23,6 +23,7 @@
 #   scripts/checks/gates.sh --guards     # the guard tier alone (no cargo)
 #   scripts/checks/gates.sh --console    # the console's own two targets
 #   scripts/checks/gates.sh --list       # print the battery without running it
+#   scripts/checks/gates.sh --self-test  # the tool audit and seeded skips, judged
 #
 # Every gate is named, run in order, and its outcome printed. The script exits
 # non-zero if any gate failed, and reports EVERY failure rather than stopping at
@@ -82,6 +83,7 @@ gate guard "action metadata"          "bash scripts/checks/action-metadata.sh" y
 gate guard "action metadata self-test" "bash scripts/checks/action-metadata.sh --self-test" yq
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
+gate guard "gates self-test"          "bash scripts/checks/gates.sh --self-test"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
 gate guard "citation version"         "bash scripts/checks/citation-version.sh"
 gate guard "citation version self-test" "bash scripts/checks/citation-version.sh --self-test"
@@ -104,7 +106,7 @@ gate rust  "build"                    "cargo build --workspace --all-targets"
 # After `build`, never in the guard tier: the page is compared with the help
 # of `target/debug/veredictum`, so it must be this tree's binary.
 gate rust  "the command reference"    "bash scripts/checks/cli-surface.sh"
-gate rust  "tests"                    "cargo nextest run --workspace"
+gate rust  "tests"                    "cargo nextest run --workspace" cargo-nextest
 gate rust  "clippy"                   "cargo clippy --workspace --all-targets -- -D warnings"
 gate rust  "fmt"                      "cargo fmt --all --check"
 # BOTH doc passes, exactly as ci.yml runs them. The second one is why this
@@ -118,12 +120,12 @@ gate rust  "the example results"      "bash scripts/checks/example-results-drift
 
 gate console "clippy (ssr)"           "cargo clippy -p veredictum-console --all-targets --features ssr -- -D warnings"
 gate console "clippy (wasm32 hydrate)" "cargo clippy -p veredictum-console --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings"
-gate console "tests (ssr)"            "cargo nextest run -p veredictum-console --features ssr"
+gate console "tests (ssr)"            "cargo nextest run -p veredictum-console --features ssr" cargo-nextest
 gate console "leptosfmt"              "leptosfmt --check app/veredictum-console/src" leptosfmt
 
-gate slow  "cargo deny"               "cargo deny check"
-gate slow  "MSRV"                     "cargo hack check --rust-version --all-targets --workspace"
-gate slow  "unused dependencies"      "cargo machete"
+gate slow  "cargo deny"               "cargo deny check" cargo-deny
+gate slow  "MSRV"                     "cargo hack check --rust-version --all-targets --workspace" cargo-hack
+gate slow  "unused dependencies"      "cargo machete" cargo-machete
 # The journeys and the fuzz harnesses each need something the other gates do
 # not: a container runtime for the digest-pinned browser, and the nightly
 # toolchain cargo-fuzz requires. Both are CI jobs of their own, so both are
@@ -134,7 +136,159 @@ gate slow  "console journeys"         "bash scripts/ui-e2e.sh" docker
 gate slow  "action stand-in images"   "bash scripts/action/stand-in-image.sh" docker
 gate slow  "fuzz harnesses build"     "cargo +nightly fuzz build --target \$(rustc -vV | sed -n 's|^host: ||p')" cargo-fuzz
 
+
+# gate_tool <command>: the external tool a gate's command runs, or nothing.
+#
+# Leading NAME=value assignments are skipped. A `bash` script checks for its
+# own tools, and the cargo subcommands below ship with every toolchain, so
+# both need nothing. Any other cargo subcommand is the binary `cargo-<name>`
+# on PATH, which is how cargo finds one
+# (<https://doc.rust-lang.org/cargo/reference/external-tools.html#custom-subcommands>),
+# and anything else is the command's own first word.
+gate_tool() {
+  local cmd="$1" assignment="^[A-Z_]+=('[^']*'|\"[^\"]*\"|[^ ]*) +(.*)$" sub
+  local -a words
+  while [[ "$cmd" =~ $assignment ]]; do cmd="${BASH_REMATCH[2]}"; done
+  read -r -a words <<<"$cmd"
+  case "${words[0]:-}" in
+    "" | bash) return 0 ;;
+    cargo)
+      sub="${words[1]:-}"
+      [[ "$sub" == +* ]] && sub="${words[2]:-}"
+      case "$sub" in
+        build | check | clippy | doc | fmt | run | test) return 0 ;;
+        *) printf 'cargo-%s\n' "$sub" ;;
+      esac
+      ;;
+    *) printf '%s\n' "${words[0]}" ;;
+  esac
+}
+
+# audit_tools: every gate whose command runs an external tool declares that
+# tool, so a machine without it reads SKIPPED and never FAILED (#606).
+audit_tools() {
+  local i want status=0
+  for i in "${!NAMES[@]}"; do
+    want="$(gate_tool "${CMDS[$i]}")"
+    if [[ -n "$want" && "$want" != "${NEEDS[$i]}" ]]; then
+      echo "gates: '${NAMES[$i]}' runs ${want} but declares '${NEEDS[$i]}'; name ${want} as its required tool so a machine without it reads SKIPPED" >&2
+      status=1
+    fi
+  done
+  return "$status"
+}
+
+# run_gates <tiers>: runs every gate of the named tiers and prints the summary.
+run_gates() {
+  local want="$1" i need log
+  local -a failed=() skipped=()
+  log="$(mktemp)"
+  for i in "${!NAMES[@]}"; do
+    case " $want " in *" ${TIERS[$i]} "*) ;; *) continue ;; esac
+    printf '\033[1m==>\033[0m %s\n' "${NAMES[$i]}"
+    need="${NEEDS[$i]}"
+    if [[ -n "$need" ]] && ! command -v "$need" >/dev/null 2>&1; then
+      printf '    SKIPPED: %s is not installed\n' "$need"
+      skipped+=("${NAMES[$i]} (no ${need})")
+      continue
+    fi
+    if [[ -n "${VERSIONS[$i]}" ]]; then
+      printf '    ran: %s\n' "$(eval "${VERSIONS[$i]}" 2>&1)"
+    fi
+    if eval "${CMDS[$i]}" >"$log" 2>&1; then
+      printf '    ok\n'
+    else
+      printf '    FAILED\n'
+      tail -12 "$log" | sed 's/^/    /'
+      failed+=("${NAMES[$i]}")
+    fi
+  done
+  rm -f "$log"
+
+  if [[ ${#skipped[@]} -gt 0 ]]; then
+    printf '\n\033[1mgates: %d skipped:\033[0m %s\n' "${#skipped[@]}" "$(printf '%s; ' "${skipped[@]}")"
+  fi
+  if [[ ${#failed[@]} -gt 0 ]]; then
+    printf '\n\033[1mgates: %d failed:\033[0m %s\n' "${#failed[@]}" "$(printf '%s; ' "${failed[@]}")" >&2
+    return 1
+  fi
+  if [[ ${#skipped[@]} -gt 0 ]]; then
+    printf '\ngates: every gate RUN in [%s] passed; %d skipped above\n' "$want" "${#skipped[@]}"
+    return 0
+  fi
+  printf '\ngates: every gate in [%s] passed\n' "$want"
+}
+
+# indent <text>: the text with every line indented, for a self-test report.
+indent() {
+  local line
+  while IFS= read -r line; do printf '  %s\n' "$line"; done <<<"$1"
+}
+
+# self_test: the audit holds this battery, refuses seeded undeclared tools,
+# and a missing tool reads SKIPPED while a real failure reads FAILED.
+# shellcheck disable=SC2030 # the seeded batteries replace the arrays inside their own subshells on purpose
+self_test() {
+  local fail=0 out status
+  audit_tools || fail=1
+
+  # expect_audit <want exit> <command> [tool]
+  expect_audit() {
+    local got=0
+    ( NAMES=("seeded") CMDS=("$2") NEEDS=("${3:-}"); audit_tools ) 2>/dev/null || got=$?
+    if [[ "$got" -ne "$1" ]]; then
+      echo "self-test: the audit of '$2' declaring '${3:-}' exited $got, wanted $1" >&2
+      fail=1
+    fi
+  }
+  expect_audit 1 "cargo machete"
+  expect_audit 0 "cargo machete" cargo-machete
+  expect_audit 1 "cargo deny check" deny
+  expect_audit 1 "cargo +nightly fuzz build"
+  expect_audit 0 "cargo +nightly fuzz build" cargo-fuzz
+  expect_audit 0 "cargo build --workspace"
+  expect_audit 0 "RUSTDOCFLAGS='-D warnings' cargo doc --workspace"
+  expect_audit 1 "SHELLCHECK_OPTS='-e SC2016' actionlint"
+  expect_audit 0 "SHELLCHECK_OPTS='-e SC2016' actionlint" actionlint
+  expect_audit 0 "bash scripts/checks/junit-schema.sh" xmllint
+
+  status=0
+  out="$(
+    TIERS=() NAMES=() CMDS=() NEEDS=() VERSIONS=()
+    gate seeded "a missing tool" "veredictum-no-such-tool" veredictum-no-such-tool
+    gate seeded "a pass" "true"
+    gate seeded "a failure" "false"
+    run_gates seeded 2>&1
+  )" || status=$?
+  if [[ "$status" -ne 1 ]] \
+    || ! grep -q 'SKIPPED: veredictum-no-such-tool is not installed' <<<"$out" \
+    || ! grep -q 'gates: 1 skipped:.*a missing tool (no veredictum-no-such-tool)' <<<"$out" \
+    || ! grep -q 'gates: 1 failed:.* a failure;' <<<"$out" \
+    || grep -q 'failed:.*a missing tool' <<<"$out"; then
+    echo "self-test: a seeded skip, pass and failure were not reported as such (exit $status):" >&2
+    indent "$out" >&2
+    fail=1
+  fi
+
+  status=0
+  out="$(
+    TIERS=() NAMES=() CMDS=() NEEDS=() VERSIONS=()
+    gate seeded "a missing tool" "veredictum-no-such-tool" veredictum-no-such-tool
+    gate seeded "a pass" "true"
+    run_gates seeded 2>&1
+  )" || status=$?
+  if [[ "$status" -ne 0 ]] || ! grep -q 'every gate RUN in \[seeded\] passed; 1 skipped' <<<"$out"; then
+    echo "self-test: a skip beside a pass did not read as a counted skip (exit $status):" >&2
+    indent "$out" >&2
+    fail=1
+  fi
+
+  [[ "$fail" -eq 0 ]] || { echo "gates: self-test FAILED" >&2; return 1; }
+  echo "gates: self-test OK (the battery declares every tool it runs; seeded audits, skip and failure judged as expected)."
+}
+
 WANT="guard rust"
+# shellcheck disable=SC2031 # the self-test's subshells never touch the battery read here
 case "${1:-}" in
   --all)     WANT="guard rust console slow" ;;
   --guards)  WANT="guard" ;;
@@ -146,43 +300,12 @@ case "${1:-}" in
   --commands)
     for i in "${!NAMES[@]}"; do printf '%s\n' "${CMDS[$i]}"; done
     exit 0 ;;
+  --self-test)
+    self_test
+    exit ;;
   "") ;;
-  *) echo "gates: unknown option ${1}; --all, --guards, --console, --list" >&2; exit 2 ;;
+  *) echo "gates: unknown option ${1}; --all, --guards, --console, --list, --self-test" >&2; exit 2 ;;
 esac
 
-failed=()
-skipped=()
-for i in "${!NAMES[@]}"; do
-  case " $WANT " in *" ${TIERS[$i]} "*) ;; *) continue ;; esac
-  printf '\033[1m==>\033[0m %s\n' "${NAMES[$i]}"
-  need="${NEEDS[$i]}"
-  if [[ -n "$need" ]] && ! command -v "$need" >/dev/null 2>&1; then
-    printf '    SKIPPED: %s is not installed\n' "$need"
-    skipped+=("${NAMES[$i]} (no ${need})")
-    continue
-  fi
-  if [[ -n "${VERSIONS[$i]}" ]]; then
-    printf '    ran: %s\n' "$(eval "${VERSIONS[$i]}" 2>&1)"
-  fi
-  if eval "${CMDS[$i]}" >/tmp/gate.$$.log 2>&1; then
-    printf '    ok\n'
-  else
-    printf '    FAILED\n'
-    tail -12 /tmp/gate.$$.log | sed 's/^/    /'
-    failed+=("${NAMES[$i]}")
-  fi
-  rm -f /tmp/gate.$$.log
-done
-
-if [[ ${#skipped[@]} -gt 0 ]]; then
-  printf '\n\033[1mgates: %d skipped:\033[0m %s\n' "${#skipped[@]}" "$(printf '%s; ' "${skipped[@]}")"
-fi
-if [[ ${#failed[@]} -gt 0 ]]; then
-  printf '\n\033[1mgates: %d failed:\033[0m %s\n' "${#failed[@]}" "$(printf '%s; ' "${failed[@]}")" >&2
-  exit 1
-fi
-if [[ ${#skipped[@]} -gt 0 ]]; then
-  printf '\ngates: every gate RUN in [%s] passed; %d skipped above\n' "$WANT" "${#skipped[@]}"
-  exit 0
-fi
-printf '\ngates: every gate in [%s] passed\n' "$WANT"
+audit_tools || exit 1
+run_gates "$WANT"
