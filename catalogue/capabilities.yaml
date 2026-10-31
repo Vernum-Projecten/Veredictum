@@ -825,6 +825,29 @@ documents:
   adl2_dv_count: { formats: [canonical-json] }
   adl2_dv_interval_count: { formats: [canonical-json] }
   adl2_item_tree: { formats: [canonical-json] }
+  adl2_dv_boolean: { formats: [canonical-json] }
+  adl2_dv_coded_text: { formats: [canonical-json] }
+  adl2_dv_date: { formats: [canonical-json] }
+  adl2_dv_date_time: { formats: [canonical-json] }
+  adl2_dv_duration: { formats: [canonical-json] }
+  adl2_dv_ehr_uri: { formats: [canonical-json] }
+  adl2_dv_interval_date: { formats: [canonical-json] }
+  adl2_dv_interval_date_time: { formats: [canonical-json] }
+  adl2_dv_interval_duration: { formats: [canonical-json] }
+  adl2_dv_interval_ordinal: { formats: [canonical-json] }
+  adl2_dv_interval_proportion: { formats: [canonical-json] }
+  adl2_dv_interval_quantity: { formats: [canonical-json] }
+  adl2_dv_interval_scale: { formats: [canonical-json] }
+  adl2_dv_interval_time: { formats: [canonical-json] }
+  adl2_dv_multimedia: { formats: [canonical-json] }
+  adl2_dv_ordinal: { formats: [canonical-json] }
+  adl2_dv_parsable: { formats: [canonical-json] }
+  adl2_dv_proportion: { formats: [canonical-json] }
+  adl2_dv_quantity: { formats: [canonical-json] }
+  adl2_dv_scale: { formats: [canonical-json] }
+  adl2_dv_text: { formats: [canonical-json] }
+  adl2_dv_time: { formats: [canonical-json] }
+  adl2_dv_uri: { formats: [canonical-json] }
   content_observation: { formats: [canonical-json] }
   contribution_create: { formats: [canonical-json] }
   contribution_create_refused: { formats: [canonical-json] }
@@ -922,9 +945,9 @@ documents:
 floors:
   admin: 17
   composition: 207
-  content: 368
+  content: 451
   contribution: 69
-  definition: 34
+  definition: 43
   demographic: 369
   directory: 87
   ehr: 50

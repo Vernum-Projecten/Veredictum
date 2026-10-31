@@ -20,3 +20,4 @@ reports:
   758: { title: "SMART on openEHR: the discovery example and scope grammar contradict each other, and no scope maps to an operation", state: open }
   759: { title: "ITS-REST: the Simplified Formats and canonical XML chapters require what they leave undefined", state: open }
   771: { title: "AQL: AND and OR precedence, regex node predicates, LIKE escapes, basic-format dates, whole-value comparisons and supertype paths are unassigned", state: open }
+  939: { title: "AM: OPT2 says an operational template has no specialisation statement, while AOM2 and the ADL2 example require one", state: open }

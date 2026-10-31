@@ -77,27 +77,18 @@ gaps:
   - { api: definition, operation: definition_template_adl1.4_example_get, status: "400", issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_get, header: Accept, value: application/json, issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_get, status: "400", issue: 714 }
-# The ADL 2 template gaps, covered by #714: every branch that needs a stored
-# ADL 2 template, which needs a source valid by AM first, and the 400 of a
-# read.
+# The ADL 2 template gaps, covered by #714: the 400 of a read and of an
+# example request, the XML read and upload answers (no released schema gives
+# an ADL 2 operational template an XML form), and the XML and
+# simplified-format examples.
   - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/openehr.wt.flat+json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/openehr.wt.structured+json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/xml, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_example_get, status: "200", issue: 714 }
   - { api: definition, operation: definition_template_adl2_example_get, status: "400", issue: 714 }
-  - { api: definition, operation: definition_template_adl2_example_get, status: "406", issue: 714 }
-  - { api: definition, operation: definition_template_adl2_get, header: Accept, value: application/json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_get, header: Accept, value: application/xml, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_get, status: "200", issue: 714 }
   - { api: definition, operation: definition_template_adl2_get, status: "400", issue: 714 }
-  - { api: definition, operation: definition_template_adl2_upload, header: Accept, value: application/json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_upload, header: Accept, value: application/xml, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_upload, header: Accept, value: text/plain, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_upload, header: Prefer, value: return=identifier, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_upload, header: Prefer, value: return=representation, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/xml, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_version_get, status: "200", issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, status: "400", issue: 714 }
 # The 408 of a query that times out. The release names no maximum execution
 # time and gives a client no parameter or header to set one, so no workflow
