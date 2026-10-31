@@ -71,6 +71,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_interval_proportion-validate_fraction-accepted
     summary: "DV_INTERVAL<DV_PROPORTION> against an ADL 2 template with limits whose type matches {3}: content the template admits is created"
@@ -122,6 +123,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_interval_proportion-validate_fraction-c_integer_list
     x-veredictum-control: adl2-dv_interval_proportion-validate_fraction-accepted
@@ -225,6 +227,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_interval_proportion-validate_integer_fraction-c_integer_list
     x-veredictum-control: adl2-dv_interval_proportion-validate_integer_fraction-accepted
@@ -328,6 +331,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_interval_proportion-validate_percentage-c_integer_list
     x-veredictum-control: adl2-dv_interval_proportion-validate_percentage-accepted
@@ -431,6 +435,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_interval_proportion-validate_ratio-c_integer_list
     x-veredictum-control: adl2-dv_interval_proportion-validate_ratio-accepted
@@ -534,6 +539,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_interval_proportion-validate_unitary-c_integer_list
     x-veredictum-control: adl2-dv_interval_proportion-validate_unitary-accepted

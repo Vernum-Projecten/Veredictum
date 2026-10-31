@@ -70,6 +70,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_boolean-only_false_allowed-accepted
     summary: "DV_BOOLEAN against an ADL 2 template with value matches {False}: content the template admits is created"
@@ -120,6 +121,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_boolean-only_false_allowed-c_boolean_true_valid
     x-veredictum-control: adl2-dv_boolean-only_false_allowed-accepted
@@ -222,6 +224,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_boolean-only_true_allowed-c_boolean_false_valid
     x-veredictum-control: adl2-dv_boolean-only_true_allowed-accepted
