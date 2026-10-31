@@ -1306,10 +1306,11 @@ cases:
   I_DEFINITION_ADL2.get_artefact-version_get:
     new: [template_adl2/get_template_adl2_version, template_adl2/get_template_adl2_version-unknown]
   I_DEFINITION_ADL2.get_artefact-version_prefix:
-    new: []
-    open: &adl2_versions >-
-      It needs a version prefix or several stored versions of one ADL 2
-      template. Not converted yet, tracked by #948.
+    new:
+      - template_adl2/get_template_adl2_version-older_of_two
+      - template_adl2/get_template_adl2_version-major_prefix
+      - template_adl2/get_template_adl2_version-minor_prefix
+      - template_adl2/get_template_adl2-partial_reference
   I_DEFINITION_ADL2.has_artefact-existing:
     new: [template_adl2/get_template_adl2-text]
     open: >-
@@ -1332,8 +1333,7 @@ cases:
     open: >-
       Realised as the listing filtered by the uploaded template_id.
   I_DEFINITION_ADL2.list_opts-absent_version_latest_only:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-latest_version_only]
   I_DEFINITION_ADL2.list_opts-empty:
     new: []
     open: >-
@@ -1341,14 +1341,11 @@ cases:
   I_DEFINITION_ADL2.list_opts-non_empty:
     new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.list_opts-version_exact_axis:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-version_exact]
   I_DEFINITION_ADL2.list_opts-version_prefix_glob:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-version_prefix_glob]
   I_DEFINITION_ADL2.list_opts-version_star_all_versions:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-version_star]
   I_DEFINITION_ADL2.list_templates-non_empty:
     new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.opts_count-unrealized:
