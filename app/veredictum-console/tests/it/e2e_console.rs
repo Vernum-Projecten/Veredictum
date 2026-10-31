@@ -1002,10 +1002,12 @@ async fn e2e_connect_shows_the_identity_the_server_states() {
 /// The connect step works before the client bundle loads (#847): with the
 /// browser's script engine off, Probe posts the form and the server answers
 /// with the connect step again, showing the stored probe, and Continue posts
-/// its own form, which the server redirects to Scope.
+/// its own form, which the server redirects to Scope. A refused probe comes
+/// back stating its refusal and offers no Continue.
 ///
 /// # Panics
-/// When either form does nothing without script, or the page was hydrated
+/// When either form does nothing without script, a refusal is lost or shown
+/// beside a Continue, or the page was hydrated
 /// after all (which would mean the journey never tested what it claims).
 #[tokio::test(flavor = "multi_thread")]
 async fn e2e_connect_probes_and_continues_without_javascript() {
@@ -1015,6 +1017,36 @@ async fn e2e_connect_probes_and_continues_without_javascript() {
     let Ok(port) = fixture_sut() else {
         panic!("the fixture SUT could not bind");
     };
+    // A refused probe comes back stating its refusal, with no Continue: a
+    // display name past the label cap is refused before anything is
+    // contacted.
+    h.goto_unhydrated("/run/connect").await;
+    h.wait_css("input#base-url")
+        .await
+        .send_keys(&format!("http://127.0.0.1:{port}"))
+        .await
+        .expect("type the base URL");
+    let name = h.wait_css("input#sut-name").await;
+    name.clear().await.expect("clear the name");
+    name.send_keys(&"x".repeat(1_100))
+        .await
+        .expect("type an oversized name");
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe with an oversized name");
+    h.wait_url_contains("refused=label").await;
+    h.wait_css("#connect-refused").await;
+    assert!(
+        h.driver
+            .find_all(By::Css("button#connect-continue"))
+            .await
+            .expect("query the continue control")
+            .is_empty(),
+        "no Continue over a refusal"
+    );
+
     h.goto_unhydrated("/run/connect").await;
     h.wait_css("input#base-url")
         .await
