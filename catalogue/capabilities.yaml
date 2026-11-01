@@ -855,6 +855,7 @@ documents:
   composition_tags: { formats: [canonical-json] }
   composition_tags_party_uid: { formats: [canonical-json] }
   composition_tags_refused: { formats: [canonical-json] }
+  composition_tags_semantics: { formats: [canonical-json] }
   composition_text_value_refused: { formats: [canonical-json] }
   composition_update: { formats: [canonical-json] }
   composition_update_refused: { formats: [canonical-json] }
