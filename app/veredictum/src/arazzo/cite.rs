@@ -2048,15 +2048,29 @@ mod tests {
                 if e.is_absence() && path == "specs/openehr-development/specifications-RM/docs/ehr/master04-ehr_package.adoc"),
             "{missing:?}"
         );
-        let unmirrored = development.check(&cite(
-            "specs/its-xml-schemas/its-xml-1.0.2-nsv1/x.xsd",
-            "a",
-            "q",
-        ));
+        let unmirrored = development.check(&cite("specs/its-xml-schemas/x.xsd", "a", "q"));
         assert!(
             matches!(&unmirrored, Err(e @ CiteError::NotInProfile { .. }) if e.is_absence()),
             "{unmirrored:?}"
         );
+    }
+
+    #[test]
+    fn the_development_profile_reads_the_its_xml_1_0_2_bundle_in_place() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let source = "specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd";
+        let quote = r#"<xs:element name="template_id" type="TEMPLATE_ID"/>"#;
+        for profile in SpecProfile::ALL {
+            assert_eq!(
+                QuoteChecker::in_profile(&root, *profile).check(&cite(
+                    source,
+                    "complexType OPERATIONAL_TEMPLATE",
+                    quote
+                )),
+                Ok(()),
+                "{profile}"
+            );
+        }
     }
 
     #[test]

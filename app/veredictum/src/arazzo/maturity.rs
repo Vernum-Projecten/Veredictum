@@ -421,6 +421,28 @@ mod tests {
     }
 
     #[test]
+    fn the_its_xml_1_0_2_bundle_reads_stable_under_the_development_profile() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut development = Maturities::in_profile(&root, SpecProfile::Development);
+        assert_eq!(
+            development.of("specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd"),
+            Ok(Maturity::Document {
+                component: "ITS-XML".to_owned(),
+                document: "ITS-XML-v1".to_owned(),
+                status: SpecStatus::Stable,
+            })
+        );
+        assert_eq!(
+            development.of("specs/its-xml-schemas/its-xml-2.0.0-nsv2/AM/Release-1.4/Template.xsd"),
+            Ok(Maturity::Document {
+                component: "ITS-XML".to_owned(),
+                document: "ITS-XML-AM".to_owned(),
+                status: SpecStatus::Trial,
+            })
+        );
+    }
+
+    #[test]
     fn a_snapshot_file_reads_its_status_from_the_snapshot_under_every_profile() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let source = "specs/openehr-development/specifications-AM/docs/Identification/master07-referencing.adoc";

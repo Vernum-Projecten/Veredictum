@@ -100,10 +100,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
               section: element items
               quote: '<xs:element name="items" type="LOCATABLE"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/documents/Structure.xsd
-                section: element items
-                quote: '<xs:element name="items" type="LOCATABLE"/>'
           # NOTE: XML Schema Part 1 §3.3.4 (Element Locally Valid) refuses an element of abstract type
           # LOCATABLE, so the document element names its concrete type FOLDER in xsi:type.
           - &folder_type
@@ -116,10 +112,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
               section: complexType FOLDER
               quote: '<xs:extension base="LOCATABLE">'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType FOLDER
-                quote: '<xs:extension base="LOCATABLE">'
           - &folder_archetype_node_id
             context: $response.body
             type: xpath
@@ -128,10 +120,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
               section: complexType LOCATABLE
               quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType LOCATABLE
-                quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
           - &folder_name
             context: $response.body
             type: xpath
@@ -140,10 +128,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
               section: complexType LOCATABLE
               quote: '<xs:element name="name" type="DV_TEXT"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType LOCATABLE
-                quote: '<xs:element name="name" type="DV_TEXT"/>'
 
   - workflowId: get_directory_version-xml
     summary: A directory version read with Accept application/xml is answered in XML

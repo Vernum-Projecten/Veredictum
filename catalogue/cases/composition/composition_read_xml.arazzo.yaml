@@ -167,10 +167,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
               section: element composition
               quote: '<xs:element name="composition" type="COMPOSITION"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/documents/Composition.xsd
-                section: element composition
-                quote: '<xs:element name="composition" type="COMPOSITION"/>'
           - &composition_archetype_node_id
             context: $response.body
             type: xpath
@@ -179,10 +175,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
               section: complexType LOCATABLE
               quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType LOCATABLE
-                quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
           - &composition_name
             context: $response.body
             type: xpath
@@ -191,10 +183,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
               section: complexType LOCATABLE
               quote: '<xs:element name="name" type="DV_TEXT"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType LOCATABLE
-                quote: '<xs:element name="name" type="DV_TEXT"/>'
           - &composition_language
             context: $response.body
             type: xpath
@@ -203,10 +191,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
               section: complexType COMPOSITION
               quote: '<xs:element name="language" type="CODE_PHRASE"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
-                section: complexType COMPOSITION
-                quote: '<xs:element name="language" type="CODE_PHRASE"/>'
           - &composition_territory
             context: $response.body
             type: xpath
@@ -215,10 +199,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
               section: complexType COMPOSITION
               quote: '<xs:element name="territory" type="CODE_PHRASE"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
-                section: complexType COMPOSITION
-                quote: '<xs:element name="territory" type="CODE_PHRASE"/>'
           - &composition_category
             context: $response.body
             type: xpath
@@ -227,10 +207,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
               section: complexType COMPOSITION
               quote: '<xs:element name="category" type="DV_CODED_TEXT"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
-                section: complexType COMPOSITION
-                quote: '<xs:element name="category" type="DV_CODED_TEXT"/>'
           - &composition_composer
             context: $response.body
             type: xpath
@@ -239,10 +215,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd
               section: complexType COMPOSITION
               quote: '<xs:element name="composer" type="PARTY_PROXY"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Ehr.xsd
-                section: complexType COMPOSITION
-                quote: '<xs:element name="composer" type="PARTY_PROXY"/>'
 
   - workflowId: get_composition-latest-xml
     summary: A COMPOSITION read by versioned_object_uid without version_at_time with Accept for canonical XML is answered in it

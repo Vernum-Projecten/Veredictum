@@ -35,7 +35,7 @@ const REPOSITORY_PREFIX: &str = "specifications-";
 /// repository, with the repository and the directory inside it.
 ///
 /// The ITS-XML 2.0.0 bundle is the upstream `components/` tree, file for
-/// file; the 1.0.2 bundle has no counterpart on `master`.
+/// file; the 1.0.2 bundle is read in place ([`SHARED_ROOTS`]).
 const MIRRORED_ROOTS: [(&str, &str, &str); 3] = [
     ("specs/rest-oas/", "ITS-REST", "computable/OAS/"),
     ("specs/its-json-schemas/", "ITS-JSON", "components/"),
@@ -45,6 +45,13 @@ const MIRRORED_ROOTS: [(&str, &str, &str); 3] = [
         "components/",
     ),
 ];
+
+/// The released vendored roots the development profile reads in place,
+/// because the snapshot names that very release as one of its documents.
+// NOTE: development specifications-ITS-XML/manifest.json, entry "ITS-XML-v1": "link":
+// "https://specifications.openehr.org/releases/ITS-XML/Release-1.0.2/components/ALL", "spec_status": "STABLE";
+// the snapshot's v1 lineage is the released 1.0.2 bundle itself, so its citations resolve unchanged.
+const SHARED_ROOTS: [&str; 1] = ["specs/its-xml-schemas/its-xml-1.0.2-nsv1/"];
 
 /// The specification text a run reads its citations against.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -78,7 +85,9 @@ impl SpecProfile {
     /// `specifications-<C>/<path>` in the snapshot, `specs/rest-oas/` from
     /// ITS-REST's `computable/OAS/`, `specs/its-json-schemas/` from
     /// ITS-JSON's `components/` and the ITS-XML 2.0.0 bundle from ITS-XML's
-    /// `components/`. The ITS-XML 1.0.2 bundle has no counterpart there.
+    /// `components/`. It reads the ITS-XML 1.0.2 bundle where it is, since
+    /// the snapshot's ITS-XML manifest names that release as its stable
+    /// `ITS-XML-v1` document.
     #[must_use]
     pub fn path_of(self, source: &str) -> Option<String> {
         match self {
@@ -89,6 +98,9 @@ impl SpecProfile {
                     .and_then(|rest| rest.split_once('/'))
                 {
                     return Some(format!("{}/{inner}", self.component_dir(component)));
+                }
+                if SHARED_ROOTS.iter().any(|root| source.starts_with(root)) {
+                    return Some(source.to_owned());
                 }
                 MIRRORED_ROOTS.iter().find_map(|(root, component, inside)| {
                     source
@@ -503,9 +515,12 @@ mod tests {
             Some("specs/openehr-development/specifications-ITS-JSON/components/x.json")
         );
         assert_eq!(
-            dev.path_of("specs/its-xml-schemas/its-xml-1.0.2-nsv1/x.xsd"),
-            None
+            dev.path_of("specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd")
+                .as_deref(),
+            Some("specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd"),
+            "the 1.0.2 bundle is read in place"
         );
+        assert_eq!(dev.path_of("specs/its-xml-schemas/x.xsd"), None);
         assert_eq!(
             dev.path_of("specs/its-xml-schemas/its-xml-2.0.0-nsv2/AM/Release-1.4/Template.xsd")
                 .as_deref(),

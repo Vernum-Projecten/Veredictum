@@ -717,16 +717,21 @@ options:
       report: 229
   xml-namespace:
     description: >-
-      Which published canonical XML lineage the service serves: the
-      Release-1.0.2 schemas in namespace http://schemas.openehr.org/v1, or the
-      Release-2.0.0 schemas in http://schemas.openehr.org/v2. The release
-      requires conformance to "the published XSDs" and names neither, so
-      neither arm has a document yet.
+      Whether the service also accepts canonical XML request payloads in the
+      TRIAL Release-2.0.0 lineage, namespace http://schemas.openehr.org/v2.
+      The release requires conformance to "the published XSDs" and names no
+      lineage, while ITS-XML marks Release-1.0.2 (namespace
+      http://schemas.openehr.org/v1) STABLE and Release-2.0.0 TRIAL, and the
+      operation examples are v1. Acceptance of v1 is therefore BASE, and this
+      option asks only about v2. The xml-namespace-v1 arm is the service that
+      accepts v1 alone and has no document, since no sentence requires a
+      refusal of v2. The xml-namespace-v2 arm's documents are development-only,
+      because they rest on the development AM 1.4 schemas.
     arms:
       xml-namespace-v1:
         documents: []
       xml-namespace-v2:
-        documents: []
+        documents: [template_adl14_xml_v2]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
@@ -1062,6 +1067,7 @@ documents:
   smart_scopes: { formats: [canonical-json] }
   system_options: { formats: [canonical-json] }
   template_adl14: { formats: [canonical-json] }
+  template_adl14_xml_v2: { formats: [canonical-xml] }
   template_adl2: { formats: [canonical-json] }
   template_adl2_endpoint: { formats: [canonical-json] }
   template_adl2_at_coded: { formats: [canonical-json] }

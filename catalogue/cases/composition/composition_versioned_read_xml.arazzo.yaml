@@ -200,10 +200,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Version.xsd
               section: element version
               quote: '<xs:element name="version" type="VERSION"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/documents/Version.xsd
-                section: element version
-                quote: '<xs:element name="version" type="VERSION"/>'
           - &version_contribution
             context: $response.body
             type: xpath
@@ -212,10 +208,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Version.xsd
               section: complexType VERSION
               quote: '<xs:element name="contribution" type="OBJECT_REF"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType VERSION
-                quote: '<xs:element name="contribution" type="OBJECT_REF"/>'
           - &version_commit_audit
             context: $response.body
             type: xpath
@@ -224,10 +216,6 @@ workflows:
               source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Version.xsd
               section: complexType VERSION
               quote: '<xs:element name="commit_audit" type="AUDIT_DETAILS"/>'
-              development:
-                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
-                section: complexType VERSION
-                quote: '<xs:element name="commit_audit" type="AUDIT_DETAILS"/>'
 
   - workflowId: get_versioned_composition_version-by_id-xml
     summary: A VERSION read by version_uid with Accept application/xml is answered in XML
