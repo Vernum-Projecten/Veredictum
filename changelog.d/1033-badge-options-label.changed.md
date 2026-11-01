@@ -1,0 +1,1 @@
+- The options badge reads `openEHR OPTIONS` (and `openEHR OPTIONS dev`), in the capitals the BASE badge and the OPTIONS tally use. Its file name stays `options.svg`.
