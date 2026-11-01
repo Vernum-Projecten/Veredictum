@@ -4,8 +4,8 @@
 //! The static badges of an Arazzo results document: every badge pinned as SVG
 //! and as a Shields.io endpoint document for a passing, a failing and a
 //! development-profile result; a failed or errored row never drawn in a
-//! passing colour; a warning counted on its own badge, outside the ratio and
-//! out of the colour; the full count breakdown in the title; `dev` in every
+//! passing colour; a warning on no badge and out of the colour; the failed
+//! and errored counts in the message and the title; `dev` in every
 //! counting badge of a development result; no separator character in any
 //! label or message; and the command writing the files and drawing the perf,
 //! noise and instrument badges for a `perf-result`.
@@ -276,15 +276,15 @@ fn a_failed_or_errored_row_is_never_drawn_in_a_passing_colour() {
     );
     assert_eq!(
         badge(&passing(), BadgeName::Base).unwrap().message,
-        "3/3 passed, 1 warning",
-        "the warning row is named after the ratio, never inside it"
+        "3/3 passed",
+        "a warning row never shows on a badge"
     );
 }
 
 #[test]
 fn a_base_warning_leaves_the_ratio_all_passed_and_the_badge_green() {
     let base = badge(&passing(), BadgeName::Base).unwrap();
-    assert_eq!(base.message, "3/3 passed, 1 warning");
+    assert_eq!(base.message, "3/3 passed");
     assert_eq!(base.colour, BadgeColour::Passing);
     let mut unwarned = passing();
     unwarned.rows.retain(|r| r.explanation.is_none());
@@ -294,7 +294,7 @@ fn a_base_warning_leaves_the_ratio_all_passed_and_the_badge_green() {
 }
 
 #[test]
-fn an_option_warning_is_counted_on_the_options_badge_only() {
+fn an_option_warning_shows_on_no_badge() {
     let mut results = passing();
     results.rows.retain(|r| r.explanation.is_none());
     results.rows.push(row(
@@ -304,7 +304,7 @@ fn an_option_warning_is_counted_on_the_options_badge_only() {
         Some(Whose::Warning),
     ));
     let options = badge(&results, BadgeName::Options).unwrap();
-    assert_eq!(options.message, "1/1 passed, 1 warning");
+    assert_eq!(options.message, "1/1 passed");
     assert_eq!(options.colour, BadgeColour::Passing);
     assert_eq!(
         badge(&results, BadgeName::Base).unwrap().message,
@@ -313,7 +313,7 @@ fn an_option_warning_is_counted_on_the_options_badge_only() {
 }
 
 #[test]
-fn warnings_in_base_and_options_are_counted_on_each_badge_apart() {
+fn warnings_leave_the_failed_and_errored_counts_of_each_badge_alone() {
     let mut results = failing();
     for (case, index) in [("ehr/read", 2), ("ehr/read", 3), ("xml-supported/read", 1)] {
         results
@@ -321,12 +321,12 @@ fn warnings_in_base_and_options_are_counted_on_each_badge_apart() {
             .push(row(case, index, Status::Failed, Some(Whose::Warning)));
     }
     let base = badge(&results, BadgeName::Base).unwrap();
-    assert_eq!(base.message, "2/4 passed, 2 warnings");
-    assert_eq!(base.detail, "2/4 passed, 1 failed, 1 errored, 2 warnings");
+    assert_eq!(base.message, "2/4 passed, 1 failed, 1 errored");
+    assert_eq!(base.detail, base.message);
     assert_eq!(base.colour, BadgeColour::Failing);
     let options = badge(&results, BadgeName::Options).unwrap();
-    assert_eq!(options.message, "0/1 passed, 1 warning");
-    assert_eq!(options.detail, "0/1 passed, 1 errored, 1 warning");
+    assert_eq!(options.message, "0/1 passed, 1 errored");
+    assert_eq!(options.detail, options.message);
     assert_eq!(options.colour, BadgeColour::Errored);
 }
 
@@ -339,8 +339,8 @@ fn a_server_attributed_errored_row_makes_the_base_badge_red() {
             .push(row("ehr/create", 2, Status::Errored, whose));
         let base = badge(&results, BadgeName::Base).unwrap();
         assert_eq!(base.colour, BadgeColour::Failing, "{whose:?}");
-        assert_eq!(base.message, "3/4 passed, 1 warning", "{whose:?}");
-        assert_eq!(base.detail, "3/4 passed, 1 errored, 1 warning", "{whose:?}");
+        assert_eq!(base.message, "3/4 passed, 1 errored", "{whose:?}");
+        assert_eq!(base.detail, base.message, "{whose:?}");
     }
     let mut inconclusive = passing();
     inconclusive.rows.push(row(
@@ -386,9 +386,9 @@ fn a_red_row_the_outline_places_nowhere_never_leaves_the_base_badge_green() {
 }
 
 #[test]
-fn the_title_carries_the_full_count_breakdown() {
+fn the_message_and_the_title_name_the_failed_and_errored_rows() {
     let base = badge(&failing(), BadgeName::Base).unwrap();
-    assert_eq!(base.message, "2/4 passed");
+    assert_eq!(base.message, "2/4 passed, 1 failed, 1 errored");
     let full = "openEHR BASE: 2/4 passed, 1 failed, 1 errored";
     assert_eq!(base.title(), full);
     let svg = base.svg();
@@ -396,7 +396,7 @@ fn the_title_carries_the_full_count_breakdown() {
     assert!(svg.contains(&format!("<title>{full}</title>")), "{svg}");
     let json: Value = serde_json::from_str(&base.endpoint_json().unwrap()).unwrap();
     assert_eq!(
-        json["message"], "2/4 passed",
+        json["message"], "2/4 passed, 1 failed, 1 errored",
         "the endpoint keeps the message"
     );
 }

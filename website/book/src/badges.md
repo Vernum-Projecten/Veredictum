@@ -11,15 +11,15 @@ to the run that drew it.
 
 Drawn from test fixtures (instrument version 0.3.1), each with its Markdown.
 
-A passing result judged against the release, with one BASE warning:
+A passing result judged against the release, with one BASE warning, which no badge shows:
 
-![openEHR BASE: 3/3 passed, 1 warning](badges/passing/base.svg)
+![openEHR BASE: 3/3 passed](badges/passing/base.svg)
 ![openEHR options: 1/1 passed](badges/passing/options.svg)
 ![specification: released](badges/passing/profile.svg)
 ![veredictum: self-run v0.3.1](badges/passing/instrument.svg)
 
 ```markdown
-![openEHR BASE: 3/3 passed, 1 warning](badges/passing/base.svg)
+![openEHR BASE: 3/3 passed](badges/passing/base.svg)
 ![openEHR options: 1/1 passed](badges/passing/options.svg)
 ![specification: released](badges/passing/profile.svg)
 ![veredictum: self-run v0.3.1](badges/passing/instrument.svg)
@@ -41,13 +41,13 @@ A failing result: one BASE row failed, one BASE and one option row errored:
 
 The passing result judged against the development snapshot:
 
-![openEHR BASE dev: 3/3 passed, 1 warning](badges/development/base.svg)
+![openEHR BASE dev: 3/3 passed](badges/development/base.svg)
 ![openEHR options dev: 1/1 passed](badges/development/options.svg)
 ![specification: development (master)](badges/development/profile.svg)
 ![veredictum: self-run v0.3.1](badges/development/instrument.svg)
 
 ```markdown
-![openEHR BASE dev: 3/3 passed, 1 warning](badges/development/base.svg)
+![openEHR BASE dev: 3/3 passed](badges/development/base.svg)
 ![openEHR options dev: 1/1 passed](badges/development/options.svg)
 ![specification: development (master)](badges/development/profile.svg)
 ![veredictum: self-run v0.3.1](badges/development/instrument.svg)
@@ -83,7 +83,7 @@ Published ([GitHub](#github), [GitLab](#gitlab)) and linked to its run, the
 first badge becomes:
 
 ```markdown
-[![openEHR BASE: 3/3 passed, 1 warning](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/base.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
+[![openEHR BASE: 3/3 passed](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/base.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
 ```
 
 `scripts/render/book-badges.sh` redraws this gallery;
@@ -99,7 +99,7 @@ SVG title and `aria-label` carry the full text, such as
 
 | Badge | Label | Message |
 |---|---|---|
-| `base` | `openEHR BASE`, or `openEHR BASE dev` | passed out of the BASE rows and the rows the outline places nowhere that bear on the verdict (passed, failed and errored), then the warning count when there is one: `312/318 passed`, `312/318 passed, 1 warning`, `312/318 passed, 2 warnings` |
+| `base` | `openEHR BASE`, or `openEHR BASE dev` | passed out of the BASE rows and the rows the outline places nowhere that bear on the verdict (passed, failed and errored), then the failed and errored counts when there are any: `318/318 passed`, `312/318 passed, 6 failed`, `310/318 passed, 6 failed, 2 errored`. A warning shows on no badge |
 | `options` | `openEHR options`, or `openEHR options dev` | the same count over the option arms the statement selected and the cases resting on TRIAL text, which are read with the options |
 | `profile` | `specification` | `released`, or `development (master)` with the branch the snapshot was taken from |
 | `instrument` | `veredictum` | `self-run v<version>` |
@@ -116,7 +116,7 @@ counting badges read `no outline`. Counts match [`show`](commands.md#show).
 | blue | | `released` |
 | purple | | `development` |
 
-The `instrument` badge is deep teal. A warning never changes a colour.
+The `instrument` badge is deep teal. A warning never changes a colour and shows on no badge.
 
 ## The performance badges
 
