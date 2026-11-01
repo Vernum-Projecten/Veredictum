@@ -11,4 +11,8 @@
   and the ADL 2 template examples) test the arm
   `adl2-id-coded-supported`. The ADL 2 workflows of the six
   `template_example_*` documents move to their own `template_example_*_adl2`
-  documents, so their case ids now carry the `_adl2` document name (#1021).
+  documents, so their case ids now carry the `_adl2` document name. The five
+  `template_adl2` workflows that touch no id-coded material (the listing, the
+  three reads of an unknown template_id and the upload declared as XML) move
+  to the BASE document `template_adl2_endpoint` and stay BASE under both
+  profiles (#1021).

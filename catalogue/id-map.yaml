@@ -1314,13 +1314,13 @@ cases:
   I_DEFINITION_ADL2.get_artefact-example:
     new: [template_adl2/get_template_adl2_example]
   I_DEFINITION_ADL2.get_artefact-example_unknown:
-    new: [template_adl2/get_template_adl2_example-unknown]
+    new: [template_adl2_endpoint/get_template_adl2_example-unknown]
   I_DEFINITION_ADL2.get_artefact-retrieve:
     new: [template_adl2/get_template_adl2-text, template_adl2/get_template_adl2-json]
   I_DEFINITION_ADL2.get_artefact-unknown:
-    new: [template_adl2/get_template_adl2-unknown]
+    new: [template_adl2_endpoint/get_template_adl2-unknown]
   I_DEFINITION_ADL2.get_artefact-version_get:
-    new: [template_adl2/get_template_adl2_version, template_adl2/get_template_adl2_version-unknown]
+    new: [template_adl2/get_template_adl2_version, template_adl2_endpoint/get_template_adl2_version-unknown]
   I_DEFINITION_ADL2.get_artefact-version_prefix:
     new:
       - template_adl2/get_template_adl2_version-older_of_two
@@ -1332,7 +1332,7 @@ cases:
     open: >-
       Realised as a read of a stored template_id.
   I_DEFINITION_ADL2.has_artefact-non_existing:
-    new: [template_adl2/get_template_adl2-unknown]
+    new: [template_adl2_endpoint/get_template_adl2-unknown]
     open: >-
       Realised as a read of a template_id that names nothing.
   I_DEFINITION_ADL2.list_archetypes-all:
@@ -1355,7 +1355,7 @@ cases:
     open: >-
       An empty listing of the whole server, which a shared server cannot be.
   I_DEFINITION_ADL2.list_opts-non_empty:
-    new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
+    new: [template_adl2_endpoint/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.list_opts-version_exact_axis:
     new: [template_adl2/list_templates_adl2-version_exact]
   I_DEFINITION_ADL2.list_opts-version_prefix_glob:
@@ -1363,7 +1363,7 @@ cases:
   I_DEFINITION_ADL2.list_opts-version_star_all_versions:
     new: [template_adl2/list_templates_adl2-version_star]
   I_DEFINITION_ADL2.list_templates-non_empty:
-    new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
+    new: [template_adl2_endpoint/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.opts_count-unrealized:
     new: []
     open: &no_count >-
@@ -1400,7 +1400,7 @@ cases:
   I_DEFINITION_ADL2.upload_artefact-valid_opt:
     new: [template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.upload_artefact-wrong_media:
-    new: [template_adl2/upload_template_adl2-xml_content_type]
+    new: [template_adl2_endpoint/upload_template_adl2-xml_content_type]
     open: >-
       The body is a header line of ADL text rather than a whole template.
   I_DEFINITION_ADL2.valid_artefact-invalid:

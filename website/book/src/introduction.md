@@ -56,7 +56,7 @@ if they drift.
 
 | | |
 |---|---|
-| **The catalogue** | `catalogue/cases/`: 1900 spec-cited cases as [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over the released openEHR REST API OpenAPI documents, in 273 Arazzo documents. One case per behaviour; each invalid shape is its own refusal case; every criterion carries the sentence it enforces |
+| **The catalogue** | `catalogue/cases/`: 1900 spec-cited cases as [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over the released openEHR REST API OpenAPI documents, in 274 Arazzo documents. One case per behaviour; each invalid shape is its own refusal case; every criterion carries the sentence it enforces |
 | **15 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. A statement claims folders |
 | **The options** | `catalogue/capabilities.yaml`: behaviours the release leaves to the implementation. A statement picks one arm of each; other arms are skipped |
 | **The id map** | `catalogue/id-map.yaml`: every former case-core id, mapped to its workflows or the reason none exists |

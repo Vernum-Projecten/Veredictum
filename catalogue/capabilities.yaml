@@ -1063,6 +1063,7 @@ documents:
   system_options: { formats: [canonical-json] }
   template_adl14: { formats: [canonical-json] }
   template_adl2: { formats: [canonical-json] }
+  template_adl2_endpoint: { formats: [canonical-json] }
   template_adl2_at_coded: { formats: [canonical-json] }
   version_signature: { formats: [canonical-json] }
   versioned_party: { formats: [canonical-json] }
