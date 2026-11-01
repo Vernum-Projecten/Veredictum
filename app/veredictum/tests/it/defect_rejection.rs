@@ -92,6 +92,9 @@ defects! {
     // A released case resting on a setup that cites development text alone.
     arazzo_development_setup =>
         ("arazzo-development-setup.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-development-setup"),
+    // Two workflows whose `dependsOn` name each other.
+    arazzo_depends_on_cycle =>
+        ("arazzo-depends-on-cycle.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-depends-on-cycle"),
     // The reading structure: a folder in no chapter or in two, a BASE
     // document with no section or an unknown one, a section nothing uses,
     // an OPTION document with a section, an option with no theme, a spec

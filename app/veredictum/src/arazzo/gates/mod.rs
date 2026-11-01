@@ -11,6 +11,7 @@
 
 pub mod aql;
 pub mod chapters;
+pub mod cycles;
 pub mod development;
 pub mod folders;
 pub mod profile;
@@ -74,6 +75,8 @@ pub enum Gate {
     /// A workflow resting on released text that depends, at any depth, on a
     /// development-only workflow.
     DevelopmentSetup,
+    /// A workflow whose `dependsOn` leads back to itself.
+    DependsOnCycle,
 }
 
 impl Gate {
@@ -96,6 +99,7 @@ impl Gate {
             Self::Realization => "arazzo-realization-scope",
             Self::Structure => "arazzo-structure",
             Self::DevelopmentSetup => "arazzo-development-setup",
+            Self::DependsOnCycle => "arazzo-depends-on-cycle",
         }
     }
 }
@@ -232,6 +236,7 @@ pub fn check_catalogue(catalogue_root: &Path, spec_root: Option<&Path>) -> Vec<G
         repo_root.as_deref(),
     ));
     findings.extend(development::check(&loaded));
+    findings.extend(cycles::check(&loaded));
     if let Some(specs) = spec_root {
         let released = capabilities
             .as_ref()
@@ -640,6 +645,17 @@ fn document_id(path: &Path) -> Option<String> {
         .to_str()?
         .strip_suffix(DOCUMENT_SUFFIX)
         .map(str::to_owned)
+}
+
+/// `<document>/<workflowId>`, the way a case id names a workflow; a
+/// document whose file name is not `<id>.arazzo.yaml` is named by its path.
+pub(crate) fn workflow_label(
+    document: &ArazzoDocument,
+    workflow: &roas_arazzo::v1_1::Workflow,
+) -> String {
+    let path = document.path();
+    let id = document_id(path).unwrap_or_else(|| path.display().to_string());
+    format!("{id}/{}", workflow.workflow_id)
 }
 
 /// Whether `path` sits exactly one capability folder below `root`, as

@@ -1,0 +1,33 @@
+# Seeded defect: two workflows whose `dependsOn` name each other, so neither
+# can ever start; the depends-on cycle gate refuses both and names the chain.
+arazzo: 1.1.0
+info: { title: seeded defect, version: 0.1.0 }
+sourceDescriptions:
+  - name: system
+    url: ../../../specs/rest-oas/system-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: first
+    dependsOn: [second]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/options.yaml
+      section: description
+      quote: "Services SHOULD respond to this method with the appropriate HTTP codes, headers and potentially with a payload revealing more details about themselves."
+      level: should
+    steps:
+      - stepId: options
+        operationId: $sourceDescriptions.system.options
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: second
+    dependsOn: [first]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/options.yaml
+      section: description
+      quote: "Services SHOULD respond to this method with the appropriate HTTP codes, headers and potentially with a payload revealing more details about themselves."
+      level: should
+    steps:
+      - stepId: options
+        operationId: $sourceDescriptions.system.options
+        successCriteria:
+          - condition: $statusCode == 200

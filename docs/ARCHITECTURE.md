@@ -2152,6 +2152,15 @@ vendor reads why a row is red without opening `results.json`.
   rest a released verdict on development text (hard rule 1). A
   development-only workflow may depend on anything. No openEHR spec governs
   this; it is our own design.
+- **`dependsOn` cycles** (`arazzo-depends-on-cycle`): a workflow whose
+  `dependsOn` leads back to itself, directly, through other workflows of its
+  document, or through `$sourceDescriptions.<name>.<workflowId>` of other
+  documents (Arazzo 1.1.0 §Workflow Object `dependsOn`), is refused, once per
+  workflow on the cycle, and the finding names the chain. Such a workflow can
+  never start, and without the gate the run would refuse it only when it
+  reached it. A setup document outside the catalogue that a `dependsOn`
+  reaches is checked the same way. No openEHR spec governs this; it is our
+  own design.
 - **Maturity** (`arazzo-citation`): every cited file's release status is
   read from the vendored manifests; a citation into a document the release
   marks RETIRED is refused, as is one whose document states no known status.
