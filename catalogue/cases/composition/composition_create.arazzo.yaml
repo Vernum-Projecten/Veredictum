@@ -10,11 +10,11 @@ info:
   version: 0.1.0
   x-veredictum-section: create
   description: >-
-    Creating the first version of an event and a persistent COMPOSITION, the
-    minimal, identifier and representation preferences of the create, the
-    ETag and Last-Modified headers it answers with, the content a read of
-    the created version returns, and the change type, lifecycle_state and
-    system_id of the VERSION it commits.
+    Creating the first version of an event, a persistent and an episodic
+    COMPOSITION, the minimal, identifier and representation preferences of
+    the create, the ETag and Last-Modified headers it answers with, the
+    content a read of the created version returns, and the change type,
+    lifecycle_state and system_id of the VERSION it commits.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -313,6 +313,145 @@ workflows:
           - context: $response.body#/category/defining_code/code_string
             type: regex
             condition: '^431$'
+
+  - workflowId: create_composition-episodic
+    summary: An episodic COMPOSITION valid against its template is created
+    description: >-
+      Creates an EHR, then creates a COMPOSITION whose category is
+      451|episodic|, valid against the uploaded template
+      episodic_minimal.en.v1, with no Prefer header. 451 is a code of the
+      openEHR composition category group, so the create succeeds with 201
+      Created or 204 No Content.
+    dependsOn: [$sourceDescriptions.setup.upload_template-episodic_minimal]
+    x-veredictum-cite: &episodic_category
+      source: specs/openehr/RM/docs/UML/classes/composition.adoc
+      section: COMPOSITION Class
+      quote: "`451&#124;episodic&#124;` - valid over the life of a care episode;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the episodic COMPOSITION with no Prefer header.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: &episodic
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Episodic minimal }
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id:
+                _type: ARCHETYPE_ID
+                value: openEHR-EHR-COMPOSITION.episodic_minimal.v1
+              template_id: { _type: TEMPLATE_ID, value: episodic_minimal.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.episodic_minimal.v1
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: UY
+            category:
+              _type: DV_CODED_TEXT
+              value: episodic
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "451"
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                _type: PARTY_REF
+                id: { _type: HIER_OBJECT_ID, value: a3dce0d4-fa51-4ff2-9cce-93dd60437842 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. Yamamoto
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: Event Series }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,380+00:00" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: Cualquier evento }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,384+00:00" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: Arbol }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: text }
+                            archetype_node_id: at0004
+                            value: { _type: DV_TEXT, value: original value }
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: "1.0.2"
+        successCriteria:
+          - *created
+
+  - workflowId: create_composition-episodic-read_back
+    summary: The version an episodic COMPOSITION create commits keeps its category 451|episodic|
+    description: >-
+      Creates an EHR, creates an episodic COMPOSITION and keeps the
+      version_uid of the full representation the create answers with, then
+      retrieves that version. The answer is 200 with the committed
+      COMPOSITION, whose category is 451|episodic|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-episodic_minimal]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the episodic COMPOSITION and keep the version_uid of the full representation it answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *episodic
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the committed version by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/archetype_details/template_id/value
+            type: regex
+            condition: '^episodic_minimal\.en\.v1$'
+          - context: $response.body#/category/defining_code/code_string
+            type: regex
+            condition: '^451$'
+            x-veredictum-cite: *episodic_category
 
   - workflowId: create_composition-version_uid_form
     summary: The identifier a COMPOSITION create answers with is a version_uid in its three-part form

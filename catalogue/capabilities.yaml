@@ -996,7 +996,7 @@ documents:
 # change that adds workflows raises the floor in the same change.
 floors:
   admin: 17
-  composition: 209
+  composition: 211
   content: 444
   contribution: 69
   definition: 75

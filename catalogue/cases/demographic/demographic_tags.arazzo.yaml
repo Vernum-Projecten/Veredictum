@@ -113,9 +113,9 @@ workflows:
             type: jsonpath
             condition: "$[?@.target.id.value == '{$steps.create.outputs.versioned_object_uid}' || @.target.value == '{$steps.create.outputs.versioned_object_uid}']"
             x-veredictum-cite:
-              source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
-              section: ITEM_TAG Class
-              quote: "Identifier of target, which may be a `VERSIONED_OBJECT<T>` or a `VERSION<T>`."
+              source: specs/openehr/ITS-REST/specifications/operations/person_tags_update.yaml
+              section: description
+              quote: "whereas the latter (e.g. an identifier like `8849182c-82ad-4088-a07f-48ead4180515`) is be used to update the tags of the target VERSIONED_PARTY container."
               level: must
               report: 750
           - condition: $response.body#/1 == null
