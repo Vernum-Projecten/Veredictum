@@ -1,0 +1,13 @@
+diff --git a/components/RM/latest/Ehr.xsd b/components/RM/latest/Ehr.xsd
+index c51ad33..8bf0b00 100644
+--- a/components/RM/latest/Ehr.xsd
++++ b/components/RM/latest/Ehr.xsd
+@@ -71,7 +71,7 @@
+ 		<xs:complexContent>
+ 			<xs:extension base="CONTENT_ITEM">
+ 				<xs:sequence>
+-					<xs:element name="data" type="ITEM_TREE"/>
++					<xs:element name="data" type="ITEM"/>
+ 				</xs:sequence>
+ 			</xs:extension>
+ 		</xs:complexContent>
