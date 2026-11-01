@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:arazzo-extensions:0.1.0",
   "title": "The Arazzo catalogue's seven specification extensions",
-  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `x-veredictum-scope` sits on a step only, never beside `x-veredictum-principal`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `x-veredictum-control` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `x-veredictum-section` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `specs/openehr-development/` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` wording, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage.",
+  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `x-veredictum-scope` sits on a step only, never beside `x-veredictum-principal`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `x-veredictum-control` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `x-veredictum-section` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `specs/openehr-development/` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` member, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage. A citation whose `development` member is `{ contested: <report> }` cites text the development snapshot keeps unchanged and contests: its workflow is skipped with the reason `contested-in-development` under the development profile.",
   "$defs": {
     "cite": {
       "type": "object",
@@ -62,30 +62,50 @@
           ]
         },
         "development": {
-          "description": "Where the development snapshot states the same requirement in other words. Read under the development specification profile only, in place of `section` and `quote`, and never under the released profile. `validate --profile development` refuses it when its quote does not occur in the snapshot, and when the released quote still occurs there unchanged.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "section",
-            "quote"
-          ],
-          "properties": {
-            "source": {
-              "description": "The snapshot file, relative to the repository root, when it is not the file `source` maps to.",
-              "type": "string",
-              "pattern": "^specs/openehr-development/"
+          "description": "How the development snapshot holds the cited requirement. Read under the development specification profile only, and never under the released profile.",
+          "oneOf": [
+            {
+              "description": "Where the development snapshot states the same requirement in other words, read in place of `section` and `quote`. `validate --profile development` refuses it when its quote does not occur in the snapshot, and when the released quote still occurs there unchanged.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "section",
+                "quote"
+              ],
+              "properties": {
+                "source": {
+                  "description": "The snapshot file, relative to the repository root, when it is not the file `source` maps to.",
+                  "type": "string",
+                  "pattern": "^specs/openehr-development/"
+                },
+                "section": {
+                  "description": "The element or the section heading in the snapshot, as `section` names one.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "quote": {
+                  "description": "The snapshot's sentence, copied verbatim.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
             },
-            "section": {
-              "description": "The element or the section heading in the snapshot, as `section` names one.",
-              "type": "string",
-              "minLength": 1
-            },
-            "quote": {
-              "description": "The snapshot's sentence, copied verbatim.",
-              "type": "string",
-              "minLength": 1
+            {
+              "description": "The development snapshot keeps the cited text unchanged and another of its texts contradicts it. The workflow is skipped with the reason `contested-in-development` under the development profile, and judged on the released quote under the released profile.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "contested"
+              ],
+              "properties": {
+                "contested": {
+                  "description": "The upstream-report issue in this repository that records the contradiction.",
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
             }
-          }
+          ]
         }
       }
     },

@@ -76,6 +76,10 @@ pub enum SkipReason {
     /// The case rests on text only the development snapshot holds, and the
     /// run reads the released profile.
     DevelopmentOnly,
+    /// The development snapshot keeps the case's cited text unchanged and
+    /// contradicts it in another text, recorded by an upstream report, and
+    /// the run reads the development profile.
+    ContestedInDevelopment,
 }
 
 impl SkipReason {
@@ -89,6 +93,7 @@ impl SkipReason {
         Self::NotDeclared,
         Self::CitedTextAbsent,
         Self::DevelopmentOnly,
+        Self::ContestedInDevelopment,
     ];
 }
 
@@ -103,6 +108,7 @@ impl fmt::Display for SkipReason {
             Self::NotDeclared => "not-declared",
             Self::CitedTextAbsent => "cited-text-absent",
             Self::DevelopmentOnly => "development-only",
+            Self::ContestedInDevelopment => "contested-in-development",
         })
     }
 }
@@ -192,7 +198,7 @@ pub fn relink(
         .iter()
         .filter(|_| profile == SpecProfile::Development)
         .filter_map(|c| {
-            c.development.as_deref().map(|wording| {
+            c.wording().map(|wording| {
                 (
                     (c.source.as_str(), c.section.as_str(), c.quote.as_str()),
                     wording,
@@ -270,7 +276,9 @@ pub struct Skip {
     pub why: Why,
     /// What the reason leaves to say: for `cited-text-absent`, the profile
     /// and what of the cited text it lacks; for `development-only`, the
-    /// development citation the case rests on.
+    /// development citation the case rests on; for
+    /// `contested-in-development`, the upstream report and the contested
+    /// citation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
@@ -627,6 +635,7 @@ fn provenance_link(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::arazzo::cite::Development;
 
     fn root() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -794,11 +803,11 @@ mod tests {
             quote: released_quote.to_owned(),
             report: None,
             level: None,
-            development: Some(Box::new(DevelopmentText {
+            development: Some(Box::new(Development::Reworded(DevelopmentText {
                 source: None,
                 section: "Version Lifecycle".to_owned(),
                 quote: "the snapshot's wording".to_owned(),
-            })),
+            }))),
         };
         let row = || ResultRow {
             case: "c/w".to_owned(),

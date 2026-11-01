@@ -1665,11 +1665,33 @@ citation and ranks below the docs text (hard rule 1).
 A citation may instead name a file of the pinned development snapshot under
 `specs/openehr-development/`: development text alone, which no release holds
 (#999). `validate` checks it against the snapshot under both profiles, and it
-carries no `development` wording. A workflow carrying one is a
+carries no `development` member. A workflow carrying one is a
 development-only case: the released profile skips it as `development-only`,
 the development profile runs and judges it, and no surface, floor, claim or
 released tally counts it, since a development result never counts toward a
 released one (hard rule 1). No openEHR spec governs this; it is our own design.
+
+A citation of released text may carry a `development` member, read under the
+development profile only. Where the snapshot states the requirement in other
+words, the member is that wording, `{source?, section, quote}`, quoted from
+the snapshot in place of `section` and `quote`, and `validate` refuses it once
+the released quote still occurs there unchanged. Where the snapshot keeps the
+cited text unchanged and another of its texts contradicts it, the member is
+`{ contested: <n> }`, naming the `upstream-report` issue that records the
+contradiction (#1006). The two forms exclude each other. A workflow with any
+contested citation is skipped as `contested-in-development` under the
+development profile, so a development run grades no server on one side of a
+contradiction; the released profile judges the released quote as before.
+`scripts/checks/report-refs.sh` holds a `contested` number to the tracker
+exactly like `report`.
+
+A citation into the AsciiDoc of a component's documents (`docs/` under a
+component, released or snapshot) names published text only: the file must be
+reachable through the active `include::` directives, comments excluded, of
+the `master.adoc` of a current document the component's manifest lists.
+`validate` refuses any other file, such as the RM tags chapter the released
+Common IM comments out (#1011). No openEHR spec governs either rule; both are
+our own design.
 
 **`x-veredictum-check`**, on a criterion, for the three judgements no standard
 criterion type can express. Arazzo requires every criterion to carry a
@@ -2003,6 +2025,7 @@ run, and always carries one reason from a closed list, with its citation:
 | `not-declared` | a value the case needs from the party's IXIT or statement is not declared |
 | `cited-text-absent` | the cited text is absent from the profile the run used |
 | `development-only` | the case rests on development text alone and the run reads the released profile |
+| `contested-in-development` | the development snapshot keeps the cited text unchanged and contradicts it in another text, recorded by an upstream report, and the run reads the development profile |
 
 Every red row in `results.json` and in the rendered report carries four parts,
 derived from the case and the recording with nothing extra to author:

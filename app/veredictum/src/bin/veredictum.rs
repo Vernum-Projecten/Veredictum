@@ -214,7 +214,9 @@ enum Command {
         /// `development` (the default): the pinned `master` of each openEHR
         /// specification repository under `specs/openehr-development/`, the
         /// line that carries the newest text. A case citing text the snapshot lacks is skipped as
-        /// `cited-text-absent`, naming what is missing. The results name the
+        /// `cited-text-absent`, naming what is missing, and a case whose
+        /// cited text the snapshot contests is skipped as
+        /// `contested-in-development`, naming its upstream report. The results name the
         /// profile and every snapshot commit, and a development result never
         /// builds a certificate and is never compared with or counted toward
         /// a released result.
@@ -283,8 +285,9 @@ enum Command {
         /// file, section or quote the snapshot lacks is printed as `[info]`
         /// and counted per component; it is never a finding. A citation
         /// refused for any other reason is a `profile-citation` finding.
-        /// One more line counts the development-only workflows and the
-        /// released cases whose cited text the snapshot rewords or removes.
+        /// One more line counts the development-only workflows, the
+        /// released cases whose cited text the snapshot rewords or removes,
+        /// and the released cases whose cited text it contests.
         /// Needs `--specs`.
         ///
         /// A development-only citation, one under

@@ -27,7 +27,7 @@ use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::{CASES_DIR, Gate};
 use crate::arazzo::results::SkipReason;
 use crate::arazzo::spec_profile::{SpecProfile, snapshot_source};
-use crate::arazzo::structure::{development_citation, workflow_citations};
+use crate::arazzo::structure::{contested_citation, development_citation, workflow_citations};
 use crate::pipeline::Error;
 use crate::pipeline::arazzo_run::repo_root_with;
 use crate::pipeline::listing::{self, Listing};
@@ -203,6 +203,10 @@ pub struct ProfileReport {
     /// removes, by case id in path order: each is skipped there as
     /// `cited-text-absent`.
     pub reworded: Vec<String>,
+    /// The released workflows whose cited text the development snapshot
+    /// keeps unchanged and contests, by case id in path order: each is
+    /// skipped as `contested-in-development` under the development profile.
+    pub contested: Vec<String>,
 }
 
 impl ProfileReport {
@@ -227,10 +231,11 @@ impl ProfileReport {
             self.findings.len()
         ));
         lines.push(format!(
-            "{} profile: {} development-only workflow(s), skipped as development-only under the released profile; {} released case(s) whose cited text this profile rewords or removes",
+            "{} profile: {} development-only workflow(s), skipped as development-only under the released profile; {} released case(s) whose cited text this profile rewords or removes; {} released case(s) whose cited text the development snapshot contests, skipped as contested-in-development under the development profile",
             self.profile,
             self.development_only.len(),
-            self.reworded.len()
+            self.reworded.len(),
+            self.contested.len()
         ));
         lines
     }
@@ -289,6 +294,7 @@ pub fn profile_report(
         findings: Vec::new(),
         development_only: Vec::new(),
         reworded: Vec::new(),
+        contested: Vec::new(),
     };
     for found in document_paths(root)? {
         let document = ArazzoDocument::load(&found.path)
@@ -321,6 +327,9 @@ pub fn profile_report(
             }
             if development_only {
                 report.development_only.push(case.clone());
+            }
+            if contested_citation(workflow).is_some() {
+                report.contested.push(case.clone());
             }
             if reworded {
                 report.reworded.push(case);
@@ -494,10 +503,11 @@ mod tests {
     const PROBE_RELEASED: &str = "specs/openehr/RM/docs/probe.adoc";
     const PROBE_DEVELOPMENT: &str = "specs/openehr-development/specifications-RM/docs/probe.adoc";
 
-    /// A repository whose catalogue holds one System document of three
+    /// A repository whose catalogue holds one System document of four
     /// workflows: one resting on development text with `development_quote`,
-    /// one citing a released sentence the snapshot rewords, and one citing a
-    /// sentence both texts hold.
+    /// one citing a released sentence the snapshot rewords, one citing a
+    /// sentence both texts hold, and one citing that sentence as contested
+    /// in development.
     fn probe_world(
         development_quote: &str,
     ) -> Result<assert_fs::TempDir, Box<dyn std::error::Error>> {
@@ -536,6 +546,7 @@ mod tests {
                 workflow("development", cite(PROBE_DEVELOPMENT, development_quote)),
                 workflow("reworded", cite(PROBE_RELEASED, "The values are A and B.")),
                 workflow("held", cite(PROBE_RELEASED, "Held.")),
+                workflow("contested", serde_json::json!({ "source": PROBE_RELEASED, "section": "Probe", "quote": "Held.", "development": { "contested": 1008 } })),
             ]
         });
         dir.child("catalogue/cases/system/probe.arazzo.yaml")
@@ -544,7 +555,7 @@ mod tests {
     }
 
     #[test]
-    fn the_profile_report_counts_development_only_and_reworded_cases()
+    fn the_profile_report_counts_development_only_reworded_and_contested_cases()
     -> Result<(), Box<dyn std::error::Error>> {
         use super::{SpecProfile, profile_report};
         let world = probe_world("Also D.")?;
@@ -553,12 +564,13 @@ mod tests {
         assert_eq!(development.findings, []);
         assert_eq!(development.development_only, ["probe/development"]);
         assert_eq!(development.reworded, ["probe/reworded"]);
+        assert_eq!(development.contested, ["probe/contested"]);
         assert_eq!(development.absent.len(), 1);
         let summary = development.summary();
         assert_eq!(
             summary.last().map(String::as_str),
             Some(
-                "development profile: 1 development-only workflow(s), skipped as development-only under the released profile; 1 released case(s) whose cited text this profile rewords or removes"
+                "development profile: 1 development-only workflow(s), skipped as development-only under the released profile; 1 released case(s) whose cited text this profile rewords or removes; 1 released case(s) whose cited text the development snapshot contests, skipped as contested-in-development under the development profile"
             ),
             "{summary:?}"
         );
@@ -566,6 +578,7 @@ mod tests {
         assert_eq!(released.findings, []);
         assert_eq!(released.development_only, ["probe/development"]);
         assert_eq!(released.reworded, Vec::<String>::new());
+        assert_eq!(released.contested, ["probe/contested"]);
         Ok(())
     }
 

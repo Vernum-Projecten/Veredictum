@@ -301,6 +301,24 @@ impl Maturities {
             .join("manifest_vars.adoc")
     }
 
+    /// The document ids `component`'s manifest in `profile`'s tree lists, in
+    /// manifest order.
+    ///
+    /// # Errors
+    /// [`MaturityError::NoManifest`] when the component has no manifest, and
+    /// [`MaturityError::Unreadable`] when it does not read.
+    pub fn document_ids(
+        &mut self,
+        profile: SpecProfile,
+        component: &str,
+    ) -> Result<Vec<String>, MaturityError> {
+        Ok(self
+            .manifest(profile, component)?
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect())
+    }
+
     /// The `(id, spec_status)` entries of `component`'s manifest in
     /// `profile`'s tree.
     fn manifest(

@@ -136,6 +136,7 @@ not apply.
 | `not-declared` | the vendor did not supply a value or login the case needs, such as an administrator account |
 | `cited-text-absent` | the cited text is absent from the profile the run used |
 | `development-only` | the case rests on text only the development snapshot holds, and the run used the released profile |
+| `contested-in-development` | the development snapshot keeps the cited text but contradicts it elsewhere, as an upstream report records, and the run used the development profile |
 
 **For a purchase:** a fact about the claim, not the server. Read the skipped
 count and the `not-claimed` capabilities beside the passed count: everything
