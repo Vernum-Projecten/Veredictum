@@ -1,1 +1,0 @@
-- A criterion over a whole `$response.body` reads a body whose `Content-Type` is not JSON as its text, so the ADL 2 upload with `Prefer: return=representation` and `Accept: text/plain` is judged on the ADL it returns, which must name the uploaded template, instead of erroring on every server (#964).
