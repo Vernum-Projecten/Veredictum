@@ -1194,6 +1194,7 @@ workflows:
       source: specs/openehr/RM/docs/demographic/master02-demographic_package.adoc
       section: Party Relationships
       quote: "each Party involved in a relationship includes it in its relationships list, if it is at the source end, or in the `_reverse_relationships_` list, if at the target end."
+      report: 1053
     steps:
       - *create
       - *target

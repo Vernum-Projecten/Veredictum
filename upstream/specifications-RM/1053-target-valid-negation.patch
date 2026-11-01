@@ -1,0 +1,13 @@
+diff --git a/docs/UML/classes/org.openehr.rm.demographic.party_relationship.adoc b/docs/UML/classes/org.openehr.rm.demographic.party_relationship.adoc
+index 94ab5bb..e1d9378 100644
+--- a/docs/UML/classes/org.openehr.rm.demographic.party_relationship.adoc
++++ b/docs/UML/classes/org.openehr.rm.demographic.party_relationship.adoc
+@@ -43,7 +43,7 @@ h|*Invariants*
+ 2+a|__Source_valid__: `source /= Void and then source.relationships.has (self)`
+ 
+ h|
+-2+a|__Target_valid__: `target /= Void and then not target.reverse_relationships.has (self)`
++2+a|__Target_valid__: `target /= Void and then target.reverse_relationships.has (self)`
+ 
+ h|
+ 2+a|__Type_validity__: `type = name`
