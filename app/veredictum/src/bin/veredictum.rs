@@ -220,7 +220,9 @@ enum Command {
         /// a released result.
         ///
         /// `released`: the frozen release under `specs/openehr/`. Only a
-        /// released result backs a released claim or a certificate.
+        /// released result backs a released claim or a certificate. A case
+        /// resting on development text alone, a citation under
+        /// `specs/openehr-development/`, is skipped as `development-only`.
         ///
         /// The catalogue is gated against the release under either profile.
         /// A re-judgement takes the profile the recorded run was given.
@@ -281,7 +283,13 @@ enum Command {
         /// file, section or quote the snapshot lacks is printed as `[info]`
         /// and counted per component; it is never a finding. A citation
         /// refused for any other reason is a `profile-citation` finding.
+        /// One more line counts the development-only workflows and the
+        /// released cases whose cited text the snapshot rewords or removes.
         /// Needs `--specs`.
+        ///
+        /// A development-only citation, one under
+        /// `specs/openehr-development/`, is checked against the snapshot
+        /// under both profiles, and a bad one is a finding.
         #[arg(long, value_enum, default_value_t = ProfileArg::Released)]
         profile: ProfileArg,
         /// A submitted declaration (`statement.json`) to hold to the static

@@ -25,6 +25,7 @@ use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::surface::NegotiationHeader;
 use crate::arazzo::gates::{DOCUMENT_SUFFIX, Gate, GateFinding};
 use crate::arazzo::source::{NON_OPENEHR_KEY, OperationIndex, split_qualified};
+use crate::arazzo::structure;
 use crate::vocab::FormatName;
 
 /// The capability folder a document sits in; `None` for a shared setup.
@@ -34,7 +35,9 @@ pub fn folder_of(document: &ArazzoDocument) -> Option<&str> {
     (folder != SETUP_DIR).then_some(folder)
 }
 
-/// The workflow count of every capability folder, by folder name.
+/// The released workflow count of every capability folder, by folder name:
+/// a development-only workflow ([`structure::development_citation`]) never
+/// holds a floor.
 #[must_use]
 pub fn workflow_counts<'a>(
     documents: impl IntoIterator<Item = &'a ArazzoDocument>,
@@ -43,7 +46,13 @@ pub fn workflow_counts<'a>(
     for document in documents {
         if let Some(folder) = folder_of(document) {
             let count = counts.entry(folder.to_owned()).or_default();
-            *count = count.saturating_add(document.description().workflows.len());
+            let released = document
+                .description()
+                .workflows
+                .iter()
+                .filter(|workflow| structure::development_citation(workflow).is_none())
+                .count();
+            *count = count.saturating_add(released);
         }
     }
     counts
@@ -410,6 +419,63 @@ mod tests {
             .join(folder)
             .join(format!("{id}.arazzo.yaml"));
         ArazzoDocument::from_value(&path, raw).unwrap().0
+    }
+
+    /// A document in `cases/<folder>/` whose one workflow rests on
+    /// development text alone and calls a released operation.
+    fn development_only(
+        folder: &str,
+        id: &str,
+    ) -> Result<ArazzoDocument, crate::arazzo::document::DocumentError> {
+        let raw = serde_json::json!({
+            "arazzo": "1.1.0",
+            "info": { "title": "t", "version": "1" },
+            "sourceDescriptions": [{ "name": "s", "url": RELEASED, "type": "openapi" }],
+            "workflows": [{
+                "workflowId": "w",
+                "x-veredictum-cite": {
+                    "source": "specs/openehr-development/specifications-RM/docs/ehr/master04-ehr.adoc",
+                    "section": "s",
+                    "quote": "q"
+                },
+                "steps": [{
+                    "stepId": "call",
+                    "operationId": "$sourceDescriptions.s.op",
+                    "successCriteria": [{ "condition": "$statusCode == 200" }]
+                }]
+            }]
+        });
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../catalogue/cases")
+            .join(folder)
+            .join(format!("{id}.arazzo.yaml"));
+        Ok(ArazzoDocument::from_value(&path, raw)?.0)
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_development_only_workflow_holds_no_floor_and_covers_nothing()
+    -> Result<(), crate::arazzo::document::DocumentError> {
+        let released = document("ehr", "a", RELEASED, "application/json");
+        let development = development_only("ehr", "b")?;
+        assert_eq!(
+            workflow_counts([&released, &development]),
+            BTreeMap::from([("ehr".to_owned(), 1)])
+        );
+        assert_eq!(
+            workflow_counts([&development]),
+            BTreeMap::from([("ehr".to_owned(), 0)])
+        );
+        assert!(!crate::arazzo::gates::surface::covered([&released]).is_empty());
+        assert_eq!(
+            crate::arazzo::gates::surface::covered([&development]),
+            BTreeSet::new(),
+            "a development-only workflow never satisfies a released operation's coverage"
+        );
+        Ok(())
     }
 
     const RELEASED: &str = "../../../specs/rest-oas/ehr-validation.openapi.yaml";

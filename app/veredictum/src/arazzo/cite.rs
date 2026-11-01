@@ -3,11 +3,13 @@
 
 //! The `x-veredictum-cite` extension: its shape, its inheritance from
 //! criterion to step to workflow, and the check that its quote occurs in the
-//! vendored released text it names.
+//! vendored text it names.
 //!
 //! No openEHR spec governs this — our own design: the extension is how every
-//! expectation in the catalogue carries the released sentence that assigns
-//! it.
+//! expectation in the catalogue carries the sentence that assigns it. A
+//! citation names released text, or, under [`DEVELOPMENT_ONLY_ROOT`], text
+//! only the development snapshot holds; a case resting on such a citation
+//! runs under the development profile alone.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -37,6 +39,26 @@ pub const ORACLE_ROOTS: [&str; 4] = [
 /// if the tree is vendored again.
 pub const EXCLUDED_ROOT: &str = "specs/openehr/SM/";
 
+/// The root of a development-only citation: a file of the pinned
+/// development snapshot, named where the snapshot holds it.
+pub const DEVELOPMENT_ONLY_ROOT: &str = "specs/openehr-development/";
+
+/// The snapshot's counterpart of [`EXCLUDED_ROOT`], refused for the same
+/// reason.
+pub const EXCLUDED_DEVELOPMENT_ROOT: &str = "specs/openehr-development/specifications-SM/";
+
+/// Whether `source` names development text alone: a file under
+/// [`DEVELOPMENT_ONLY_ROOT`].
+///
+/// A case resting on such a citation is skipped `development-only` under the
+/// released profile, and runs and is judged under the development profile.
+/// No openEHR spec governs this — our own design, which keeps a development
+/// result out of every released one.
+#[must_use]
+pub fn is_development_only(source: &str) -> bool {
+    source.starts_with(DEVELOPMENT_ONLY_ROOT)
+}
+
 /// One `x-veredictum-cite` value.
 ///
 /// It names the released source, the element or section inside it, the
@@ -64,7 +86,8 @@ pub struct Citation {
     pub level: Option<Level>,
     /// Where the development snapshot states the same requirement in other
     /// words. Read under the development profile only, in place of
-    /// `section` and `quote`; the released profile never reads it.
+    /// `section` and `quote`; the released profile never reads it. A
+    /// development-only citation carries none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub development: Option<Box<DevelopmentText>>,
 }
@@ -93,6 +116,13 @@ impl Citation {
     #[must_use]
     pub fn level(&self) -> Level {
         self.level.unwrap_or(Level::Must)
+    }
+
+    /// Whether the citation names development text alone
+    /// ([`is_development_only`]).
+    #[must_use]
+    pub fn is_development_only(&self) -> bool {
+        is_development_only(&self.source)
     }
 }
 
@@ -268,9 +298,14 @@ pub enum CiteError {
     /// The extension value is not a `{source, section, quote}` object.
     #[error("`{CITE_KEY}` is malformed: {0}")]
     Malformed(String),
-    /// The source is outside the vendored released text, or names the SM.
-    #[error("`{0}` is not a vendored released openEHR source a citation may name")]
+    /// The source is outside the vendored released text and the development
+    /// snapshot, or names the SM.
+    #[error("`{0}` is not a vendored openEHR source a citation may name")]
     OutsideOracle(String),
+    /// A development-only citation carries a `development` wording, which
+    /// only a citation of released text may.
+    #[error("`{0}` is development text already, so its citation carries no `development` wording")]
+    DevelopmentWordingOnDevelopmentText(String),
     /// The source file cannot be read or parsed.
     #[error("`{file}` cannot be read: {reason}")]
     Unreadable {
@@ -528,6 +563,10 @@ impl<'a> QuoteChecker<'a> {
     /// there, and that its quote occurs verbatim in that section after
     /// whitespace normalization.
     ///
+    /// A development-only citation ([`is_development_only`]) is read from the
+    /// snapshot file it names, the way the development profile reads text,
+    /// under every profile; it carries no `development` wording.
+    ///
     /// In a YAML or JSON source (an OAS or a published JSON Schema),
     /// `section` is a top-level key, or a JSON Pointer when it starts with
     /// `/`. The quote must occur in the string content of that element, or,
@@ -545,6 +584,11 @@ impl<'a> QuoteChecker<'a> {
     /// The [`CiteError`] naming the first property that does not hold.
     pub fn check(&mut self, citation: &Citation) -> Result<(), CiteError> {
         let source = citation.source.as_str();
+        if citation.is_development_only() && citation.development.is_some() {
+            return Err(CiteError::DevelopmentWordingOnDevelopmentText(
+                source.to_owned(),
+            ));
+        }
         match (&citation.development, self.profile) {
             (Some(wording), SpecProfile::Development) => {
                 if self
@@ -573,6 +617,8 @@ impl<'a> QuoteChecker<'a> {
 
     /// Checks `quote` under `section` of `source`, read from the file this
     /// checker's profile gives `source`, or from `file` when one is named.
+    /// A development-only `source` is read where it names, as development
+    /// text.
     fn check_text(
         &mut self,
         source: &str,
@@ -583,12 +629,21 @@ impl<'a> QuoteChecker<'a> {
         let escapes = Path::new(source)
             .components()
             .any(|c| !matches!(c, Component::Normal(_)));
-        if escapes
-            || !ORACLE_ROOTS.iter().any(|root| source.starts_with(root))
-            || source.starts_with(EXCLUDED_ROOT)
-        {
+        let development_only = is_development_only(source);
+        let admitted = if development_only {
+            !source.starts_with(EXCLUDED_DEVELOPMENT_ROOT)
+        } else {
+            ORACLE_ROOTS.iter().any(|root| source.starts_with(root))
+                && !source.starts_with(EXCLUDED_ROOT)
+        };
+        if escapes || !admitted {
             return Err(CiteError::OutsideOracle(source.to_owned()));
         }
+        let reading = if development_only {
+            SpecProfile::Development
+        } else {
+            self.profile
+        };
         let named = match file {
             Some(file)
                 if file.starts_with(&format!("{DEVELOPMENT_ROOT}/"))
@@ -599,6 +654,7 @@ impl<'a> QuoteChecker<'a> {
                 Some(file.to_owned())
             }
             Some(file) => return Err(CiteError::OutsideOracle(file.to_owned())),
+            None if development_only => Some(source.to_owned()),
             None => self.profile.file_of(self.repo_root, source),
         };
         let Some(path) = named else {
@@ -609,11 +665,11 @@ impl<'a> QuoteChecker<'a> {
         };
         // NOTE: no openEHR spec governs this — our own design; the released profile keeps
         // reporting a missing file as unreadable, and only another profile names the absence.
-        if self.profile != SpecProfile::Released && !self.repo_root.join(&path).is_file() {
+        if reading != SpecProfile::Released && !self.repo_root.join(&path).is_file() {
             return Err(CiteError::AbsentFromProfile {
                 file: source.to_owned(),
                 path,
-                profile: self.profile,
+                profile: reading,
             });
         }
         match self.maturities.of(source) {
@@ -637,14 +693,14 @@ impl<'a> QuoteChecker<'a> {
         let resolved = if let Some(resolved) = self.sections.get(&key) {
             resolved.clone()?
         } else {
-            let resolved = self.resolve(source, &path, section);
+            let resolved = self.resolve(source, &path, section, reading);
             self.sections.insert(key, resolved.clone());
             resolved?
         };
         let found = match &resolved {
             Resolved::Text(haystack) => {
                 let quote = normalize_whitespace(quote);
-                if self.profile == SpecProfile::Released {
+                if reading == SpecProfile::Released {
                     haystack.contains(&quote)
                 } else {
                     haystack.contains(&rendered_text(&quote))
@@ -663,8 +719,15 @@ impl<'a> QuoteChecker<'a> {
         }
     }
 
-    /// What `section` in `source`, read from `path`, holds.
-    fn resolve(&mut self, source: &str, path: &str, section: &str) -> Result<Resolved, CiteError> {
+    /// What `section` in `source`, read from `path` as `reading`'s text,
+    /// holds.
+    fn resolve(
+        &mut self,
+        source: &str,
+        path: &str,
+        section: &str,
+        reading: SpecProfile,
+    ) -> Result<Resolved, CiteError> {
         let text = self.read(source, path)?;
         let extension = Path::new(path)
             .extension()
@@ -730,7 +793,7 @@ impl<'a> QuoteChecker<'a> {
         let haystack = normalize_whitespace(&haystack);
         // NOTE: no openEHR spec governs this — our own design; only a non-released profile
         // reads the text as rendered, so the released profile's matching stays as strict as it was.
-        Ok(Resolved::Text(if self.profile == SpecProfile::Released {
+        Ok(Resolved::Text(if reading == SpecProfile::Released {
             haystack
         } else {
             rendered_text(&haystack)
@@ -2048,6 +2111,124 @@ mod tests {
             citation_of(Some(&extensions)),
             Err(CiteError::Malformed(_))
         ));
+    }
+
+    const DEVELOPMENT_LIFECYCLE: &str = "specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc";
+
+    /// [`reworded_repo`] with a sentence the snapshot appends to a section
+    /// whose released sentence survives.
+    fn appended_repo() -> Result<assert_fs::TempDir, Box<dyn std::error::Error>> {
+        use assert_fs::prelude::*;
+        let dir = reworded_repo();
+        dir.child(DEVELOPMENT_LIFECYCLE)
+            .write_str("== Version Lifecycle\n\nThe possible values are A and B. Also C.\n")?;
+        Ok(dir)
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_development_only_citation_resolves_against_the_snapshot_under_every_profile()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = appended_repo()?;
+        let appended = cite(DEVELOPMENT_LIFECYCLE, "Version Lifecycle", "Also C.");
+        assert!(appended.is_development_only());
+        for profile in SpecProfile::ALL {
+            let mut checker = QuoteChecker::in_profile(dir.path(), *profile);
+            assert_eq!(checker.check(&appended), Ok(()), "{profile}");
+        }
+        assert_eq!(DEVELOPMENT_ONLY_ROOT, format!("{DEVELOPMENT_ROOT}/"));
+        Ok(())
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_seeded_development_only_citation_with_a_development_wording_is_refused()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = appended_repo()?;
+        let worded = Citation {
+            development: Some(Box::new(DevelopmentText {
+                source: None,
+                section: "Version Lifecycle".to_owned(),
+                quote: "Also C.".to_owned(),
+            })),
+            ..cite(DEVELOPMENT_LIFECYCLE, "Version Lifecycle", "Also C.")
+        };
+        for profile in SpecProfile::ALL {
+            let refused = QuoteChecker::in_profile(dir.path(), *profile).check(&worded);
+            assert_eq!(
+                refused,
+                Err(CiteError::DevelopmentWordingOnDevelopmentText(
+                    DEVELOPMENT_LIFECYCLE.to_owned()
+                )),
+                "{profile}"
+            );
+            assert!(refused.is_err_and(|e| !e.is_absence()));
+        }
+        Ok(())
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_seeded_development_only_quote_the_snapshot_lacks_is_refused_under_every_profile()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = appended_repo()?;
+        for profile in SpecProfile::ALL {
+            let mut checker = QuoteChecker::in_profile(dir.path(), *profile);
+            assert!(
+                matches!(
+                    checker.check(&cite(DEVELOPMENT_LIFECYCLE, "Version Lifecycle", "Also D.")),
+                    Err(CiteError::QuoteNotFound { .. })
+                ),
+                "{profile}"
+            );
+            let missing = "specs/openehr-development/specifications-RM/docs/none.adoc";
+            assert_eq!(
+                checker.check(&cite(missing, "Any", "anything")),
+                Err(CiteError::AbsentFromProfile {
+                    file: missing.to_owned(),
+                    path: missing.to_owned(),
+                    profile: SpecProfile::Development,
+                }),
+                "{profile}"
+            );
+            for outside in [
+                "specs/openehr-development/specifications-SM/docs/x.adoc",
+                "specs/openehr-development/specifications-RM/../../openehr/RM/docs/ehr.adoc",
+            ] {
+                assert!(
+                    matches!(
+                        checker.check(&cite(outside, "Any", "anything")),
+                        Err(CiteError::OutsideOracle(_))
+                    ),
+                    "{profile} {outside}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn a_development_only_xsd_citation_resolves_in_the_vendored_snapshot() {
+        let root = vendored();
+        let citation = cite(
+            "specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd",
+            "complexType OPERATIONAL_TEMPLATE",
+            "Element 'annotations' added 3 May 2010",
+        );
+        assert_eq!(QuoteChecker::new(&root).check(&citation), Ok(()));
+        assert_eq!(
+            QuoteChecker::in_profile(&root, SpecProfile::Development).check(&citation),
+            Ok(())
+        );
     }
 
     const XSD: &str = "specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/X.xsd";

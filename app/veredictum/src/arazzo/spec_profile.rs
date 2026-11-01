@@ -33,9 +33,17 @@ const REPOSITORY_PREFIX: &str = "specifications-";
 
 /// The released vendored roots that are one directory of an upstream
 /// repository, with the repository and the directory inside it.
-const MIRRORED_ROOTS: [(&str, &str, &str); 2] = [
+///
+/// The ITS-XML 2.0.0 bundle is the upstream `components/` tree, file for
+/// file; the 1.0.2 bundle has no counterpart on `master`.
+const MIRRORED_ROOTS: [(&str, &str, &str); 3] = [
     ("specs/rest-oas/", "ITS-REST", "computable/OAS/"),
     ("specs/its-json-schemas/", "ITS-JSON", "components/"),
+    (
+        "specs/its-xml-schemas/its-xml-2.0.0-nsv2/",
+        "ITS-XML",
+        "components/",
+    ),
 ];
 
 /// The specification text a run reads its citations against.
@@ -68,10 +76,9 @@ impl SpecProfile {
     /// The released profile reads every source where it names. The
     /// development profile reads `specs/openehr/<C>/<path>` from
     /// `specifications-<C>/<path>` in the snapshot, `specs/rest-oas/` from
-    /// ITS-REST's `computable/OAS/` and `specs/its-json-schemas/` from
-    /// ITS-JSON's `components/`. The
-    /// ITS-XML bundles are vendored from release tags, so the development
-    /// profile holds no counterpart for them.
+    /// ITS-REST's `computable/OAS/`, `specs/its-json-schemas/` from
+    /// ITS-JSON's `components/` and the ITS-XML 2.0.0 bundle from ITS-XML's
+    /// `components/`. The ITS-XML 1.0.2 bundle has no counterpart there.
     #[must_use]
     pub fn path_of(self, source: &str) -> Option<String> {
         match self {
@@ -115,6 +122,36 @@ impl SpecProfile {
             Self::Development => format!("{DEVELOPMENT_ROOT}/{REPOSITORY_PREFIX}{component}"),
         }
     }
+}
+
+/// Returns the released-shaped source a development snapshot file stands for.
+///
+/// It is the inverse of [`SpecProfile::path_of`] under
+/// [`SpecProfile::Development`]; `None` when `path` is not under
+/// [`DEVELOPMENT_ROOT`] in a `specifications-<component>` directory.
+///
+/// A file development adds has no released counterpart, and the answer
+/// names where the release would hold it, so its maturity is read from the
+/// snapshot's manifest of the same component.
+#[must_use]
+pub fn snapshot_source(path: &str) -> Option<String> {
+    let (component, inner) = path
+        .strip_prefix(DEVELOPMENT_ROOT)?
+        .strip_prefix('/')?
+        .strip_prefix(REPOSITORY_PREFIX)?
+        .split_once('/')?;
+    if component.is_empty() || inner.is_empty() {
+        return None;
+    }
+    let mirrored = MIRRORED_ROOTS
+        .iter()
+        .filter(|(_, mirrored, _)| *mirrored == component)
+        .find_map(|(root, _, inside)| {
+            inner
+                .strip_prefix(inside)
+                .map(|rest| format!("{root}{rest}"))
+        });
+    Some(mirrored.unwrap_or_else(|| format!("specs/openehr/{component}/{inner}")))
 }
 
 /// The prefix of a package-qualified class-table file name.
@@ -470,10 +507,79 @@ mod tests {
             None
         );
         assert_eq!(
+            dev.path_of("specs/its-xml-schemas/its-xml-2.0.0-nsv2/AM/Release-1.4/Template.xsd")
+                .as_deref(),
+            Some(
+                "specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd"
+            )
+        );
+        assert_eq!(
             SpecProfile::Released
                 .path_of("specs/its-json-schemas/x.json")
                 .as_deref(),
             Some("specs/its-json-schemas/x.json")
+        );
+    }
+
+    #[test]
+    fn every_its_xml_2_file_has_its_snapshot_counterpart() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let bundle = "specs/its-xml-schemas/its-xml-2.0.0-nsv2";
+        let mut stack = vec![root().join(bundle)];
+        let mut files = 0_usize;
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir)? {
+                let path = entry?.path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                let relative = path.strip_prefix(root())?.to_string_lossy().into_owned();
+                let mapped = SpecProfile::Development
+                    .path_of(&relative)
+                    .ok_or("an ITS-XML 2.0.0 file maps")?;
+                assert!(root().join(&mapped).is_file(), "{relative} -> {mapped}");
+                assert_eq!(snapshot_source(&mapped).as_deref(), Some(relative.as_str()));
+                files += 1;
+            }
+        }
+        assert!(files > 0, "the bundle is vendored");
+        Ok(())
+    }
+
+    #[test]
+    fn a_snapshot_file_reads_back_as_the_source_it_stands_for() {
+        assert_eq!(
+            snapshot_source(
+                "specs/openehr-development/specifications-RM/docs/ehr/master04-ehr.adoc"
+            )
+            .as_deref(),
+            Some("specs/openehr/RM/docs/ehr/master04-ehr.adoc")
+        );
+        assert_eq!(
+            snapshot_source(
+                "specs/openehr-development/specifications-ITS-REST/computable/OAS/ehr.openapi.yaml"
+            )
+            .as_deref(),
+            Some("specs/rest-oas/ehr.openapi.yaml")
+        );
+        assert_eq!(
+            snapshot_source(
+                "specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Resources.md"
+            )
+            .as_deref(),
+            Some("specs/openehr/ITS-REST/specifications/docs/overview/Resources.md")
+        );
+        assert_eq!(
+            snapshot_source("specs/openehr-development/specifications-ITS-JSON/components/x.json")
+                .as_deref(),
+            Some("specs/its-json-schemas/x.json")
+        );
+        assert_eq!(snapshot_source("specs/openehr/RM/docs/x.adoc"), None);
+        assert_eq!(snapshot_source("specs/openehr-development/RM/x.adoc"), None);
+        assert_eq!(
+            snapshot_source("specs/openehr-development/specifications-RM"),
+            None
         );
     }
 
