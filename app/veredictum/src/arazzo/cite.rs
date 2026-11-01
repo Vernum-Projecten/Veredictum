@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::arazzo::maturity::{Maturities, Maturity, MaturityError, SpecStatus};
+use crate::arazzo::publication::{DocsFile, Publication};
 use crate::arazzo::spec_profile::{DEVELOPMENT_ROOT, SpecProfile};
 
 /// The specification-extension key a citation is carried under.
@@ -84,12 +85,89 @@ pub struct Citation {
     /// `None` leaves it at the default, `must`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level: Option<Level>,
-    /// Where the development snapshot states the same requirement in other
-    /// words. Read under the development profile only, in place of
-    /// `section` and `quote`; the released profile never reads it. A
-    /// development-only citation carries none.
+    /// How the development snapshot holds the cited requirement: in other
+    /// words, or unchanged and contested. Read under the development profile
+    /// only; the released profile never reads it. A development-only
+    /// citation carries none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub development: Option<Box<DevelopmentText>>,
+    pub development: Option<Box<Development>>,
+}
+
+/// The `development` member of a citation.
+///
+/// No openEHR spec governs this — our own design: a case cites the text of
+/// the profile it runs under, and a development run grades no server on
+/// one side of a contradiction between two development texts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged, try_from = "RawDevelopment")]
+pub enum Development {
+    /// The snapshot states the same requirement in other words.
+    Reworded(DevelopmentText),
+    /// The snapshot keeps the cited text unchanged, and another of its texts
+    /// contradicts it.
+    Contested(Contested),
+}
+
+/// A cited text the development snapshot keeps unchanged and contests.
+///
+/// A workflow carrying one is skipped `contested-in-development` under the
+/// development profile, and judged on the released quote under the released
+/// profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Contested {
+    /// The `upstream-report` issue in this repository that records the
+    /// contradiction. Serde refuses zero, a negative number and a string.
+    pub contested: NonZeroU64,
+}
+
+/// Every member a `development` value may spell, read before its form is
+/// decided.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDevelopment {
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    section: Option<String>,
+    #[serde(default)]
+    quote: Option<String>,
+    #[serde(default)]
+    contested: Option<NonZeroU64>,
+}
+
+impl TryFrom<RawDevelopment> for Development {
+    type Error = String;
+
+    fn try_from(raw: RawDevelopment) -> Result<Self, Self::Error> {
+        match raw {
+            RawDevelopment {
+                source: None,
+                section: None,
+                quote: None,
+                contested: Some(contested),
+            } => Ok(Self::Contested(Contested { contested })),
+            RawDevelopment {
+                contested: Some(_), ..
+            } => Err(
+                "`development` is either `{ contested: <report> }` or a wording, never both: `contested` takes no `source`, `section` or `quote`".to_owned(),
+            ),
+            RawDevelopment {
+                source,
+                section: Some(section),
+                quote: Some(quote),
+                contested: None,
+            } => Ok(Self::Reworded(DevelopmentText {
+                source,
+                section,
+                quote,
+            })),
+            RawDevelopment { .. } => Err(
+                "`development` needs `section` and `quote`, or is `{ contested: <report> }`"
+                    .to_owned(),
+            ),
+        }
+    }
 }
 
 /// The development snapshot's wording of a cited requirement, for a
@@ -123,6 +201,26 @@ impl Citation {
     #[must_use]
     pub fn is_development_only(&self) -> bool {
         is_development_only(&self.source)
+    }
+
+    /// The development snapshot's wording of the cited requirement, when the
+    /// citation carries one.
+    #[must_use]
+    pub fn wording(&self) -> Option<&DevelopmentText> {
+        match self.development.as_deref() {
+            Some(Development::Reworded(wording)) => Some(wording),
+            Some(Development::Contested(_)) | None => None,
+        }
+    }
+
+    /// The `upstream-report` issue recording that the development snapshot
+    /// contests the cited text, when the citation names one.
+    #[must_use]
+    pub fn contested(&self) -> Option<NonZeroU64> {
+        match self.development.as_deref() {
+            Some(Development::Contested(contested)) => Some(contested.contested),
+            Some(Development::Reworded(_)) | None => None,
+        }
     }
 }
 
@@ -302,9 +400,9 @@ pub enum CiteError {
     /// snapshot, or names the SM.
     #[error("`{0}` is not a vendored openEHR source a citation may name")]
     OutsideOracle(String),
-    /// A development-only citation carries a `development` wording, which
+    /// A development-only citation carries a `development` member, which
     /// only a citation of released text may.
-    #[error("`{0}` is development text already, so its citation carries no `development` wording")]
+    #[error("`{0}` is development text already, so its citation carries no `development` member")]
     DevelopmentWordingOnDevelopmentText(String),
     /// The source file cannot be read or parsed.
     #[error("`{file}` cannot be read: {reason}")]
@@ -414,6 +512,22 @@ pub enum CiteError {
         /// The cited section.
         section: String,
     },
+    /// The source is `AsciiDoc` of a component's documents that no current
+    /// document of the component publishes: no `master.adoc` its manifest
+    /// lists reaches it through an active `include::` directive.
+    #[error(
+        "`{file}` is unpublished {profile} text: no `master.adoc` of a current {component} document includes `{path}`"
+    )]
+    Unpublished {
+        /// The cited source.
+        file: String,
+        /// The file read for it.
+        path: String,
+        /// The component.
+        component: String,
+        /// The profile whose tree holds the file.
+        profile: SpecProfile,
+    },
     /// The profile's tree has no file where the source maps to.
     #[error("the {profile} specification profile has no file `{path}` for `{file}`")]
     AbsentFromProfile {
@@ -465,7 +579,7 @@ pub fn citation_of(
             "`source`, `section` and `quote` must be non-empty".to_owned(),
         ));
     }
-    if let Some(wording) = &citation.development
+    if let Some(wording) = citation.wording()
         && (wording.section.trim().is_empty()
             || wording.quote.trim().is_empty()
             || wording
@@ -500,6 +614,8 @@ pub struct QuoteChecker<'a> {
     sections: BTreeMap<(String, String), Result<Resolved, CiteError>>,
     /// The status the release gives each cited document.
     maturities: Maturities,
+    /// The files each component's published documents include.
+    publication: Publication,
 }
 
 /// What a cited section holds.
@@ -550,6 +666,7 @@ impl<'a> QuoteChecker<'a> {
             texts: BTreeMap::new(),
             sections: BTreeMap::new(),
             maturities: Maturities::in_profile(repo_root, profile),
+            publication: Publication::new(),
         }
     }
 
@@ -565,7 +682,7 @@ impl<'a> QuoteChecker<'a> {
     ///
     /// A development-only citation ([`is_development_only`]) is read from the
     /// snapshot file it names, the way the development profile reads text,
-    /// under every profile; it carries no `development` wording.
+    /// under every profile; it carries no `development` member.
     ///
     /// In a YAML or JSON source (an OAS or a published JSON Schema),
     /// `section` is a top-level key, or a JSON Pointer when it starts with
@@ -589,7 +706,7 @@ impl<'a> QuoteChecker<'a> {
                 source.to_owned(),
             ));
         }
-        match (&citation.development, self.profile) {
+        match (citation.wording(), self.profile) {
             (Some(wording), SpecProfile::Development) => {
                 if self
                     .check_text(source, None, &citation.section, &citation.quote)
@@ -689,6 +806,7 @@ impl<'a> QuoteChecker<'a> {
             Ok(_) | Err(MaturityError::NoManifest(_)) => {}
             Err(error) => return Err(CiteError::NoStatus(error.to_string())),
         }
+        self.check_published(source, &path)?;
         let key = (path.clone(), section.to_owned());
         let resolved = if let Some(resolved) = self.sections.get(&key) {
             resolved.clone()?
@@ -716,6 +834,29 @@ impl<'a> QuoteChecker<'a> {
                 section: section.to_owned(),
                 quote: quote.to_owned(),
             })
+        }
+    }
+
+    /// Checks that `path`, the file read for `source`, is published text
+    /// when it is `AsciiDoc` of a component's documents ([`DocsFile`]).
+    fn check_published(&mut self, source: &str, path: &str) -> Result<(), CiteError> {
+        let Some(docs) = DocsFile::of(path) else {
+            return Ok(());
+        };
+        match self
+            .publication
+            .is_published(self.repo_root, &mut self.maturities, &docs, path)
+        {
+            // NOTE: no openEHR spec governs this — our own design; a tree without the vendored
+            // manifests lists no document to publish from, as for a status.
+            Ok(true) | Err(MaturityError::NoManifest(_)) => Ok(()),
+            Ok(false) => Err(CiteError::Unpublished {
+                file: source.to_owned(),
+                path: path.to_owned(),
+                component: docs.component,
+                profile: docs.profile,
+            }),
+            Err(error) => Err(CiteError::NoStatus(error.to_string())),
         }
     }
 
@@ -1624,6 +1765,41 @@ mod tests {
     }
 
     #[test]
+    fn a_citation_into_text_no_published_document_includes_is_refused() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let tag = cite(
+            "specs/openehr/RM/docs/UML/classes/item_tag.adoc",
+            "ITEM_TAG Class",
+            "Identifier of target, which may be a `VERSIONED_OBJECT<T>` or a `VERSION<T>`.",
+        );
+        let refused = QuoteChecker::new(&root).check(&tag);
+        assert_eq!(
+            refused,
+            Err(CiteError::Unpublished {
+                file: tag.source.clone(),
+                path: tag.source.clone(),
+                component: "RM".to_owned(),
+                profile: SpecProfile::Released,
+            })
+        );
+        assert!(
+            refused.is_err_and(|e| !e.is_absence()),
+            "unpublished text is a finding"
+        );
+        let class = cite(
+            "specs/openehr/RM/docs/UML/classes/versioned_object.adoc",
+            "VERSIONED_OBJECT Class",
+            "Version control abstraction, defining semantics for versioning one complex object.",
+        );
+        assert_eq!(QuoteChecker::new(&root).check(&class), Ok(()));
+        assert_eq!(
+            QuoteChecker::in_profile(&root, SpecProfile::Development).check(&tag),
+            Ok(()),
+            "the snapshot's Common IM includes the tags chapter"
+        );
+    }
+
+    #[test]
     fn a_malformed_extension_is_refused() {
         let mut ext = BTreeMap::new();
         ext.insert(
@@ -2011,11 +2187,11 @@ mod tests {
 
     fn reworded(quote: &str) -> Citation {
         Citation {
-            development: Some(Box::new(DevelopmentText {
+            development: Some(Box::new(Development::Reworded(DevelopmentText {
                 source: None,
                 section: "Version Lifecycle".to_owned(),
                 quote: quote.to_owned(),
-            })),
+            }))),
             ..cite(
                 LIFECYCLE,
                 "Version Lifecycle",
@@ -2062,13 +2238,13 @@ mod tests {
             "{refused:?}"
         );
         let elsewhere = Citation {
-            development: Some(Box::new(DevelopmentText {
+            development: Some(Box::new(Development::Reworded(DevelopmentText {
                 source: Some(
                     "specs/openehr/RM/docs/common/master06-change_control_package.adoc".to_owned(),
                 ),
                 section: "Version Lifecycle".to_owned(),
                 quote: "The possible values are A and B.".to_owned(),
-            })),
+            }))),
             ..cite(LIFECYCLE, "Version Lifecycle", "q")
         };
         assert!(
@@ -2113,6 +2289,92 @@ mod tests {
         ));
     }
 
+    fn contested_extension(development: &Value) -> BTreeMap<String, Value> {
+        let mut extensions = BTreeMap::new();
+        extensions.insert(
+            CITE_KEY.to_owned(),
+            serde_json::json!({ "source": LIFECYCLE, "section": "Version Lifecycle",
+                "quote": "The possible values are A and B.", "development": development }),
+        );
+        extensions
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_contested_development_member_names_its_report() -> Result<(), Box<dyn std::error::Error>> {
+        let citation = citation_of(Some(&contested_extension(
+            &serde_json::json!({ "contested": 1008 }),
+        )))?
+        .ok_or("a citation")?;
+        assert_eq!(citation.contested().map(NonZeroU64::get), Some(1008));
+        assert_eq!(citation.wording(), None);
+        assert_eq!(
+            serde_json::to_value(&citation)?
+                .pointer("/development")
+                .cloned(),
+            Some(serde_json::json!({ "contested": 1008 })),
+            "it serializes in the form it is written"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_seeded_contested_member_with_a_wording_or_no_report_is_refused() {
+        for seeded in [
+            serde_json::json!({ "contested": 1008, "quote": "q" }),
+            serde_json::json!({ "contested": 1008, "section": "s", "quote": "q" }),
+            serde_json::json!({ "contested": 1008, "source": DEVELOPMENT_LIFECYCLE }),
+            serde_json::json!({ "contested": 0 }),
+            serde_json::json!({ "contested": "1008" }),
+            serde_json::json!({ "contested": 1008, "report": 1 }),
+            serde_json::json!({}),
+        ] {
+            assert!(
+                matches!(
+                    citation_of(Some(&contested_extension(&seeded))),
+                    Err(CiteError::Malformed(_))
+                ),
+                "{seeded}"
+            );
+        }
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_contested_citation_is_held_to_its_released_quote_under_both_profiles()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = appended_repo()?;
+        let citation = citation_of(Some(&contested_extension(
+            &serde_json::json!({ "contested": 1008 }),
+        )))?
+        .ok_or("a citation")?;
+        assert_eq!(QuoteChecker::new(dir.path()).check(&citation), Ok(()));
+        assert_eq!(
+            QuoteChecker::in_profile(dir.path(), SpecProfile::Development).check(&citation),
+            Ok(()),
+            "a contested text is unchanged in the snapshot, so it is never stale"
+        );
+        let development_only = Citation {
+            development: Some(Box::new(Development::Contested(Contested {
+                contested: NonZeroU64::new(1008).ok_or("1008")?,
+            }))),
+            ..cite(DEVELOPMENT_LIFECYCLE, "Version Lifecycle", "Also C.")
+        };
+        assert_eq!(
+            QuoteChecker::new(dir.path()).check(&development_only),
+            Err(CiteError::DevelopmentWordingOnDevelopmentText(
+                DEVELOPMENT_LIFECYCLE.to_owned()
+            ))
+        );
+        Ok(())
+    }
+
     const DEVELOPMENT_LIFECYCLE: &str = "specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc";
 
     /// [`reworded_repo`] with a sentence the snapshot appends to a section
@@ -2152,11 +2414,11 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         let dir = appended_repo()?;
         let worded = Citation {
-            development: Some(Box::new(DevelopmentText {
+            development: Some(Box::new(Development::Reworded(DevelopmentText {
                 source: None,
                 section: "Version Lifecycle".to_owned(),
                 quote: "Also C.".to_owned(),
-            })),
+            }))),
             ..cite(DEVELOPMENT_LIFECYCLE, "Version Lifecycle", "Also C.")
         };
         for profile in SpecProfile::ALL {

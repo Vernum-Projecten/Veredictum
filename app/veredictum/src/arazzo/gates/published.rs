@@ -126,35 +126,53 @@ fn check_def() -> Value {
     })
 }
 
-/// A citation's `level`.
 /// The `development` member of a citation: the snapshot's wording of a
-/// reworded section.
+/// reworded section, or the report that records a contested one.
 fn development_def() -> Value {
     json!({
-        "description": "Where the development snapshot states the same requirement in other words. Read under the development specification profile only, in place of `section` and `quote`, and never under the released profile. `validate --profile development` refuses it when its quote does not occur in the snapshot, and when the released quote still occurs there unchanged.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["section", "quote"],
-        "properties": {
-            "source": {
-                "description": "The snapshot file, relative to the repository root, when it is not the file `source` maps to.",
-                "type": "string",
-                "pattern": "^specs/openehr-development/"
+        "description": "How the development snapshot holds the cited requirement. Read under the development specification profile only, and never under the released profile.",
+        "oneOf": [
+            {
+                "description": "Where the development snapshot states the same requirement in other words, read in place of `section` and `quote`. `validate --profile development` refuses it when its quote does not occur in the snapshot, and when the released quote still occurs there unchanged.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["section", "quote"],
+                "properties": {
+                    "source": {
+                        "description": "The snapshot file, relative to the repository root, when it is not the file `source` maps to.",
+                        "type": "string",
+                        "pattern": "^specs/openehr-development/"
+                    },
+                    "section": {
+                        "description": "The element or the section heading in the snapshot, as `section` names one.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "quote": {
+                        "description": "The snapshot's sentence, copied verbatim.",
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
             },
-            "section": {
-                "description": "The element or the section heading in the snapshot, as `section` names one.",
-                "type": "string",
-                "minLength": 1
-            },
-            "quote": {
-                "description": "The snapshot's sentence, copied verbatim.",
-                "type": "string",
-                "minLength": 1
+            {
+                "description": "The development snapshot keeps the cited text unchanged and another of its texts contradicts it. The workflow is skipped with the reason `contested-in-development` under the development profile, and judged on the released quote under the released profile.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["contested"],
+                "properties": {
+                    "contested": {
+                        "description": "The upstream-report issue in this repository that records the contradiction.",
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                }
             }
-        }
+        ]
     })
 }
 
+/// A citation's `level`.
 fn level_def() -> Value {
     json!({
         "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and a warning, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
@@ -191,7 +209,7 @@ pub fn extensions_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
         "title": "The Arazzo catalogue's seven specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `{DEVELOPMENT_ONLY_ROOT}` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` wording, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage."),
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `{DEVELOPMENT_ONLY_ROOT}` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` member, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage. A citation whose `development` member is `{{ contested: <report> }}` cites text the development snapshot keeps unchanged and contests: its workflow is skipped with the reason `contested-in-development` under the development profile."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -807,6 +825,16 @@ mod tests {
         let reworded = json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q",
             "development": { "source": "specs/openehr-development/specifications-RM/docs/y.adoc", "section": "t", "quote": "r" } });
         assert!(cite.is_valid(&reworded));
+        let contested = json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q",
+            "development": { "contested": 1008 } });
+        assert!(cite.is_valid(&contested));
+        for seeded in [
+            json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q", "development": { "contested": 1008, "quote": "q" } }),
+            json!({ "source": "specs/openehr/RM/x.adoc", "section": "s", "quote": "q", "development": { "contested": 0 } }),
+            json!({ "source": "specs/openehr-development/specifications-RM/docs/x.adoc", "section": "s", "quote": "q", "development": { "contested": 1008 } }),
+        ] {
+            assert!(!cite.is_valid(&seeded), "{seeded}");
+        }
     }
 
     #[test]

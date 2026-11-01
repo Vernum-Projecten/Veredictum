@@ -543,6 +543,20 @@ pub fn development_citation(workflow: &Workflow) -> Option<Citation> {
         .find(Citation::is_development_only)
 }
 
+/// The first citation `workflow` carries whose cited text the development
+/// snapshot contests ([`Citation::contested`]); `None` for a workflow with
+/// none.
+///
+/// A workflow carrying one is skipped `contested-in-development` under the
+/// development profile, and judged on its released quote under the released
+/// profile. No openEHR spec governs this — our own design.
+#[must_use]
+pub fn contested_citation(workflow: &Workflow) -> Option<Citation> {
+    workflow_citations(workflow)
+        .into_iter()
+        .find(|citation| citation.contested().is_some())
+}
+
 /// The arms of `capabilities` that name `document`, in option order.
 #[must_use]
 pub fn arms_of(capabilities: Option<&Capabilities>, document: &str) -> Vec<ArmRef> {

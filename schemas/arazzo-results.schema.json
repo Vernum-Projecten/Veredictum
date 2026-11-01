@@ -170,7 +170,8 @@
                   "extension-not-offered",
                   "not-declared",
                   "cited-text-absent",
-                  "development-only"
+                  "development-only",
+                  "contested-in-development"
                 ]
               },
               "why": {
@@ -205,7 +206,7 @@
               "detail": {
                 "type": "string",
                 "minLength": 1,
-                "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote); for `development-only`, the development citation the case rests on."
+                "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote); for `development-only`, the development citation the case rests on; for `contested-in-development`, the upstream report that records the contradiction and the contested citation."
               }
             }
           },

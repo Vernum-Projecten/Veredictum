@@ -57,7 +57,10 @@ sentence and the requirement is unchanged in substance, the citation's
 `development` member quotes the snapshot, read only by that profile. A
 development run computes real verdicts. A case whose cited text the snapshot
 lacks is skipped as `cited-text-absent`, naming the profile and what is
-missing. The results, `show`, every export and the console name the profile
+missing. Where the snapshot keeps the cited sentence and contradicts it in
+another text, the `development` member is `{ contested: <report> }`, naming
+the upstream report, and the development profile skips the case as
+`contested-in-development`. The results, `show`, every export and the console name the profile
 and every snapshot commit.
 
 Released results alone back a released claim or a certificate. A development

@@ -193,8 +193,10 @@ pub struct Declarations {
     pub platform: bool,
     /// The specification profile whose text the run's citations are read
     /// against; a workflow citing text the profile lacks is skipped as
-    /// `cited-text-absent`, and under the released profile a workflow
-    /// resting on development text alone is skipped as `development-only`.
+    /// `cited-text-absent`, under the released profile a workflow
+    /// resting on development text alone is skipped as `development-only`,
+    /// and under the development profile a workflow whose cited text the
+    /// snapshot contests is skipped as `contested-in-development`.
     pub profile: SpecProfile,
 }
 
@@ -634,6 +636,41 @@ pub fn development_only_skips(document: &ArazzoDocument, repo_root: &Path) -> Ve
         .collect()
 }
 
+/// The `contested-in-development` skips of the workflows of `document`
+/// whose cited text the development snapshot keeps unchanged and contests,
+/// which a development run never grades.
+///
+/// Each skip carries the workflow's first contested citation, and its detail
+/// names the upstream report. No openEHR spec governs this — our own design:
+/// a development run grades no server on one side of a contradiction between
+/// two development texts.
+#[must_use]
+pub fn contested_skips(document: &ArazzoDocument, repo_root: &Path) -> Vec<(String, Skip)> {
+    document
+        .description()
+        .workflows
+        .iter()
+        .filter_map(|workflow| {
+            let citation = structure::contested_citation(workflow)?;
+            let report = citation.contested()?;
+            Some((
+                workflow.workflow_id.clone(),
+                Skip {
+                    reason: SkipReason::ContestedInDevelopment,
+                    why: Why::of(&citation, repo_root),
+                    detail: Some(format!(
+                        "{} profile: the snapshot keeps `{}` ({}) unchanged and contradicts it elsewhere, as upstream report #{report} records, and the case runs under the {} profile only",
+                        SpecProfile::Development,
+                        citation.source,
+                        citation.section,
+                        SpecProfile::Released
+                    )),
+                },
+            ))
+        })
+        .collect()
+}
+
 /// The documents a run drives, the capability folders the statement claims
 /// and the option arms it selects, read before any document is loaded.
 #[derive(Debug)]
@@ -804,6 +841,11 @@ impl Selection {
                 self.choice(found),
                 repo_root,
             )?;
+            if declarations.profile == SpecProfile::Development {
+                for (workflow, skip) in contested_skips(&document, repo_root) {
+                    plan.skips.entry(workflow).or_insert(skip);
+                }
+            }
             if let Some(quotes) = quotes.as_mut() {
                 for (workflow, skip) in absent_text_skips(&document, &found.id, quotes, repo_root)?
                 {
@@ -1475,6 +1517,15 @@ mod tests {
     /// first workflow resting on development text, the vendored specs
     /// linked beside it.
     fn development_only_world() -> Result<assert_fs::TempDir, Box<dyn std::error::Error>> {
+        system_world(|_| development_cite())
+    }
+
+    /// A catalogue root holding the committed System document with the
+    /// citation of its first workflow replaced by `cite` of it, the vendored
+    /// specs linked beside it.
+    fn system_world(
+        cite: impl FnOnce(Value) -> Value,
+    ) -> Result<assert_fs::TempDir, Box<dyn std::error::Error>> {
         let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let dir = assert_fs::TempDir::new()?;
         std::os::unix::fs::symlink(repo.join("specs"), dir.path().join("specs"))?;
@@ -1484,10 +1535,78 @@ mod tests {
             .pointer_mut("/workflows/0")
             .and_then(Value::as_object_mut)
             .ok_or("the System document has a workflow")?;
-        workflow.insert("x-veredictum-cite".to_owned(), development_cite());
+        let current = workflow
+            .get("x-veredictum-cite")
+            .cloned()
+            .unwrap_or(Value::Null);
+        workflow.insert("x-veredictum-cite".to_owned(), cite(current));
         dir.child("catalogue/cases/system/system_options.arazzo.yaml")
             .write_str(&serde_json::to_string_pretty(&document)?)?;
         Ok(dir)
+    }
+
+    /// The skip of every workflow of the catalogue under `world`, planned
+    /// under `profile`, in document order.
+    fn world_skips(
+        world: &assert_fs::TempDir,
+        profile: SpecProfile,
+    ) -> Result<Vec<Option<Skip>>, Box<dyn std::error::Error>> {
+        let selection = Selection::read(&world.path().join("catalogue"), None, &[])?;
+        let declarations = Declarations {
+            profile,
+            ..Declarations::default()
+        };
+        let planned = selection.load(world.path(), &declarations)?;
+        Ok(planned
+            .iter()
+            .flat_map(|document| {
+                document
+                    .document
+                    .description()
+                    .workflows
+                    .iter()
+                    .map(|w| document.plan.skips.get(&w.workflow_id).cloned())
+            })
+            .collect())
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_contested_case_is_skipped_under_development_and_judged_under_released()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let world = system_world(|mut cite| {
+            if let Some(cite) = cite.as_object_mut() {
+                cite.insert("development".to_owned(), json!({ "contested": 1008 }));
+            }
+            cite
+        })?;
+        assert_eq!(
+            world_skips(&world, SpecProfile::Released)?,
+            vec![None, None, None],
+            "the released profile judges the released quote"
+        );
+        let development = world_skips(&world, SpecProfile::Development)?;
+        let skip = development
+            .first()
+            .cloned()
+            .flatten()
+            .ok_or("the contested case is skipped")?;
+        assert_eq!(skip.reason, SkipReason::ContestedInDevelopment);
+        assert_eq!(skip.reason.to_string(), "contested-in-development");
+        assert_eq!(
+            skip.why.source,
+            "specs/openehr/ITS-REST/specifications/operations/options.yaml"
+        );
+        let detail = skip.detail.as_deref().ok_or("the skip names its report")?;
+        assert!(
+            detail.contains("upstream report #1008") && detail.contains("options.yaml"),
+            "{detail}"
+        );
+        assert_eq!(development.get(1..), Some(&[None, None][..]));
+        Ok(())
     }
 
     #[test]

@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Every `report:` number in an `x-veredictum-cite` names an upstream report
 # (#632), in the workflow documents and in `capabilities.yaml` alike, in every
-# Arazzo catalogue root of the tree (`catalogue-roots.sh`, #983).
+# Arazzo catalogue root of the tree (`catalogue-roots.sh`, #983). So does
+# every `contested:` number of a citation's `development` member (#1006),
+# which names the report recording a contradiction in the development text.
 #
 # A citation that rests on defective released text names the tracker issue the
 # defect is reported in (docs/ARCHITECTURE.md §15.4). `validate` is offline and can
@@ -36,17 +38,17 @@ if ! command -v yq >/dev/null 2>&1; then
   exit 2
 fi
 
-numbers() { # $1: root; prints each distinct report number once, ascending
+numbers() { # $1: root; prints each distinct `<key> <number>` once, by number
   if [[ ! -d "$1" ]]; then
     return 0
   fi
-  grep -rhoE 'report:[[:space:]]*[0-9]+' "$1" --include='*.arazzo.yaml' --include='capabilities.yaml' |
-    sed -E 's/report:[[:space:]]*//' | sort -n -u
+  grep -rhoE '(report|contested):[[:space:]]*[0-9]+' "$1" --include='*.arazzo.yaml' --include='capabilities.yaml' |
+    sed -E 's/^(report|contested):[[:space:]]*/\1 /' | sort -k2,2n -k1,1 -u
 }
 
 check() { # $1: root, $2: repository; prints findings, returns 1 on any
-  local root="$1" repo="$2" n answer status found=0 seen=0
-  while IFS= read -r n; do
+  local root="$1" repo="$2" key n answer status found=0 seen=0
+  while read -r key n; do
     [[ -n "$n" ]] || continue
     seen=$((seen + 1))
     if answer="$(gh api "repos/${repo}/issues/${n}" \
@@ -57,7 +59,7 @@ check() { # $1: root, $2: repository; prints findings, returns 1 on any
     fi
     if [[ "$status" -ne 0 ]]; then
       if [[ "$answer" == *"Not Found"* || "$answer" == *"HTTP 404"* ]]; then
-        echo "report-refs: report: ${n} names no issue in ${repo}" >&2
+        echo "report-refs: ${key}: ${n} names no issue in ${repo}" >&2
         found=1
         continue
       fi
@@ -65,8 +67,8 @@ check() { # $1: root, $2: repository; prints findings, returns 1 on any
       exit 2
     fi
     case "$answer" in
-      "true "*) echo "report-refs: report: ${n} is a pull request, not an upstream report" >&2; found=1 ;;
-      "false false") echo "report-refs: report: ${n} does not carry the upstream-report label" >&2; found=1 ;;
+      "true "*) echo "report-refs: ${key}: ${n} is a pull request, not an upstream report" >&2; found=1 ;;
+      "false false") echo "report-refs: ${key}: ${n} does not carry the upstream-report label" >&2; found=1 ;;
       "false true") ;;
       *) echo "report-refs: unexpected tracker answer for #${n}: ${answer}" >&2; exit 2 ;;
     esac
@@ -159,13 +161,16 @@ STUB
   printf 'x-veredictum-cite:\n  report: 7\n' > "$tmp/good/ehr/a.arazzo.yaml"
   printf 'x-veredictum-cite: { source: s, report: 8 }\n' > "$tmp/bad/ehr/a.arazzo.yaml"
   printf 'x-veredictum-cite:\n  report: 9\n---\nreport: 404\n' > "$tmp/bad/ehr/b.arazzo.yaml"
+  printf 'x-veredictum-cite: { source: s, report: 7, development: { contested: 8 } }\n' > "$tmp/bad/ehr/c.arazzo.yaml"
+  printf 'x-veredictum-cite:\n  development:\n    contested: 408\n' > "$tmp/bad/ehr/d.arazzo.yaml"
+  printf 'x-veredictum-cite: { source: s, development: { contested: 7 } }\n' > "$tmp/good/ehr/b.arazzo.yaml"
   printf 'options:\n  o:\n    x-veredictum-cite: { source: s, report: 405 }\n' > "$tmp/bad/capabilities.yaml"
   if ! PATH="$tmp/bin:$PATH" check "$tmp/good" stub/repo >/dev/null 2>&1; then
     echo "self-test: a labelled upstream report was refused" >&2
     exit 1
   fi
   out="$(PATH="$tmp/bin:$PATH" check "$tmp/bad" stub/repo 2>&1 || true)"
-  for want in "report: 8 does not carry" "report: 9 is a pull request" "report: 404 names no issue" "report: 405 names no issue"; do
+  for want in "report: 8 does not carry" "report: 9 is a pull request" "report: 404 names no issue" "report: 405 names no issue" "contested: 8 does not carry" "contested: 408 names no issue"; do
     if [[ "$out" != *"$want"* ]]; then
       echo "self-test: '${want}' was not reported" >&2
       exit 1
@@ -213,7 +218,7 @@ STUB
     echo "self-test: a tree with no catalogue root passed" >&2
     exit 1
   fi
-  echo "report-refs: self-test OK (a labelled report passes; unlabelled, pull request and missing are refused, in documents and capabilities and in every catalogue root; a snapshot entry is held to the tracker's title and state)."
+  echo "report-refs: self-test OK (a labelled report passes; unlabelled, pull request and missing are refused, as \`report:\` and as \`contested:\`, in documents and capabilities and in every catalogue root; a snapshot entry is held to the tracker's title and state)."
   exit 0
 fi
 

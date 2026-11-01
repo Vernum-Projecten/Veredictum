@@ -104,7 +104,7 @@ Options:
       --profile <PROFILE>
           The specification text the case citations are read against.
           
-          `development` (the default): the pinned `master` of each openEHR specification repository under `specs/openehr-development/`, the line that carries the newest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
+          `development` (the default): the pinned `master` of each openEHR specification repository under `specs/openehr-development/`, the line that carries the newest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing, and a case whose cited text the snapshot contests is skipped as `contested-in-development`, naming its upstream report. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
           
           `released`: the frozen release under `specs/openehr/`. Only a released result backs a released claim or a certificate. A case resting on development text alone, a citation under `specs/openehr-development/`, is skipped as `development-only`.
           
@@ -368,7 +368,7 @@ Options:
           
           `released` (the default): the gates alone, against the frozen release. Zero findings is the only passing result.
           
-          `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. One more line counts the development-only workflows and the released cases whose cited text the snapshot rewords or removes. Needs `--specs`.
+          `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. One more line counts the development-only workflows, the released cases whose cited text the snapshot rewords or removes, and the released cases whose cited text it contests. Needs `--specs`.
           
           A development-only citation, one under `specs/openehr-development/`, is checked against the snapshot under both profiles, and a bad one is a finding.
 

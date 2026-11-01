@@ -233,6 +233,26 @@ fn a_run_without_a_profile_reads_the_development_snapshot_and_names_it_everywher
     Ok(())
 }
 
+/// The three counts of the development profile's counting line, when
+/// `stdout` holds one in its shape: development-only workflows, reworded
+/// released cases and contested released cases.
+fn counted_line(stdout: &str) -> Option<Vec<usize>> {
+    let line = stdout
+        .lines()
+        .find(|line| line.contains(" development-only workflow(s), "))?;
+    let rest = line.strip_prefix("development profile: ")?;
+    let (only, rest) = rest.split_once(
+        " development-only workflow(s), skipped as development-only under the released profile; ",
+    )?;
+    let (reworded, rest) =
+        rest.split_once(" released case(s) whose cited text this profile rewords or removes; ")?;
+    let contested = rest.strip_suffix(" released case(s) whose cited text the development snapshot contests, skipped as contested-in-development under the development profile")?;
+    [only, reworded, contested]
+        .iter()
+        .map(|count| count.parse().ok())
+        .collect()
+}
+
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
@@ -261,10 +281,10 @@ fn validate_reports_the_snapshot_absences_as_information() -> Fallible {
         stdout.contains("development profile: RM: "),
         "the counts are per component: {stdout}"
     );
-    assert!(
-        stdout.contains("development profile: 75 development-only workflow(s), skipped as development-only under the released profile; "),
-        "the development-only and reworded cases are counted: {stdout}"
-    );
+    // NOTE: no openEHR spec governs this — our own design; the live counts move with every
+    // case, so this pins the line's shape and the unit test over a probe catalogue pins the count.
+    let counts = counted_line(&stdout).ok_or_else(|| format!("no counting line: {stdout}"))?;
+    assert_eq!(counts.len(), 3, "{stdout}");
     let released = veredictum(&[
         "validate",
         "--root",

@@ -645,6 +645,7 @@ workflows:
       source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
       section: Logical Deletion
       quote: "set the `_lifecycle_state_` value to the code for \"deleted\""
+      development: { contested: 1008 }
     inputs: *ehr_input
     steps:
       - *create_ehr
