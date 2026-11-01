@@ -1,0 +1,344 @@
+# The version predicates of the development AQL: a query with no VERSION
+# class expression, a VERSION class expression without a predicate or with
+# LATEST_VERSION, each applied to the latest version only, ALL_VERSIONS
+# applied to every version, and a version predicate on a class other than
+# VERSION refused, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Each workflow commits a COMPOSITION in its own EHR and
+# updates it once, so its container holds two versions, then executes one
+# ad-hoc query scoped to that EHR by the `$ehr_id` parameter. Every workflow
+# rests on text only the pinned development snapshot holds, so a released run
+# skips it as development-only. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: AQL version predicates
+  version: 0.1.0
+  x-veredictum-section: aql-semantics
+  description: >-
+    The versions an AQL query is applied to: the latest version only with no
+    VERSION class expression, with VERSION v and with VERSION
+    v[LATEST_VERSION], every version with VERSION v[ALL_VERSIONS], and a
+    version predicate on a COMPOSITION class expression refused with 400.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: version-no_version_class
+    summary: A query with no VERSION class expression is applied to the latest version only
+    description: >-
+      Commits a COMPOSITION with composer Dr. House and updates it to
+      composer Dr. Cuddy, then queries the composer of every COMPOSITION in
+      the EHR with no VERSION class expression. Only the latest version is
+      queried, so the result is the one row Dr. Cuddy.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-QUERY/docs/AQL/master03-syntax.adoc
+      section: Version predicate
+      quote: "a query that does not include a `VERSION` class expression is applied only to the latest version of each versioned object."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Create the event COMPOSITION with composer Dr. House, keep its version_uid and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer: { _type: PARTY_IDENTIFIED, name: Dr. House }
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &update
+        stepId: update
+        description: Update the COMPOSITION to composer Dr. Cuddy under the created version, so its container holds two versions.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /composer/name, value: Dr. Cuddy }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id passed as the query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[Dr. Cuddy]]
+
+  - workflowId: version-without_predicate
+    summary: A VERSION class expression without a version predicate is applied to the latest version only
+    description: >-
+      Commits a COMPOSITION with composer Dr. House and updates it to
+      composer Dr. Cuddy, then queries the composer through VERSION v with no
+      version predicate, which is equivalent to VERSION v[LATEST_VERSION].
+      The result is the one row Dr. Cuddy.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-QUERY/docs/AQL/master03-syntax.adoc
+      section: Version predicate
+      quote: "A `VERSION` class expression without a version predicate, such as `VERSION v`, is equivalent to `VERSION v[LATEST_VERSION]`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id passed as the query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS VERSION v CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[Dr. Cuddy]]
+
+  - workflowId: version-latest_version
+    summary: VERSION v[LATEST_VERSION] is applied to the latest version only
+    description: >-
+      Commits a COMPOSITION with composer Dr. House and updates it to
+      composer Dr. Cuddy, then queries the composer through VERSION
+      v[LATEST_VERSION]. Only the latest version is queried, so the result is
+      the one row Dr. Cuddy.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-QUERY/docs/AQL/master03-syntax.adoc
+      section: Version predicate
+      quote: "`LATEST_VERSION`: only the latest version of each versioned object;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id passed as the query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS VERSION v[LATEST_VERSION] CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[Dr. Cuddy]]
+
+  - workflowId: version-all_versions
+    summary: VERSION v[ALL_VERSIONS] is applied to every version
+    description: >-
+      Commits a COMPOSITION with composer Dr. House and updates it to
+      composer Dr. Cuddy, then queries the composer through VERSION
+      v[ALL_VERSIONS]. Both versions are queried, so the result is the bag of
+      the rows Dr. House and Dr. Cuddy.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-QUERY/docs/AQL/master03-syntax.adoc
+      section: Version predicate
+      quote: "`ALL_VERSIONS`: all versions of each versioned object;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id passed as the query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS VERSION v[ALL_VERSIONS] CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[Dr. House], [Dr. Cuddy]]
+
+  - workflowId: version-predicate_on_composition_refused
+    x-veredictum-control: version-latest_version
+    summary: A version predicate on a COMPOSITION class expression makes the query invalid
+    description: >-
+      Commits a COMPOSITION and updates it, then queries the composer with
+      the version predicate LATEST_VERSION on the COMPOSITION class
+      expression. A version predicate can only be used on a VERSION class
+      expression, so the query is invalid input and is refused with 400. The
+      control states the same predicate on a VERSION class expression.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-QUERY/docs/AQL/master03-syntax.adoc
+      section: Version predicate
+      quote: "A version predicate can only be used on a `VERSION` class expression in the `FROM` clause"
+      level: must
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id passed as the query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c[LATEST_VERSION]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."

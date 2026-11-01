@@ -262,7 +262,7 @@ fn validate_reports_the_snapshot_absences_as_information() -> Fallible {
         "the counts are per component: {stdout}"
     );
     assert!(
-        stdout.contains("development profile: 0 development-only workflow(s), skipped as development-only under the released profile; "),
+        stdout.contains("development profile: 71 development-only workflow(s), skipped as development-only under the released profile; "),
         "the development-only and reworded cases are counted: {stdout}"
     );
     let released = veredictum(&[

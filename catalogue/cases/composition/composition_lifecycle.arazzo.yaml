@@ -1,0 +1,442 @@
+# The version lifecycle transitions the development RM adds to a
+# COMPOSITION, through the openehr-version header of a direct update and the
+# logical delete: deactivate to inactive (800), abandon to abandoned (801),
+# reactivate, retrieve and delete. Each transition commits a new version, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. Every
+# workflow rests on the pinned development snapshot of the RM, so the
+# released profile skips it as development-only. Every criterion resolves to
+# an `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION lifecycle transitions
+  version: 0.1.0
+  x-veredictum-section: update
+  description: >-
+    The inactive and abandoned lifecycle states of the development RM on a
+    COMPOSITION: an update whose openehr-version header names 800 or 801
+    commits a new version in that state, an inactive COMPOSITION is
+    reactivated or retrieved, an abandoned one is retrieved, and either is
+    logically deleted. Every transition is one commit, and the latest
+    version names the version before it as its preceding version.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: update_composition-lifecycle_deactivate
+    summary: An update naming lifecycle_state 800 in openehr-version commits an inactive version
+    description: >-
+      Creates an EHR and a complete event COMPOSITION, then updates it with
+      an openehr-version header naming the lifecycle_state 800 (inactive).
+      The latest VERSION carries the lifecycle_state 800 and names the
+      created version as its preceding version, since the transition is a
+      commit of its own.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &deactivate
+      source: specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc
+      section: Abandoned and Inactive States
+      quote: "An Original version may also be marked as being in the `inactive` state."
+      level: may
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit_complete
+        stepId: commit
+        description: Create the event COMPOSITION, keep the version_uid of the full representation the create answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &deactivate_step
+        stepId: deactivate
+        description: Update the COMPOSITION with the lifecycle_state 800 in openehr-version, and keep the version_uid the representation carries.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="800"' }
+        requestBody: &event_body
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - &updated
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the COMPOSITION is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: &latest_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &latest_version
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - &state_inactive
+            context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^800$'
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+            x-veredictum-cite: &new_version
+              source: specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc
+              section: Version Lifecycle
+              quote: "One basic rule that must be observed with the use of states is that any transition requires the commit of a _new version_, even if the content is otherwise unchanged."
+
+  - workflowId: update_composition-lifecycle_abandon
+    summary: An update naming lifecycle_state 801 in openehr-version commits an abandoned version
+    description: >-
+      Creates an EHR and an event COMPOSITION in the incomplete state (553),
+      then updates it with an openehr-version header naming the
+      lifecycle_state 801 (abandoned). The latest VERSION carries the
+      lifecycle_state 801 and names the incomplete version as its preceding
+      version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &abandon
+      source: specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc
+      section: Abandoned and Inactive States
+      quote: "The version containing such an item may be transitioned to the `abandoned` state to represent this state of affairs."
+      level: may
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_incomplete
+        stepId: commit
+        description: Create the event COMPOSITION in the incomplete state, keep its version_uid and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="553"' }
+        requestBody: *event_body
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &abandon_step
+        stepId: abandon
+        description: Update the COMPOSITION with the lifecycle_state 801 in openehr-version, and keep the version_uid the representation carries.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="801"' }
+        requestBody: *event_body
+        successCriteria:
+          - *updated
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^801$'
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+            x-veredictum-cite: *new_version
+
+  - workflowId: update_composition-lifecycle_reactivate
+    summary: An inactive COMPOSITION updated with lifecycle_state 532 is complete again in a new version
+    description: >-
+      Creates an EHR and a complete event COMPOSITION, deactivates it with
+      lifecycle_state 800, then updates it with lifecycle_state 532
+      (complete). The latest VERSION carries 532 and names the inactive
+      version as its preceding version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &reactivate_or_retrieve
+      source: specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc
+      section: Abandoned and Inactive States
+      quote: "An `inactive` item may be reactivated back to the `complete` state, or retrieved back to the `incomplete` state (see table below for examples of when)."
+      level: may
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_complete
+      - *deactivate_step
+      - stepId: reactivate
+        description: Update the inactive COMPOSITION with the lifecycle_state 532 in openehr-version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.deactivate.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="532"' }
+        requestBody: *event_body
+        successCriteria:
+          - *updated
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^532$'
+          - &preceded_by_deactivate
+            context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.deactivate.outputs.version_uid}$'
+            x-veredictum-cite: *new_version
+
+  - workflowId: update_composition-lifecycle_retrieve_inactive
+    summary: An inactive COMPOSITION updated with lifecycle_state 553 is incomplete again in a new version
+    description: >-
+      Creates an EHR and a complete event COMPOSITION, deactivates it with
+      lifecycle_state 800, then updates it with lifecycle_state 553
+      (incomplete). The latest VERSION carries 553 and names the inactive
+      version as its preceding version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *reactivate_or_retrieve
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_complete
+      - *deactivate_step
+      - stepId: retrieve
+        description: Update the inactive COMPOSITION with the lifecycle_state 553 in openehr-version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.deactivate.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="553"' }
+        requestBody: *event_body
+        successCriteria:
+          - *updated
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - &state_incomplete
+            context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^553$'
+          - *preceded_by_deactivate
+
+  - workflowId: update_composition-lifecycle_retrieve_abandoned
+    summary: An abandoned COMPOSITION updated with lifecycle_state 553 is incomplete again in a new version
+    description: >-
+      Creates an EHR and an incomplete event COMPOSITION, abandons it with
+      lifecycle_state 801, then updates it with lifecycle_state 553
+      (incomplete). The latest VERSION carries 553 and names the abandoned
+      version as its preceding version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc
+      section: Abandoned and Inactive States
+      quote: "If circumstances change again and the abandoned item once more becomes relevant, it may be transitioned back to the `incomplete` state via the `retrieve` transition."
+      level: may
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_incomplete
+      - *abandon_step
+      - stepId: retrieve
+        description: Update the abandoned COMPOSITION with the lifecycle_state 553 in openehr-version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.abandon.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="553"' }
+        requestBody: *event_body
+        successCriteria:
+          - *updated
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *state_incomplete
+          - &preceded_by_abandon
+            context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.abandon.outputs.version_uid}$'
+            x-veredictum-cite: *new_version
+
+  - workflowId: delete_composition-lifecycle_inactive
+    summary: An inactive COMPOSITION is logically deleted in a new version
+    description: >-
+      Creates an EHR and a complete event COMPOSITION, deactivates it with
+      lifecycle_state 800, then deletes it by the version_uid of the inactive
+      version. The delete is answered 204, and the latest VERSION carries the
+      lifecycle_state 523 (deleted) and names the inactive version as its
+      preceding version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &delete_any_time
+      source: specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc
+      section: Abandoned and Inactive States
+      quote: "An abandoned or inactive content item may be deleted at any time, if it is determined to be of no potential future use."
+      level: may
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_complete
+      - *deactivate_step
+      - stepId: delete
+        description: Delete the inactive COMPOSITION by the version_uid of its latest version.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.deactivate.outputs.version_uid }
+        successCriteria:
+          - &deleted
+            condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned for a successful delete operation."
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - &state_deleted
+            context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^523$'
+          - *preceded_by_deactivate
+
+  - workflowId: delete_composition-lifecycle_abandoned
+    summary: An abandoned COMPOSITION is logically deleted in a new version
+    description: >-
+      Creates an EHR and an incomplete event COMPOSITION, abandons it with
+      lifecycle_state 801, then deletes it by the version_uid of the
+      abandoned version. The delete is answered 204, and the latest VERSION
+      carries the lifecycle_state 523 (deleted) and names the abandoned
+      version as its preceding version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *delete_any_time
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_incomplete
+      - *abandon_step
+      - stepId: delete
+        description: Delete the abandoned COMPOSITION by the version_uid of its latest version.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.abandon.outputs.version_uid }
+        successCriteria:
+          - *deleted
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, its lifecycle_state and its preceding version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *state_deleted
+          - *preceded_by_abandon

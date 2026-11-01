@@ -1,0 +1,394 @@
+# The ITEM_TAG semantics the development RM adds on a COMPOSITION: the key
+# and value invariants as refusals with their accepted control, a tag that
+# does not re-version its target, and a tag instance per target, as Arazzo
+# 1.1.0 workflows over the released ITS-REST `-validation` OAS. Every
+# workflow rests on the pinned development snapshot of the RM, so the
+# released profile skips it as development-only. Every criterion resolves to
+# an `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION tag semantics
+  version: 0.1.0
+  x-veredictum-section: composition-tags
+  description: >-
+    The development RM includes the tags chapter. An ITEM_TAG key may not be
+    empty or carry leading or trailing whitespace and a value that is set may
+    not be empty, so a tag list breaking either is refused; the release
+    assigns that refusal no status, so the 422 rests on upstream report #750.
+    A tag does not re-version the content it annotates, and each target
+    carries its own tag instance, so deleting one leaves the other.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: composition_tags_update-key_value_valid
+    summary: A tag whose key and value are non-empty and unpadded is stored
+    description: >-
+      Creates an EHR, commits a COMPOSITION, then updates the tag list of the
+      version with the one tag key k, value v. The update answers 204, and
+      the list read back holds that tag. It is the control of every key and
+      value refusal below, which sends the same list with one defect.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &key_valid
+      source: specs/openehr-development/specifications-RM/docs/UML/classes/org.openehr.rm.common.item_tag.adoc
+      section: ITEM_TAG Class
+      quote: "__Inv_key_valid__: `not key.is_empty and key.is_justified`"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Commit a COMPOSITION, keep the version_uid of the full representation it answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: &commit_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &composition_body
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: content case carrier }
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+              rm_version: 1.0.2
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: NL
+            category:
+              _type: DV_CODED_TEXT
+              value: event
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "433"
+            composer: { _type: PARTY_SELF }
+            context:
+              _type: EVENT_CONTEXT
+              start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+              setting:
+                _type: DV_CODED_TEXT
+                value: other care
+                defining_code:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                  code_string: "238"
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: content observation }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: 1.0.2
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: history }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: any event }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: tree }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: value }
+                            archetype_node_id: at0004
+                            value: { _type: DV_COUNT, magnitude: 15 }
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &tag_k
+        stepId: tag
+        description: Update the version's tag list with the tag key k, value v, sending no Prefer header.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters: &tag_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: k, value: v }
+        successCriteria:
+          - &tags_updated
+            condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the version's tags.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &list_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'k' && @.value == 'v']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: composition_tags_update-key_leading_space
+    x-veredictum-control: composition_tags_update-key_value_valid
+    summary: A tag whose key starts with a space is refused with 422
+    description: >-
+      Creates an EHR, commits a COMPOSITION, then updates the tag list of the
+      version with the one tag key " k", value v. The key carries leading
+      whitespace, which the ITEM_TAG key may not, so the update is refused
+      with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &key_justified
+      source: specs/openehr-development/specifications-RM/docs/UML/classes/org.openehr.rm.common.item_tag.adoc
+      section: ITEM_TAG Class
+      quote: "The tag key. May not be empty or contain leading or trailing whitespace."
+      level: must
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: tag
+        description: Update the version's tag list with the tag key " k", value v.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters: *tag_parameters
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: " k", value: v }
+        successCriteria:
+          - &invalid_tag
+            condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: description
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+              report: 750
+
+  - workflowId: composition_tags_update-key_trailing_space
+    x-veredictum-control: composition_tags_update-key_value_valid
+    summary: A tag whose key ends with a space is refused with 422
+    description: >-
+      Creates an EHR, commits a COMPOSITION, then updates the tag list of the
+      version with the one tag key "k ", value v. The key carries trailing
+      whitespace, which the ITEM_TAG key may not, so the update is refused
+      with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *key_justified
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: tag
+        description: Update the version's tag list with the tag key "k ", value v.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters: *tag_parameters
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: "k ", value: v }
+        successCriteria:
+          - *invalid_tag
+
+  - workflowId: composition_tags_update-key_empty
+    x-veredictum-control: composition_tags_update-key_value_valid
+    summary: A tag whose key is empty is refused with 422
+    description: >-
+      Creates an EHR, commits a COMPOSITION, then updates the tag list of the
+      version with the one tag key "", value v. The ITEM_TAG key may not be
+      empty, so the update is refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *key_valid
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: tag
+        description: Update the version's tag list with the tag key "", value v.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters: *tag_parameters
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: "", value: v }
+        successCriteria:
+          - *invalid_tag
+
+  - workflowId: composition_tags_update-value_empty
+    x-veredictum-control: composition_tags_update-key_value_valid
+    summary: A tag whose value is set and empty is refused with 422
+    description: >-
+      Creates an EHR, commits a COMPOSITION, then updates the tag list of the
+      version with the one tag key k, value "". A value that is set may not
+      be empty, so the update is refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-RM/docs/UML/classes/org.openehr.rm.common.item_tag.adoc
+      section: ITEM_TAG Class
+      quote: "__Inv_value_valid__: `value /= Void implies not value.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: tag
+        description: Update the version's tag list with the tag key k, value "".
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters: *tag_parameters
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: k, value: "" }
+        successCriteria:
+          - *invalid_tag
+
+  - workflowId: composition_tags_update-no_reversioning
+    summary: Tagging a COMPOSITION version leaves its latest version_uid unchanged
+    description: >-
+      Creates an EHR, commits a COMPOSITION, tags the committed version with
+      key k, value v, then reads the latest VERSION of the COMPOSITION's
+      container. A tag does not re-version the content it annotates, so the
+      latest version is still the one the commit created.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-RM/docs/ehr/master04-ehr_package.adoc
+      section: Tags
+      quote: "accordingly, where they annotate versioned content, they do not cause re-versioning of the content;"
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_k
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION's container; its uid is the committed version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: composition_tags_delete-other_target_kept
+    summary: Deleting a tag on one COMPOSITION leaves the tag of the same key on another
+    description: >-
+      Creates an EHR, commits two COMPOSITIONs, and tags each version with
+      key k, value v, then deletes the key k from the first version. Each
+      target carries its own tag instance, so the second version's list
+      still holds the tag k.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-RM/docs/ehr/master04-ehr_package.adoc
+      section: Tags
+      quote: "If one is modified or deleted, it has no effect on the others."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_k
+      - stepId: commit-other
+        description: Commit a second COMPOSITION and keep the version_uid of the full representation it answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: *commit_parameters
+        requestBody: *composition_body
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: tag-other
+        description: Update the second version's tag list with the tag key k, value v.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit-other.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: k, value: v }
+        successCriteria:
+          - *tags_updated
+      - stepId: delete
+        description: Delete the key k from the first version's tags.
+        operationId: $sourceDescriptions.ehr.composition_tags_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: key, in: path, value: k }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned when the resource identified by the request parameters has been (logically) deleted."
+      - stepId: get-other
+        description: Retrieve the second version's tags; the tag k is still there.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit-other.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'k' && @.value == 'v']"

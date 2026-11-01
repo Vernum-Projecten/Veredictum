@@ -821,6 +821,7 @@ documents:
   admin_ehr_delete_all_refused: { formats: [canonical-json] }
   admin_ehr_delete_all_unfiltered: { formats: [canonical-json] }
   agent: { formats: [canonical-json] }
+  agent_direct_commit: { formats: [canonical-json] }
   agent_refused: { formats: [canonical-json] }
   agent_tags: { formats: [canonical-json] }
   anonymous_ehr: { formats: [canonical-json] }
@@ -831,6 +832,7 @@ documents:
   aql_semantics: { formats: [canonical-json] }
   aql_stored: { formats: [canonical-json] }
   aql_stored_top: { formats: [canonical-json] }
+  aql_version_predicate: { formats: [canonical-json] }
   aqlc_aggregation: { formats: [canonical-json] }
   aqlc_from: { formats: [canonical-json] }
   aqlc_order_by: { formats: [canonical-json] }
@@ -843,6 +845,8 @@ documents:
   composition_create: { formats: [canonical-json] }
   composition_create_refused: { formats: [canonical-json] }
   composition_delete: { formats: [canonical-json] }
+  composition_direct_commit: { formats: [canonical-json] }
+  composition_lifecycle: { formats: [canonical-json] }
   composition_read: { formats: [canonical-json] }
   composition_read_container: { formats: [canonical-json] }
   composition_read_flat_not_acceptable: { formats: [canonical-json] }
@@ -851,6 +855,8 @@ documents:
   composition_tags: { formats: [canonical-json] }
   composition_tags_party_uid: { formats: [canonical-json] }
   composition_tags_refused: { formats: [canonical-json] }
+  composition_tags_semantics: { formats: [canonical-json] }
+  composition_text_value_refused: { formats: [canonical-json] }
   composition_update: { formats: [canonical-json] }
   composition_update_refused: { formats: [canonical-json] }
   composition_update_xml_write_refused: { formats: [canonical-json] }
@@ -903,6 +909,7 @@ documents:
   content_observation: { formats: [canonical-json] }
   contribution_create: { formats: [canonical-json] }
   contribution_create_refused: { formats: [canonical-json] }
+  contribution_lifecycle: { formats: [canonical-json] }
   contribution_read: { formats: [canonical-json] }
   contribution_read_flat_not_acceptable: { formats: [canonical-json] }
   contribution_read_structured_not_acceptable: { formats: [canonical-json] }
@@ -956,6 +963,7 @@ documents:
   ehr_bulk_load: { formats: [canonical-json] }
   ehr_committal: { formats: [canonical-json] }
   ehr_status: { formats: [canonical-json] }
+  ehr_status_direct_commit: { formats: [canonical-json] }
   ehr_status_flags: { formats: [canonical-json] }
   ehr_status_read_flat_not_acceptable: { formats: [canonical-json] }
   ehr_status_read_structured_not_acceptable: { formats: [canonical-json] }
@@ -969,19 +977,23 @@ documents:
   ehr_tags: { formats: [canonical-json] }
   ehr_xml_not_acceptable_json_setup: { formats: [canonical-json] }
   group: { formats: [canonical-json] }
+  group_direct_commit: { formats: [canonical-json] }
   group_refused: { formats: [canonical-json] }
   group_tags: { formats: [canonical-json] }
   legacy_write_refused: { formats: [canonical-json] }
   organisation: { formats: [canonical-json] }
+  organisation_direct_commit: { formats: [canonical-json] }
   organisation_refused: { formats: [canonical-json] }
   organisation_tags: { formats: [canonical-json] }
   party_read_xml_not_acceptable: { formats: [canonical-json] }
   party_write_xml_not_acceptable: { formats: [canonical-json] }
   party_xml_write_refused: { formats: [canonical-json] }
   person: { formats: [canonical-json] }
+  person_direct_commit: { formats: [canonical-json] }
   person_refused: { formats: [canonical-json] }
   person_tags: { formats: [canonical-json] }
   role: { formats: [canonical-json] }
+  role_direct_commit: { formats: [canonical-json] }
   role_refused: { formats: [canonical-json] }
   role_tags: { formats: [canonical-json] }
   smart_scopes: { formats: [canonical-json] }
