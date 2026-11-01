@@ -1,8 +1,9 @@
 # At-coded ADL 2 operational templates of the DEFINITION API: the upload of
 # a valid at-coded raw operational template written here for the purpose,
-# its read, and the empty and unparseable upload refusals controlled by that
-# upload. The at-code coding system is development text, so every workflow
-# here is development-only. Every quote is copied verbatim from the named
+# its read, and the empty, unparseable, empty original_author and empty
+# lifecycle_state upload refusals controlled by that upload. The at-code
+# coding system and the RESOURCE_DESCRIPTION invariants are development text,
+# so every workflow here is development-only. Every quote is copied verbatim from the named
 # vendored file.
 arazzo: 1.1.0
 info:
@@ -11,8 +12,9 @@ info:
   x-veredictum-section: adl-2-templates
   description: >-
     Uploading an at-coded ADL 2 operational template, reading it back, and
-    refusing an upload that holds no template or does not parse, through the
-    DEFINITION API.
+    refusing an upload that holds no template, does not parse, or describes
+    the template with an empty original_author or lifecycle_state, through
+    the DEFINITION API.
 sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
@@ -48,7 +50,7 @@ workflows:
           # NOTE: development ADL2 master04.2-cadl_basics.adoc §Node Identifier and Coding Systems:
           # an at-coded root object is always at0000; master10-templates.adoc gives the OPT form.
           payload: |-
-            operational_template (adl_version=2.4.0; rm_release=1.0.2; generated)
+            operational_template (adl_version=2.4.0; rm_release=1.0.2; build_uid=65E1A867-01E5-43BB-889C-080D280307DA; generated)
                 openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0
 
             language
@@ -235,6 +237,246 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: "operational_template (adl_version=2.0.6; rm_release=1.0.2; generated"
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: upload_template_adl2-at_coded-original_author_empty
+    x-veredictum-control: upload_template_adl2-at_coded
+    summary: An ADL 2 template whose original_author is empty is refused with 400
+    description: >-
+      Uploads the at-coded ADL 2 operational template under a fresh
+      template_id with one defect: its description holds an empty
+      original_author, written as the empty ODIN object <>. The development
+      RESOURCE_DESCRIPTION invariant requires a non-empty original_author, so
+      the template is invalid content and the upload is refused with 400. The
+      control uploads the same template with its original_author.
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-BASE/docs/UML/classes/org.openehr.base.resource.resource_description.adoc
+      section: RESOURCE_DESCRIPTION Class
+      quote: "__Original_author_valid__: `not original_author.is_empty`"
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the at-coded template whose original_author is empty.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.4.0; rm_release=1.0.2; build_uid=9D266438-FB99-4518-9C10-3FC1122EF7A7; generated)
+                openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <>
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"An at-coded operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[at0000] matches {
+                    category matches {
+                        DV_CODED_TEXT[at0001] matches {
+                            defining_code matches {[at0002]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[at0003, openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[at0001] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[at0002] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[at0003] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[at0004] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[at0005]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["at0000"] = <
+                            text = <"Minimal at-coded">
+                            description = <"An at-coded event composition">
+                        >
+                        ["at0002"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                        ["at0003"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at0002"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["at0000"] = <
+                                text = <"Minimal observation">
+                                description = <"An at-coded observation with one text element">
+                            >
+                            ["at0002"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["at0004"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: upload_template_adl2-at_coded-lifecycle_state_empty
+    x-veredictum-control: upload_template_adl2-at_coded
+    summary: An ADL 2 template whose lifecycle_state is empty is refused with 400
+    description: >-
+      Uploads the at-coded ADL 2 operational template under a fresh
+      template_id with one defect: its description holds an empty
+      lifecycle_state, the empty string. The development RESOURCE_DESCRIPTION
+      invariant requires a non-empty lifecycle_state, so the template is
+      invalid content and the upload is refused with 400. The control uploads
+      the same template with the lifecycle_state unmanaged.
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-BASE/docs/UML/classes/org.openehr.base.resource.resource_description.adoc
+      section: RESOURCE_DESCRIPTION Class
+      quote: "__Lifecycle_state_valid__: `not lifecycle_state.is_empty`"
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the at-coded template whose lifecycle_state is empty.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.4.0; rm_release=1.0.2; build_uid=BFEFD569-4DB3-4401-ABDB-7B5CDAAE1D49; generated)
+                openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"An at-coded operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[at0000] matches {
+                    category matches {
+                        DV_CODED_TEXT[at0001] matches {
+                            defining_code matches {[at0002]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[at0003, openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[at0001] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[at0002] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[at0003] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[at0004] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[at0005]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["at0000"] = <
+                            text = <"Minimal at-coded">
+                            description = <"An at-coded event composition">
+                        >
+                        ["at0002"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                        ["at0003"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at0002"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["at0000"] = <
+                                text = <"Minimal observation">
+                                description = <"An at-coded observation with one text element">
+                            >
+                            ["at0002"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["at0004"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
         successCriteria:
           - condition: $statusCode == 400
             x-veredictum-cite: *bad_request

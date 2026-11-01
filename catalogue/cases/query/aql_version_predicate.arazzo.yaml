@@ -1,8 +1,9 @@
 # The version predicates of the development AQL: a query with no VERSION
 # class expression, a VERSION class expression without a predicate or with
 # LATEST_VERSION, each applied to the latest version only, ALL_VERSIONS
-# applied to every version, and a version predicate on a class other than
-# VERSION refused, as Arazzo 1.1.0 workflows over the released ITS-REST
+# applied to every version, a standard predicate selecting an earlier
+# version, and a version predicate on a class other than VERSION refused, as
+# Arazzo 1.1.0 workflows over the released ITS-REST
 # `-validation` OAS. Each workflow commits a COMPOSITION in its own EHR and
 # updates it once, so its container holds two versions, then executes one
 # ad-hoc query scoped to that EHR by the `$ehr_id` parameter. Every workflow
@@ -17,7 +18,8 @@ info:
   description: >-
     The versions an AQL query is applied to: the latest version only with no
     VERSION class expression, with VERSION v and with VERSION
-    v[LATEST_VERSION], every version with VERSION v[ALL_VERSIONS], and a
+    v[LATEST_VERSION], every version with VERSION v[ALL_VERSIONS], an
+    earlier version selected by a standard predicate on VERSION, and a
     version predicate on a COMPOSITION class expression refused with 400.
 sourceDescriptions:
   - name: ehr
@@ -342,3 +344,103 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
               section: description
               quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."
+
+  - workflowId: version-standard_predicate-uid
+    summary: A standard predicate on the uid of VERSION selects an earlier version
+    description: >-
+      Commits a COMPOSITION with composer Dr. House and updates it to
+      composer Dr. Cuddy, then queries the composer through VERSION
+      v[uid/value=$v1], the parameter v1 naming the version_uid of the first
+      commit. A standard predicate is how earlier versions are queried, so
+      the result holds the row Dr. House. The text does not say whether the
+      predicate replaces the latest-only default or combines with it, so no
+      row count is asserted.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &standard_predicate
+      source: specs/openehr-development/specifications-QUERY/docs/AQL/master03-syntax.adoc
+      section: Version predicate
+      quote: "To query earlier versions, `ALL_VERSIONS` or a standard predicate has to be stated."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id and the first version_uid passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS VERSION v[uid/value=$v1] CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+              v1: replaced with the version_uid of the first commit
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+            - { target: /query_parameters/v1, value: $steps.commit.outputs.version_uid }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: contains
+              rows: [[Dr. House]]
+
+  - workflowId: version-standard_predicate-change_type
+    summary: A standard predicate on the commit change type of VERSION selects the created version
+    description: >-
+      Commits a COMPOSITION with composer Dr. House and updates it to
+      composer Dr. Cuddy, then queries the composer through VERSION
+      v[commit_audit/change_type/defining_code/code_string='249']. The commit
+      sends no openehr-audit-details header, so its change type is the POST
+      default 249 (creation). A standard predicate is how earlier versions
+      are queried, so the result holds the row Dr. House. The text does not
+      say whether the predicate replaces the latest-only default or combines
+      with it, so no row count is asserted.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *standard_predicate
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: query
+        description: Execute the query over the EHR, its ehr_id passed as the query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/composer/name AS composer FROM EHR e[ehr_id/value=$ehr_id] CONTAINS VERSION v[commit_audit/change_type/defining_code/code_string='249'] CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the workflow
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $inputs.ehr_id }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: contains
+              rows: [[Dr. House]]
+            x-veredictum-cite:
+              source: specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-version and openehr-audit-details
+              quote: "When `change_type` is not provided by the client, the server MUST set it according to the HTTP method of the operation: `creation` (code `249`) for `POST`, `modification` (code `251`) for `PUT`, and `deleted` (code `523`) for `DELETE`."

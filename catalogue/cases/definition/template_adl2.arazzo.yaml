@@ -54,7 +54,7 @@ workflows:
           # NOTE: AM OPT2 master03-opt_raw.adoc §Artefact Structure gives the
           # outer structure; ADL2 master07.08 §Description Section the minimal description.
           payload: &minimal_opt |-
-            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; build_uid=8CF13677-6341-411B-B01A-A624CABB438C; generated)
                 openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
 
             language
@@ -237,7 +237,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; build_uid=AAA8E7D1-ED6B-49FA-BBE8-F616DCF0FDE9; generated)
                 openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
 
             language
@@ -356,7 +356,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; build_uid=DF45FE63-B916-4BDB-830E-77E3080DEF09; generated)
                 openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
 
             language
@@ -803,7 +803,7 @@ workflows:
           # NOTE: AM Identification master04-versioning.adoc; the minimal template
           # above with the release version 1.1.0 in its identifier.
           payload: |-
-            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; build_uid=8BFDB0C7-B174-4BD7-8F51-913D4A7C5E9D; generated)
                 openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.1.0
 
             language
