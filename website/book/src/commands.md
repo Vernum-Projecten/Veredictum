@@ -416,6 +416,11 @@ citing development text alone is refused: the setup would run under the
 released profile and the released verdict would rest on development text. A
 development-only case may depend on anything.
 
+**`dependsOn` cycles (`arazzo-depends-on-cycle`).** A workflow whose
+`dependsOn` leads back to itself, directly, through other workflows of its
+document, or through `$sourceDescriptions` of other documents, can never
+start. Each workflow on the cycle is refused, and the finding names the chain.
+
 **`chapters.yaml` (`arazzo-structure`)** is the reading structure every view
 follows: it places each capability folder in one chapter and declares each
 folder's BASE sections. A document no option arm names is BASE and names its

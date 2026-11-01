@@ -27,6 +27,7 @@ use serde_json::Value;
 use crate::arazzo::check::Check;
 use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, check_level, citation_of};
 use crate::arazzo::control::{CONTROL_KEY, Control, ControlError, control_of, is_refusal};
+use crate::arazzo::depends::{Library, Unresolvable};
 use crate::arazzo::derive::{DERIVE_KEY, DeriveError, derivations_of};
 use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
 use crate::arazzo::gates::Gate;
@@ -39,10 +40,6 @@ use crate::arazzo::source::{
 };
 use crate::arazzo::structure::SECTION_KEY;
 use crate::arazzo::xpath::XPathCriterion;
-
-/// Every workflow of one `type: arazzo` source, by id, with whether it is a
-/// refusal workflow.
-type Dependency = BTreeMap<String, bool>;
 
 /// The specification-extension key of the catalogue's own judges.
 pub const CHECK_KEY: &str = "x-veredictum-check";
@@ -251,54 +248,18 @@ impl ArazzoDocument {
         }
         extension_keys(&self.raw, &mut Vec::new(), &mut findings);
         let mut quotes = repo_root.map(QuoteChecker::new);
-        let dependencies = self.dependency_sources();
+        let library = Library::new([self]);
         for workflow in &self.description.workflows {
-            self.check_workflow(workflow, quotes.as_mut(), &dependencies, &mut findings);
+            self.check_workflow(workflow, quotes.as_mut(), &library, &mut findings);
         }
         findings
-    }
-
-    /// Loads each `type: arazzo` source a `dependsOn` or an
-    /// `x-veredictum-control` names once, keeping whether each of its
-    /// workflows is a refusal workflow, by id, or the reason it did not load.
-    fn dependency_sources(&self) -> BTreeMap<&str, Result<Dependency, String>> {
-        let mut loaded = BTreeMap::new();
-        for workflow in &self.description.workflows {
-            // NOTE: no openEHR spec governs this — our own design; a malformed control is
-            // `check_control`'s finding, so here it names no source to load.
-            let controls = match control_of(workflow.extensions.as_ref()) {
-                Ok(Some(Control::Workflows(named))) => named,
-                _ => Vec::new(),
-            };
-            for id in workflow.depends_on.iter().chain(&controls) {
-                let Some((source, _)) = split_qualified(id) else {
-                    continue;
-                };
-                let Some((name, file)) = self.workflow_sources.get_key_value(source) else {
-                    continue;
-                };
-                loaded.entry(name.as_str()).or_insert_with(|| {
-                    Self::load(file)
-                        .map(|other| {
-                            other
-                                .description
-                                .workflows
-                                .iter()
-                                .map(|w| (w.workflow_id.clone(), is_refusal(w)))
-                                .collect()
-                        })
-                        .map_err(|error| error.to_string())
-                });
-            }
-        }
-        loaded
     }
 
     fn check_workflow(
         &self,
         workflow: &Workflow,
         mut quotes: Option<&mut QuoteChecker<'_>>,
-        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
+        library: &Library<'_>,
         findings: &mut Vec<Finding>,
     ) {
         let at = workflow.workflow_id.clone();
@@ -312,11 +273,14 @@ impl ArazzoDocument {
             findings,
         );
         for id in &workflow.depends_on {
-            if let Some(problem) = self.dependency_problem(id, dependencies) {
-                findings.push(Finding::new(&at, FindingKind::Unsupported(problem)));
+            if let Err(reason) = library.resolve(self, id) {
+                findings.push(Finding::new(
+                    &at,
+                    FindingKind::Unsupported(dependency_problem(id, &reason)),
+                ));
             }
         }
-        for error in self.check_controls(workflow, dependencies) {
+        for error in self.check_controls(workflow, library) {
             findings.push(Finding::new(&at, FindingKind::Control(error)));
         }
         if !workflow.success_actions.is_empty()
@@ -359,47 +323,10 @@ impl ArazzoDocument {
         }
     }
 
-    /// Why a `dependsOn` entry does not name a workflow: one of this
-    /// document, or `$sourceDescriptions.<name>.<workflowId>` of a
-    /// `type: arazzo` source (Arazzo 1.1.0 §Workflow Object `dependsOn`).
-    fn dependency_problem(
-        &self,
-        id: &str,
-        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
-    ) -> Option<String> {
-        let Some((source, workflow_id)) = split_qualified(id) else {
-            return self
-                .workflow(id)
-                .is_none()
-                .then(|| format!("dependsOn `{id}`, which is not a workflow of this document"));
-        };
-        let Some(file) = self.workflow_sources.get(source) else {
-            return Some(format!(
-                "dependsOn `{id}`, whose source `{source}` is not a `type: arazzo` source"
-            ));
-        };
-        match dependencies.get(source) {
-            Some(Ok(workflows)) if workflows.contains_key(workflow_id) => None,
-            Some(Ok(_)) => Some(format!(
-                "dependsOn `{id}`, which is not a workflow of `{}`",
-                file.display()
-            )),
-            Some(Err(error)) => Some(format!("dependsOn `{id}`: {error}")),
-            None => Some(format!(
-                "dependsOn `{id}`: `{}` was not loaded",
-                file.display()
-            )),
-        }
-    }
-
     /// Checks a workflow's `x-veredictum-control`: a refusal workflow names
     /// at least one control, any other names none, and each one it names is
     /// another workflow that exists and is not itself a refusal workflow.
-    fn check_controls(
-        &self,
-        workflow: &Workflow,
-        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
-    ) -> Vec<ControlError> {
+    fn check_controls(&self, workflow: &Workflow, library: &Library<'_>) -> Vec<ControlError> {
         let control = match control_of(workflow.extensions.as_ref()) {
             Ok(control) => control,
             Err(error) => return vec![error],
@@ -410,7 +337,7 @@ impl ArazzoDocument {
             (false, None) | (true, Some(Control::Pending(_))) => Vec::new(),
             (true, Some(Control::Workflows(controls))) => controls
                 .into_iter()
-                .filter_map(|control| self.check_control(workflow, control, dependencies).err())
+                .filter_map(|control| self.check_control(workflow, control, library).err())
                 .collect(),
         }
     }
@@ -420,30 +347,22 @@ impl ArazzoDocument {
         &self,
         workflow: &Workflow,
         control: String,
-        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
+        library: &Library<'_>,
     ) -> Result<(), ControlError> {
         if control == workflow.workflow_id {
             return Err(ControlError::Itself);
         }
-        let refuses = match split_qualified(&control) {
-            None => self.workflow(&control).map(is_refusal),
-            Some((source, workflow_id)) => match dependencies.get(source) {
-                Some(Ok(workflows)) => workflows.get(workflow_id).copied(),
-                _ => None,
-            },
-        };
-        match refuses {
-            None => {
-                let reason = if split_qualified(&control).is_some() {
-                    self.dependency_problem(&control, dependencies)
-                        .unwrap_or_else(|| "which is not a workflow of its source".to_owned())
-                } else {
-                    "which is not a workflow of this document".to_owned()
-                };
+        match library.resolve(self, &control) {
+            Ok(target) if is_refusal(target.workflow) => Err(ControlError::ControlRefuses(control)),
+            Ok(_) => Ok(()),
+            Err(Unresolvable::NoLocalWorkflow { .. }) => Err(ControlError::Unknown {
+                control,
+                reason: "which is not a workflow of this document".to_owned(),
+            }),
+            Err(unresolvable) => {
+                let reason = dependency_problem(&control, &unresolvable);
                 Err(ControlError::Unknown { control, reason })
             }
-            Some(true) => Err(ControlError::ControlRefuses(control)),
-            Some(false) => Ok(()),
         }
     }
 
@@ -905,6 +824,28 @@ impl FindingKind {
             | Self::UnresolvedParameter(_)
             | Self::UndeclaredParameter { .. } => Gate::Source,
             Self::Control(_) => Gate::Identity,
+        }
+    }
+}
+
+/// Why the `dependsOn` entry `id` names no workflow: one of this document,
+/// or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo` source
+/// (Arazzo 1.1.0 §Workflow Object `dependsOn`).
+fn dependency_problem(id: &str, reason: &Unresolvable) -> String {
+    match reason {
+        Unresolvable::NoLocalWorkflow { .. } => {
+            format!("dependsOn `{id}`, which is not a workflow of this document")
+        }
+        Unresolvable::NotArazzoSource { name } => {
+            format!("dependsOn `{id}`, whose source `{name}` is not a `type: arazzo` source")
+        }
+        Unresolvable::NoWorkflow { file, .. } => format!(
+            "dependsOn `{id}`, which is not a workflow of `{}`",
+            file.display()
+        ),
+        Unresolvable::NotLoaded { reason, .. } => format!("dependsOn `{id}`: {reason}"),
+        Unresolvable::NotFollowed { file } => {
+            format!("dependsOn `{id}`: `{}` was not loaded", file.display())
         }
     }
 }
@@ -1617,6 +1558,53 @@ mod tests {
                 kinds(&dir, &doc)
             );
         }
+    }
+
+    #[test]
+    fn every_unresolvable_depends_on_and_control_keeps_its_wording() {
+        let (dir, _) = fixture(&(twin() + &refusal("r", Some("twin"))));
+        let refused = refusal(
+            "w",
+            Some(
+                "[nope, $sourceDescriptions.ehr.twin, $sourceDescriptions.other.nope, \
+                 $sourceDescriptions.missing.w, $sourceDescriptions.other.r, $sourceDescriptions.other.twin]",
+            ),
+        )
+        .replace(
+            "    steps:\n",
+            "    dependsOn: [nope, $sourceDescriptions.ehr.twin, $sourceDescriptions.other.nope, \
+             $sourceDescriptions.missing.w, $sourceDescriptions.other.twin]\n    steps:\n",
+        );
+        let doc = format!(
+            "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }}\n  - {{ name: other, url: ehr.arazzo.yaml, type: arazzo }}\n  - {{ name: missing, url: nowhere.arazzo.yaml, type: arazzo }}\nworkflows:\n{refused}"
+        );
+        let file = dir.child("catalogue/cases/refused.arazzo.yaml");
+        file.write_str(&doc).unwrap();
+        let loaded = ArazzoDocument::load(file.path()).unwrap();
+        let cases = dir.path().join("catalogue/cases");
+        let other = cases.join("ehr.arazzo.yaml");
+        let missing = cases.join("nowhere.arazzo.yaml");
+        let unloadable = ArazzoDocument::load(&missing).unwrap_err().to_string();
+        let found: Vec<(String, String)> = loaded
+            .check(dir.path())
+            .into_iter()
+            .map(|f| (f.location, f.kind.to_string()))
+            .collect();
+        let at = |message: String| ("w".to_owned(), message);
+        assert_eq!(
+            found,
+            [
+                at("not driven by the evaluator: dependsOn `nope`, which is not a workflow of this document".to_owned()),
+                at("not driven by the evaluator: dependsOn `$sourceDescriptions.ehr.twin`, whose source `ehr` is not a `type: arazzo` source".to_owned()),
+                at(format!("not driven by the evaluator: dependsOn `$sourceDescriptions.other.nope`, which is not a workflow of `{}`", other.display())),
+                at(format!("not driven by the evaluator: dependsOn `$sourceDescriptions.missing.w`: {unloadable}")),
+                at("`x-veredictum-control` names `nope`, which is not a workflow of this document".to_owned()),
+                at("`x-veredictum-control` names `$sourceDescriptions.ehr.twin`, dependsOn `$sourceDescriptions.ehr.twin`, whose source `ehr` is not a `type: arazzo` source".to_owned()),
+                at(format!("`x-veredictum-control` names `$sourceDescriptions.other.nope`, dependsOn `$sourceDescriptions.other.nope`, which is not a workflow of `{}`", other.display())),
+                at(format!("`x-veredictum-control` names `$sourceDescriptions.missing.w`, dependsOn `$sourceDescriptions.missing.w`: {unloadable}")),
+                at("`x-veredictum-control` names `$sourceDescriptions.other.r`, which is itself a refusal workflow".to_owned()),
+            ]
+        );
     }
 
     #[test]

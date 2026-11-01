@@ -186,6 +186,16 @@ impl<'a> Library<'a> {
             .unwrap_or_else(|| DocumentKey::of(path))
     }
 
+    /// Every document the library holds that loaded, roots and sources
+    /// alike, in [`DocumentKey`] order.
+    pub fn documents(&self) -> impl Iterator<Item = &ArazzoDocument> {
+        self.held.values().filter_map(|held| match held {
+            Held::Root(document) => Some(*document),
+            Held::Loaded(document) => Some(&**document),
+            Held::Failed(_) => None,
+        })
+    }
+
     /// The workflow the `dependsOn` entry `entry` of a workflow of `from`
     /// names.
     ///

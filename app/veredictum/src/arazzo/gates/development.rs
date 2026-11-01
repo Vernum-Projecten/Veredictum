@@ -23,7 +23,7 @@ use roas_arazzo::v1_1::Workflow;
 use crate::arazzo::cite::Citation;
 use crate::arazzo::depends::{Library, Seen};
 use crate::arazzo::document::ArazzoDocument;
-use crate::arazzo::gates::{Gate, GateFinding, document_id};
+use crate::arazzo::gates::{Gate, GateFinding, workflow_label as label};
 use crate::arazzo::structure;
 
 /// Refuses every workflow of `documents` that is not development-only and
@@ -81,13 +81,6 @@ fn reach(library: &Library<'_>, document: &ArazzoDocument, workflow: &Workflow) 
             None => ControlFlow::Continue(()),
         }
     })
-}
-
-/// `<document>/<workflowId>`, the way a case id names a workflow.
-fn label(document: &ArazzoDocument, workflow: &Workflow) -> String {
-    let path = document.path();
-    let id = document_id(path).unwrap_or_else(|| path.display().to_string());
-    format!("{id}/{}", workflow.workflow_id)
 }
 
 /// The finding refusing `workflow` of `document` for what it reaches.
