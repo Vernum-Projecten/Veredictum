@@ -35,6 +35,7 @@ commit `9d25ea783f790512e05f908ef743626b4f7e8d2c`, the snapshot vendored under
 | `0759-simplified-other-rejections.patch` | #759 |
 | `0791-simplified-formats-tables-and-examples.patch` | #791 |
 | `0899-query-store-operation-ids.patch` | #899 |
+| `1008-direct-delete-lifecycle-deleted.patch` | #1008 |
 
 A patch is named after its report's number.
 `scripts/checks/upstream-patches-apply.sh` checks on every pull request that
