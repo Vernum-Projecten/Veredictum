@@ -3,8 +3,9 @@
 
 //! The persistent chrome (#61 §Look and feel).
 //!
-//! The static sidebar (seal, one entry per surface, the versions in the
-//! footer) and the instrument status banner around the routed `<Outlet/>`. The chrome renders exactly once
+//! The static sidebar (seal, one entry per surface, the engine version in
+//! the footer, read with the status line so capture mode can pin it) and the
+//! instrument status banner around the routed `<Outlet/>`. The chrome renders exactly once
 //! outside any Suspense: a `Suspend` closure re-runs on every notification of
 //! the resources it awaits and re-creates everything inside it, so a resource
 //! owned there gets a different id on the server than on the client and
@@ -24,6 +25,8 @@ use leptos_router::components::{A, Outlet};
 use leptos_router::hooks::use_location;
 
 use crate::components::toast::{self, ToastHost};
+use crate::error::ConsoleError;
+use crate::status_api::StatusLine;
 use crate::status_api::fns::fetch_status_line;
 use crate::theme;
 
@@ -130,6 +133,9 @@ pub fn Chrome(
     let location = use_location();
     let nav_open = RwSignal::new(false);
     let dark = RwSignal::new(false);
+    // Created in setup, never inside a Suspend (rules §4): the footer and the
+    // banner both render from this one fetch.
+    let status = Resource::new(|| (), |()| fetch_status_line());
 
     // Browser-only: re-apply the persisted theme after hydration. Reads the
     // outside world (localStorage), so an Effect is the correct home
@@ -186,7 +192,16 @@ pub fn Chrome(
                 </nav>
                 <div class="border-t border-edge px-4 py-3 text-xs text-ink-faint">
                     <div class="flex items-center justify-between">
-                        <span class="tabular-nums">{format!("engine {}", crate::ENGINE_PIN)}</span>
+                        <span class="tabular-nums">
+                            <Suspense fallback=|| ()>
+                                {move || Suspend::new(async move {
+                                    match status.await {
+                                        Ok(line) => format!("engine {}", line.engine),
+                                        Err(_) => "engine version unavailable".to_owned(),
+                                    }
+                                })}
+                            </Suspense>
+                        </span>
                         <button
                             class="rounded-control px-2 py-1 text-ink-muted hover:bg-sunken hover:text-ink"
                             aria-label="Toggle dark mode"
@@ -203,7 +218,7 @@ pub fn Chrome(
                 </div>
             </aside>
             <div class="flex min-w-0 flex-1 flex-col">
-                <StatusBanner />
+                <StatusBanner status />
                 <header class="flex items-center gap-3 border-b border-edge bg-raised px-4 py-2 lg:hidden">
                     <button
                         class="rounded-control border border-edge-strong px-2 py-1 text-sm text-ink"
@@ -234,10 +249,11 @@ pub fn Chrome(
     reason = "a Leptos component is mounted by the framework, never consumed as a value"
 )]
 #[component]
-pub fn StatusBanner() -> impl IntoView {
-    // Created in setup, never inside a Suspend (rules §4); the Suspend renders
-    // only the resolved text.
-    let status = Resource::new(|| (), |()| fetch_status_line());
+pub fn StatusBanner(
+    /// The status line the chrome fetched; the Suspend renders only the
+    /// resolved text.
+    status: Resource<Result<StatusLine, ConsoleError>>,
+) -> impl IntoView {
     view! {
         <p
             id="instrument-status"

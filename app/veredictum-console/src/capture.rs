@@ -6,9 +6,9 @@
 //!
 //! The book's screenshots photograph a live run's clock, the run's own
 //! identity, the address the fixture server bound and the latency the connect
-//! probe measured. Every one of those
-//! changes on every pass, so the `ui-screenshot-guard` job cannot tell a
-//! re-run from a real visual change.
+//! probe measured. Every one of those changes on every pass, and the chrome's
+//! engine version changes at every release, so the `ui-screenshot-guard` job
+//! cannot tell a re-run or a release from a real visual change.
 //!
 //! In capture mode the server functions answer with the fixed stand-ins
 //! below, so an unchanged console photographs identically. Nothing else
@@ -89,6 +89,25 @@ pub const PINNED_RUN_ID: RunId = RunId::NIL;
 /// moves on every pass; port zero is a port no server ever answers on, which
 /// makes the stand-in unmistakable.
 pub const PINNED_ENDPOINT: &str = "http://127.0.0.1:0";
+
+/// The engine version every captured surface shows in place of the linked
+/// one: the chrome's footer.
+///
+/// The linked version moves at every release, so without a stand-in each cut
+/// would stale every capture. `0.3.1` is the version the book's badge gallery
+/// pins its fixtures at, so the book names one engine version throughout.
+pub const PINNED_ENGINE_VERSION: &str = "0.3.1";
+
+/// The engine version the chrome prints: [`PINNED_ENGINE_VERSION`] under
+/// capture mode, the linked [`crate::ENGINE_PIN`] otherwise.
+#[must_use]
+pub fn engine_version(capture: bool) -> &'static str {
+    if capture {
+        PINNED_ENGINE_VERSION
+    } else {
+        crate::ENGINE_PIN
+    }
+}
 
 /// The live screen as this console answers it.
 #[cfg(feature = "ssr")]
@@ -427,6 +446,15 @@ mod tests {
     fn only_a_capture_serve_stills_the_frame() {
         assert_eq!(super::root_class(true), super::CAPTURE_CLASS);
         assert_eq!(super::root_class(false), "");
+    }
+
+    /// A capture names the pinned engine, so a release restales no image;
+    /// an ordinary serve names the engine it links.
+    #[test]
+    fn only_a_capture_pins_the_engine_version() {
+        assert_eq!(super::engine_version(true), super::PINNED_ENGINE_VERSION);
+        assert_eq!(super::PINNED_ENGINE_VERSION, "0.3.1");
+        assert_eq!(super::engine_version(false), crate::ENGINE_PIN);
     }
 
     /// The minted id every fixture run carries in the harness.

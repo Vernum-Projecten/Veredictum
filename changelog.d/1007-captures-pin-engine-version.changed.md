@@ -1,0 +1,1 @@
+- The console in documentation capture mode (`VEREDICTUM_CAPTURE_MODE`) shows engine version 0.3.1 in its sidebar, so a release changes no screenshot in the book. An ordinary console still shows the engine version it links.

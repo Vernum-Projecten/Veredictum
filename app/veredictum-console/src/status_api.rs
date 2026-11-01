@@ -19,19 +19,24 @@ pub struct StatusLine {
     pub summary: String,
     /// Whether this console issues certificates, which every page states.
     pub issuance: crate::certificates::IssuanceMode,
+    /// The engine version the chrome's footer prints: the linked one, or the
+    /// capture stand-in ([`crate::capture::engine_version`]).
+    pub engine: String,
 }
 
 #[cfg(feature = "ssr")]
 impl StatusLine {
-    /// The status of the engine this console is built against, and this
-    /// console's issuance mode.
+    /// The status of the engine this console is built against, this
+    /// console's issuance mode, and the engine version as `capture` mode
+    /// shows it.
     #[must_use]
-    pub fn of_engine(issuance: crate::certificates::IssuanceMode) -> Self {
+    pub fn of_engine(issuance: crate::certificates::IssuanceMode, capture: bool) -> Self {
         let status = veredictum::party::InstrumentStatus::CURRENT;
         Self {
             token: status.token().to_owned(),
             summary: status.summary().to_owned(),
             issuance,
+            engine: crate::capture::engine_version(capture).to_owned(),
         }
     }
 }
@@ -56,15 +61,18 @@ pub mod fns {
     use crate::error::ConsoleError;
     use leptos::prelude::server;
 
-    /// The linked engine's approval status, and this console's issuance
-    /// mode.
+    /// The linked engine's approval status and version, and this console's
+    /// issuance mode.
     ///
     /// # Errors
     /// The server-fn transport only; both are startup facts.
     #[server]
     pub async fn fetch_status_line() -> Result<StatusLine, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        Ok(StatusLine::of_engine(state.jobs.issuance_mode()))
+        Ok(StatusLine::of_engine(
+            state.jobs.issuance_mode(),
+            state.capture,
+        ))
     }
 }
 
@@ -75,14 +83,25 @@ mod tests {
     #[test]
     fn the_line_is_the_engine_status() {
         let status = veredictum::party::InstrumentStatus::CURRENT;
-        let line = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial);
+        let line = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial, false);
         assert_eq!(line.token, status.token());
         assert_eq!(line.summary, status.summary());
+        assert_eq!(line.engine, crate::ENGINE_PIN);
+    }
+
+    /// The chrome's footer reads its version from this line, so a capture
+    /// serve sends the pinned stand-in and every other serve the linked pin.
+    #[test]
+    fn only_a_capture_line_names_the_pinned_engine() {
+        let capture = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial, true);
+        assert_eq!(capture.engine, crate::capture::PINNED_ENGINE_VERSION);
+        let live = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial, false);
+        assert_eq!(live.engine, crate::ENGINE_PIN);
     }
 
     #[test]
     fn the_line_says_trial_mode_on_a_console_that_issues_nothing() {
-        let trial = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial);
+        let trial = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial, false);
         assert_eq!(trial.issuance, crate::certificates::IssuanceMode::Trial);
         assert!(
             trial
