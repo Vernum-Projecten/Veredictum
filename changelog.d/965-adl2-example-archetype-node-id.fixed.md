@@ -1,1 +1,0 @@
-- `get_template_adl2_example` expects the root `archetype_node_id` in the BASE `ARCHETYPE_ID` form, which ends in the major version alone (`...cnf_adl2_dv_count_range.v1`), instead of the three-part version, which names the template artefact and never the data (#965).

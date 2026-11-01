@@ -20,6 +20,178 @@ version on.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-01
+
+### Added
+
+- The evaluator judges `xpath` criteria: XPath 3.1 over the response body
+  parsed as XML, holding when the Effective Boolean Value of the result is
+  true (Arazzo 1.1.0 §XPath Conditions). The prefixes `oe`, `oe2` and `xsi`
+  are bound to the ITS-XML v1 and v2 namespaces and the XML Schema instance
+  namespace, `validate` compiles every condition, and an unparsable
+  condition, a body that is not well-formed XML or a dynamic error leaves the
+  row errored. The engine is `oxixml-xpath` 0.1.2. `ResponseView` gains the
+  `text` field carrying the body as received. (#637)
+- The console's Scope step starts from the endpoints the server listed in its
+  System OPTIONS document: a capability whose top-level resources the server
+  listed starts checked, and one addressing a resource it did not list starts
+  unchecked, where the operator can still check it. Each capability's
+  resources are derived from the operations its workflows call through the
+  released OpenAPI sources, and the engine's catalogue listing carries them
+  (`ListedDocument::resources`, `Listing::capability_resources`). (#669)
+- The book has a Reading a result page for a buyer: what a failed BASE row, a
+  failed option row, a warning, a skipped row and an errored row each mean for
+  a purchase, why no severity beyond MUST and SHOULD is applied, and what a
+  result can and cannot show about a CDR. (#930)
+- The conformance method states the instrument's scope: it tests platform CDRs
+  over ITS-REST, and it names what it does not test (brokers, analytics,
+  clinical applications, CKM, and archetype and template conformance) with
+  the reason for each. (#932)
+- The book has a Procurement page: the requirement clause a tendering
+  authority can paste, its five parameters mapped to the statement's fields,
+  an example requirement, and the equivalence duty of Directive 2014/24/EU
+  Articles 42 to 44. (#933)
+- The template example read in canonical XML, the Simplified Flat and the
+  Simplified Structured format, for a stored ADL 1.4 and a stored ADL 2
+  template: three options (`template-example-xml-read`,
+  `template-example-flat-read`, `template-example-structured-read`), each with a
+  served arm answering 200 in the format and a refused arm answering 406, twelve
+  cases in six documents. The six surface gaps they close are removed. (#947)
+- Eight ADL 2 template cases over two stored versions of one template: the
+  deprecated read at an exact version, at a major and at a major.minor prefix,
+  the read by a partial template_id, and the listing with no version filter,
+  an exact version, the pattern `1.*` and `*`. Each read judges the
+  `release_version` the answer carries, and each listing the template_ids it
+  holds. (#948)
+- Nine template upload cases adjudicate the invalid templates. A compact valid
+  ADL 1.4 operational template is accepted, and six copies of it that break the
+  published ITS-XML Template.xsd in one place each (no template_id, no
+  concept, no definition, the concept or the template_id twice, a description
+  with no lifecycle_state) are refused with 400, the only refusal the upload
+  declares. Two ADL 2 templates that break AOM2 VCORM and VCARM are refused
+  with 400 against the minimal template as control. The largest published OPT
+  is recorded in the id map with its vendored payload and provenance. (#949)
+- Four catalogue cases on delete and versioning: a COMPOSITION delete
+  addressed by its container's versioned_object_uid is refused with 400 and
+  deletes nothing, the version a delete commits is identified within the
+  deleted COMPOSITION's container, and an EHR_STATUS update adds a version
+  that follows the one it names and records the change type
+  251|modification|. (#957)
+- The canonical XML reads of a COMPOSITION, and the COMPOSITION create and
+  update answered in canonical XML, judge the document element with `xpath`
+  criteria: a `composition` carrying the name, archetype_node_id, language,
+  territory, category and composer the ITS-XML schemas require, in either
+  published namespace. The VERSION reads judge a `version` carrying its
+  contribution and commit_audit. (#960)
+- Flat commits against a stored ADL 2 operational template: a flat document
+  whose ITEM_TREE holds the two elements the template admits is created, and
+  one that gives a third is refused with 422 as a warning row. (#961)
+- The directory reads in canonical XML judge the served document: an `items`
+  element in either published ITS-XML namespace, with `xsi:type` naming
+  `FOLDER`, an `archetype_node_id` and one `name`, each cited to the ITS-XML
+  schema that requires it. (#973)
+- `veredictum test` takes `--specs`, the vendored openEHR spec tree, as
+  `validate` does, so a catalogue that does not sit beside `specs/` runs and
+  re-judges against an explicit specification root. Without the flag the tree
+  is `specs/openehr` beside `--root`, as before. (#982)
+
+### Changed
+
+- The console's scope preview answers inline only, without a notification. (#147)
+- Every console server function answers a refusal as one typed error with its
+  own HTTP status: a spent probe or start budget is 429, a refused target, an
+  over-long value, a refused statement or an unusable argument is 422, a
+  missing connection draft or a run already in flight is 409, and only the
+  instance's own failures stay 500. The body is the encoded error, so the
+  screens name what was refused and offer the next step that refusal calls
+  for, worded in one place; an unreadable call answers 400 or 413 in the same
+  encoding. The `veredictum_server_fn_responses_total` 5xx class now counts
+  only the instance's own failures. (#401)
+- The `quick-xml` dependency no longer enables its `serialize` feature, which
+  nothing in the crate used, so serde support for it leaves the build. (#612)
+- Warnings move onto the `base` and `options` badges, outside the pass ratio:
+  each counting badge reads passed out of its passed, failed and errored rows,
+  then names its warnings (`3/3 passed · 1 warning`), and a warning never
+  changes a badge's colour. The separate `warnings` badge is gone, so a
+  conformance result draws four badges. (#953)
+- Every badge `veredictum badge` draws carries one fact: the label names the
+  subject and the message gives one short value, with no `·` separator in
+  either. A counting badge reads `312/318 passed`, plus `, 1 warning` or
+  `, N warnings`, and its SVG title and `aria-label` carry the full breakdown
+  with the failed and errored counts. A counting badge drawn from the
+  development profile says `dev` in its label (`openEHR BASE dev`), and a
+  released one carries no marker. The `instrument` badge reads
+  `self-run v<version>`. A `perf-result` draws three badges: `perf`
+  (`perf <workload>`, the knee in whole requests per second, rounded outward
+  so a bracket only widens), `noise` (`A/A floor`: `attached` or
+  `not measured`) and `instrument` (the version that wrote the record). The
+  library's `perf_badge` is replaced by `perf_badges`, and `Badge` gains a
+  `detail` field holding the full text. (#966)
+- The released oracle under `specs/openehr/` now reads openEHR's corrected
+  re-tags of the same releases: RM `Release-1.1.0v2`, BASE `Release-1.2.0v2`
+  and LANG `Release-1.0.0v1`. The RM correction gives COMPOSITION.category's
+  `episodic` code as `451` (it read `435`), types `other_reference_ranges` of
+  DV_COUNT, DV_PROPORTION and DV_QUANTITY as a `List` of `REFERENCE_RANGE`,
+  and removes the `tags` attribute that had been added to the EHR class by
+  mistake. No catalogue citation or verdict changes. (#979)
+
+### Removed
+
+- The three ADL 1.4 content cases that refused units of another property than
+  a C_DV_QUANTITY names are removed: the released RM DV_QUANTITY has no
+  property (SPEC-95), the AOM 1.4 C_QUANTITY model defines no normative
+  semantics, and no vendored released sentence relates a quantity's units to
+  a constrained property. Their accepted twins and the other refusals over the
+  same templates stay, and the content floor follows the removal. (#950)
+
+### Fixed
+
+- The console refuses a document-id filter longer than 256 bytes at the scope
+  preview and the scope save, before any document is matched. (#533)
+- A numeric AQL result cell equals another only when both denote one value
+  exactly: integers compare as integers, so two that differ beyond the 53-bit
+  float mantissa no longer compare equal, and an integer equals a float only
+  when the float is integral and denotes it. (#542)
+- A console response the server closes the connection after, a body past the
+  transport cap, carries `Connection: close` (RFC 9112 §9.6). (#784)
+- Without JavaScript, the console's connect step offers the stored base URL
+  again after a probe, so probing again reaches the same target instead of
+  posting a blank address. A refused probe stores nothing, and its page
+  offers no earlier address. (#936)
+- The architecture record states the level gate as `validate` applies it: a
+  quote whose only keyword is MAY or OPTIONAL needs `level: may` on a case
+  criterion and on an option citation alike, where it said such a quote was
+  refused outright. (#958)
+- A criterion over a whole `$response.body` reads a body whose `Content-Type` is not JSON as its text, so the ADL 2 upload with `Prefer: return=representation` and `Accept: text/plain` is judged on the ADL it returns, which must name the uploaded template, instead of erroring on every server (#964).
+- `get_template_adl2_example` expects the root `archetype_node_id` in the BASE `ARCHETYPE_ID` form, which ends in the major version alone (`...cnf_adl2_dv_count_range.v1`), instead of the three-part version, which names the template artefact and never the data (#965).
+- `get_template_adl2_example` accepts the root `archetype_node_id` of an ADL 2
+  template example with the major version alone or with `.0.0`, since AM
+  Identification reads a namespaceless `.v1` as `.v1.0.0`; the criterion names
+  the BASE `ARCHETYPE_ID` contradiction it rests on (#984). (#965)
+- The reads of a deleted COMPOSITION, directory FOLDER or party, by
+  versioned_object_uid without `version_at_time` or by the version_uid the
+  delete created, no longer require `204`: the released
+  `204_deleted_at_time.yaml` assigns it only to a read at a `version_at_time`.
+  Each read must serve no data, so `204` or `404` passes, and its citation
+  names upstream report #752. (#970)
+- `veredictum validate --statement` reads the repository root from `--specs`
+  when it is given, as `veredictum test --specs` does, so the review of a
+  statement against a catalogue that does not sit beside `specs/` resolves
+  its skip citations against the named specification tree. (#989)
+- The console's documentation capture mode shows each id the engine mints
+  for a generated workflow input, such as a client-supplied `ehr_id`, as a
+  numbered stand-in on the live and results screens, so two capture passes
+  over one commit render identical images. (#990)
+- A run under the development profile no longer refuses to start when the pinned snapshot marks a cited document SUPERSEDED: the status is known, a citation into it is refused like one into a RETIRED document, and the case is skipped with `cited-text-absent` (#993).
+
+### Security
+
+- The console no longer sends its own failure details to the browser: an
+  internal failure names only its kind, and the detail (which can name paths
+  on the host) goes to the instance's log. A base URL carrying a user name or
+  password is refused under every posture, without repeating it, so a
+  credential typed into the address never reaches the draft or a refusal. (#401)
+
 ## [0.3.2] - 2026-10-31
 
 ### Added
@@ -5915,7 +6087,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.2...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.1...v0.3.0

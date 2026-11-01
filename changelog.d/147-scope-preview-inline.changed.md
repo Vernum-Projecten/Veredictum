@@ -1,1 +1,0 @@
-- The console's scope preview answers inline only, without a notification.
