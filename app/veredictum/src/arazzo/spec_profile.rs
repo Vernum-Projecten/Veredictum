@@ -644,7 +644,7 @@ mod tests {
         assert_eq!(
             components,
             [
-                "AM", "BASE", "ITS-JSON", "ITS-REST", "ITS-XML", "QUERY", "RM"
+                "AM", "BASE", "ITS-JSON", "ITS-REST", "ITS-XML", "LANG", "QUERY", "RM"
             ]
         );
         for component in &snapshot {

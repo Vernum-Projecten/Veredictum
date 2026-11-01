@@ -1,0 +1,234 @@
+diff --git a/specifications/docs/overview/Resources.md b/specifications/docs/overview/Resources.md
+index c43c344..81d4238 100644
+--- a/specifications/docs/overview/Resources.md
++++ b/specifications/docs/overview/Resources.md
+@@ -106,7 +106,7 @@ Attribute names must be lowercase _snake_case_ names as specified in the equival
+ 
+ Metadata attributes (those that are not also RM attributes) will always be prefixed by a `'_'`.
+ 
+-One example is the `_type` attribute, which should be used to specify the RM type whenever polymorphism is involved, or when the underlying definition in RM type is abstract (dynamic type is different from the static type).
++One example is the `_type` attribute, which MUST be used to specify the RM type whenever polymorphism is involved, or when the underlying definition in RM type is abstract (dynamic type is different from the static type).
+ This follows the same rule as for XML typing.
+ The value of this attribute MUST be the uppercase class name from the RM specification. For example:
+ 
+diff --git a/specifications/schemas/base_types/UObjectId.yaml b/specifications/schemas/base_types/UObjectId.yaml
+index 56cea1b..b5e1c72 100644
+--- a/specifications/schemas/base_types/UObjectId.yaml
++++ b/specifications/schemas/base_types/UObjectId.yaml
+@@ -7,6 +7,8 @@ oneOf:
+   - $ref: ../base_types/UMGenericId.yaml
+   - $ref: ../base_types/UMHierObjectId.yaml
+   - $ref: ../base_types/UMObjectVersionId.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/base_types/UUidBasedId.yaml b/specifications/schemas/base_types/UUidBasedId.yaml
+index 9ebc306..cd934e7 100644
+--- a/specifications/schemas/base_types/UUidBasedId.yaml
++++ b/specifications/schemas/base_types/UUidBasedId.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../base_types/UMHierObjectId.yaml
+   - $ref: ../base_types/UMObjectVersionId.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/common/UPartyIdentified.yaml b/specifications/schemas/common/UPartyIdentified.yaml
+index d513d9e..cec7b92 100644
+--- a/specifications/schemas/common/UPartyIdentified.yaml
++++ b/specifications/schemas/common/UPartyIdentified.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../common/UMPartyIdentified.yaml
+   - $ref: ../common/UMPartyRelated.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/common/UPartyProxy.yaml b/specifications/schemas/common/UPartyProxy.yaml
+index 65ba60a..1131b3e 100644
+--- a/specifications/schemas/common/UPartyProxy.yaml
++++ b/specifications/schemas/common/UPartyProxy.yaml
+@@ -4,6 +4,8 @@ oneOf:
+   - $ref: ../common/UMPartySelf.yaml
+   - $ref: ../common/UMPartyIdentified.yaml
+   - $ref: ../common/UMPartyRelated.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/data_structures/UItem.yaml b/specifications/schemas/data_structures/UItem.yaml
+index 7f899c8..c277ea4 100644
+--- a/specifications/schemas/data_structures/UItem.yaml
++++ b/specifications/schemas/data_structures/UItem.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../data_structures/Element.yaml
+   - $ref: ../data_structures/Clstr.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/data_structures/UItemStructure.yaml b/specifications/schemas/data_structures/UItemStructure.yaml
+index 0d99dad..51e1b13 100644
+--- a/specifications/schemas/data_structures/UItemStructure.yaml
++++ b/specifications/schemas/data_structures/UItemStructure.yaml
+@@ -5,6 +5,8 @@ oneOf:
+   - $ref: ../data_structures/ItemList.yaml
+   - $ref: ../data_structures/ItemTable.yaml
+   - $ref: ../data_structures/ItemTree.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/data_types/UDataValue.yaml b/specifications/schemas/data_types/UDataValue.yaml
+index fbb21db..7583a0f 100644
+--- a/specifications/schemas/data_types/UDataValue.yaml
++++ b/specifications/schemas/data_types/UDataValue.yaml
+@@ -18,6 +18,8 @@ oneOf:
+   - $ref: ../data_types/UMDvState.yaml
+   - $ref: ../data_types/UMDvText.yaml
+   - $ref: ../data_types/UMDvUri.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/data_types/UDvEncapsulated.yaml b/specifications/schemas/data_types/UDvEncapsulated.yaml
+index 23a6879..ff6e2f2 100644
+--- a/specifications/schemas/data_types/UDvEncapsulated.yaml
++++ b/specifications/schemas/data_types/UDvEncapsulated.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../data_types/UMDvMultimedia.yaml
+   - $ref: ../data_types/UMDvParsable.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/data_types/UDvText.yaml b/specifications/schemas/data_types/UDvText.yaml
+index 3d0ea62..f1f4336 100644
+--- a/specifications/schemas/data_types/UDvText.yaml
++++ b/specifications/schemas/data_types/UDvText.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../data_types/UMDvText.yaml
+   - $ref: ../data_types/UMDvCodedText.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/data_types/UDvUri.yaml b/specifications/schemas/data_types/UDvUri.yaml
+index c2f6536..eb037a0 100644
+--- a/specifications/schemas/data_types/UDvUri.yaml
++++ b/specifications/schemas/data_types/UDvUri.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../data_types/UMDvUri.yaml
+   - $ref: ../data_types/UMDvEhrUri.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/demographic/UParty.yaml b/specifications/schemas/demographic/UParty.yaml
+index 7d90fac..7bb88e3 100644
+--- a/specifications/schemas/demographic/UParty.yaml
++++ b/specifications/schemas/demographic/UParty.yaml
+@@ -7,6 +7,8 @@ oneOf:
+   - $ref: ../demographic/UMOrganisation.yaml
+   - $ref: ../demographic/UMPerson.yaml
+   - $ref: ../demographic/UMRole.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/demographic/UVersionOfParty.yaml b/specifications/schemas/demographic/UVersionOfParty.yaml
+index a3a1a3d..5f33883 100644
+--- a/specifications/schemas/demographic/UVersionOfParty.yaml
++++ b/specifications/schemas/demographic/UVersionOfParty.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../demographic/UMOriginalVersionOfParty.yaml
+   - $ref: ../demographic/UMImportedVersionOfParty.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/demographic/UVersionable.yaml b/specifications/schemas/demographic/UVersionable.yaml
+index 2c44d1c..3c1b864 100644
+--- a/specifications/schemas/demographic/UVersionable.yaml
++++ b/specifications/schemas/demographic/UVersionable.yaml
+@@ -8,6 +8,8 @@ oneOf:
+   - $ref: ../demographic/UMOrganisation.yaml
+   - $ref: ../demographic/UMPerson.yaml
+   - $ref: ../demographic/UMRole.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/ehr/UContentItem.yaml b/specifications/schemas/ehr/UContentItem.yaml
+index 637cf58..f591fa6 100644
+--- a/specifications/schemas/ehr/UContentItem.yaml
++++ b/specifications/schemas/ehr/UContentItem.yaml
+@@ -7,6 +7,8 @@ oneOf:
+   - $ref: ../ehr/UMEvaluation.yaml
+   - $ref: ../ehr/UMInstruction.yaml
+   - $ref: ../ehr/UMAction.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/ehr/UVersionOfComposition.yaml b/specifications/schemas/ehr/UVersionOfComposition.yaml
+index 3243549..fca2937 100644
+--- a/specifications/schemas/ehr/UVersionOfComposition.yaml
++++ b/specifications/schemas/ehr/UVersionOfComposition.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../ehr/UMOriginalVersionOfComposition.yaml
+   - $ref: ../ehr/UMImportedVersionOfComposition.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/ehr/UVersionOfEhrStatus.yaml b/specifications/schemas/ehr/UVersionOfEhrStatus.yaml
+index b10a5ec..c21d652 100644
+--- a/specifications/schemas/ehr/UVersionOfEhrStatus.yaml
++++ b/specifications/schemas/ehr/UVersionOfEhrStatus.yaml
+@@ -3,6 +3,8 @@ type: object
+ oneOf:
+   - $ref: ../ehr/UMOriginalVersionOfEhrStatus.yaml
+   - $ref: ../ehr/UMImportedVersionOfEhrStatus.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:
+diff --git a/specifications/schemas/ehr/UVersionable.yaml b/specifications/schemas/ehr/UVersionable.yaml
+index 7a7b641..2658bce 100644
+--- a/specifications/schemas/ehr/UVersionable.yaml
++++ b/specifications/schemas/ehr/UVersionable.yaml
+@@ -4,6 +4,8 @@ oneOf:
+   - $ref: ../ehr/UMComposition.yaml
+   - $ref: ../ehr/UMEhrStatus.yaml
+   - $ref: ../ehr/UMFolder.yaml
++required:
++  - _type
+ discriminator:
+   propertyName: _type
+   mapping:

@@ -1,0 +1,44 @@
+diff --git a/computable/BMM/openehr_base_1.3.0.bmm.json b/computable/BMM/openehr_base_1.3.0.bmm.json
+index 0a88040..731871d 100644
+--- a/computable/BMM/openehr_base_1.3.0.bmm.json
++++ b/computable/BMM/openehr_base_1.3.0.bmm.json
+@@ -4058,7 +4058,7 @@
+                 },
+                 "sign": {
+                     "name": "sign",
+-                    "documentation": "Direction of timezone expresssed as +1 or -1.",
++                    "documentation": "Direction of timezone expressed as +1 or -1.",
+                     "result": {
+                         "_type": "P_BMM_SIMPLE_TYPE",
+                         "type": "Integer"
+@@ -4107,7 +4107,7 @@
+             },
+             "invariants": {
+                 "Min_hour_valid": "sign = -1 implies hour > 0 and hour <= Min_timezone_hour",
+-                "Max_hour_valid": "sign = 1 implies hour > 0 and hour <= Max_timezone_hour",
++                "Max_hour_valid": "sign = 1 implies hour >= 0 and hour <= Max_timezone_hour",
+                 "Minute_valid": "not minute_unknown implies valid_minute (minute)",
+                 "Sign_valid": "sign = 1 or sign = -1"
+             }
+diff --git a/docs/UML/classes/org.openehr.base.foundation_types.iso8601_timezone.adoc b/docs/UML/classes/org.openehr.base.foundation_types.iso8601_timezone.adoc
+index 6c284a1..4d30fb8 100644
+--- a/docs/UML/classes/org.openehr.base.foundation_types.iso8601_timezone.adoc
++++ b/docs/UML/classes/org.openehr.base.foundation_types.iso8601_timezone.adoc
+@@ -33,7 +33,7 @@ a|Extract the hour part of timezone, as an Integer, usually either 0 or 30.
+ 
+ h|*1..1*
+ |*sign* (): `<<_integer_class,Integer>>`
+-a|Direction of timezone expresssed as +1 or -1.
++a|Direction of timezone expressed as +1 or -1.
+ 
+ h|*1..1*
+ |*minute_unknown* (): `<<_boolean_class,Boolean>>`
+@@ -61,7 +61,7 @@ h|*Invariants*
+ 2+a|__Min_hour_valid__: `sign = -1 implies hour > 0 and hour \<= Min_timezone_hour`
+ 
+ h|
+-2+a|__Max_hour_valid__: `sign = 1 implies hour > 0 and hour \<= Max_timezone_hour`
++2+a|__Max_hour_valid__: `sign = 1 implies hour >= 0 and hour \<= Max_timezone_hour`
+ 
+ h|
+ 2+a|__Minute_valid__: `not minute_unknown implies valid_minute (minute)`

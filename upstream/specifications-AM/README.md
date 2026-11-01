@@ -10,6 +10,9 @@ commit `15d7a3589d52e33aebd5efb97c321b2498407d6b`, the snapshot vendored under
 
 | Patch | Report |
 |---|---|
+| `0212-adl14-unstated-existence-defers-to-the-rm.patch` | #212 |
+| `0307-container-member-matching-no-constraint.patch` | #307 |
+| `0308-adl14-vcoc-open-occurrences-upper-bound.patch` | #308 |
 | `0939-opt-specialisation-statement.patch` | #939 |
 | `0945-opt-example-binding-namespace.patch` | #945 |
 | `0946-quantity-property-examples.patch` | #946 |

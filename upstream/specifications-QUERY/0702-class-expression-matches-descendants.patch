@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..f0f566e 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -816,6 +816,8 @@ Class expressions syntax include three parts. A class expression must have part
+ . part two (optional): AQL variable name
+ . part three (optional): a standard predicate or an archetype predicate; for `VERSION`, a <<_version_predicate,version predicate>>.
+ 
++A class expression matches the instances of the named class and of its descendants. For example, `CARE_ENTRY e` matches `OBSERVATION`, `EVALUATION`, `INSTRUCTION` and `ACTION` instances.
++
+ Two examples of a class expression are shown below:
+ 
+ --------

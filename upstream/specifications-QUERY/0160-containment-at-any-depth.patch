@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..136b866 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -986,6 +986,8 @@ The syntax of containment constraint expression is very simple: using `CONTAINS`
+ EHR e CONTAINS COMPOSITION c [openEHR-EHR-COMPOSITION.referral.v1]
+ --------
+ 
++The right-hand operand need not be a direct child of the left-hand operand: the constraint is satisfied when the right-hand object is contained at any depth below the left-hand object. For example, an `OBSERVATION` inside a `SECTION` of a Composition satisfies `COMPOSITION c CONTAINS OBSERVATION o`.
++
+ Logical operators `AND` and `OR` and parentheses `()` are used when multiple containment constrains are required, e.g.
+ 
+ --------

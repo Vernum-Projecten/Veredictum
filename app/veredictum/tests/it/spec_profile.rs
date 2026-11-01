@@ -133,7 +133,7 @@ fn a_run_without_a_profile_reads_the_development_snapshot_and_names_it_everywher
     assert_eq!(
         components,
         [
-            "AM", "BASE", "ITS-JSON", "ITS-REST", "ITS-XML", "QUERY", "RM"
+            "AM", "BASE", "ITS-JSON", "ITS-REST", "ITS-XML", "LANG", "QUERY", "RM"
         ]
     );
 

@@ -1,0 +1,12 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..8ab45f4 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -526,6 +526,7 @@ NOTE: The followings are a set of core built-in functions defined by AQL specifi
+ Aggregate functions calculate a single result value from a set of _input values_, allowing the query to return summarized information about a data item or a result set.
+ Input values are selected by an _expression_ in a form of an <<_identified_paths, identified path>> applied to data items filtered by `FROM` and `WHERE` clauses.
+ Unless specified otherwise, these functions ignore `NULL` input values.
++An aggregate function summarises the rows of the result set that have equal values in every column expression that is not an aggregate function. Where every column expression is an aggregate function, it summarises all the rows of the result set, and the query returns one row.
+ 
+ The table below shows the built-in AQL aggregate functions:
+ 

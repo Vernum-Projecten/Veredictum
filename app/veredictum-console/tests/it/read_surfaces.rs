@@ -648,16 +648,16 @@ fn a_chapter_page_labels_each_option_and_marks_reported_cases()
     assert!(
         reported.contains(&(
             "ehr_status_versioned/get_versioned_ehr_status-revision_history",
-            &[661][..]
+            &[240][..]
         )),
-        "the revision-history case rests on #661: {reported:?}"
+        "the revision-history case rests on #240: {reported:?}"
     );
     let detail = read::case_detail(
         &state,
         "ehr_status_versioned/get_versioned_ehr_status-revision_history",
     )?
     .ok_or("the committed catalogue carries the case")?;
-    assert_eq!(detail.reports, vec![661]);
+    assert_eq!(detail.reports, vec![240]);
     Ok(())
 }
 

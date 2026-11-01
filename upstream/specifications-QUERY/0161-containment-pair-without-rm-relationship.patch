@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..fa83711 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -1007,6 +1007,8 @@ EHR e
+         NOT CONTAINS OBSERVATION o [openEHR-EHR-OBSERVATION.laboratory_test_result.v1]
+ --------
+ 
++A containment constraint between two classes for which the RM defines no containment relationship, such as `COMPOSITION c1 CONTAINS COMPOSITION c2`, is not an error: it is satisfied by no data.
++
+ === WHERE
+ 
+ An AQL `WHERE` clause is used to represent further criteria applied to the data items within the objects declared in the `FROM` clause. A `WHERE` clause expresses the query criteria that cannot be represented in other AQL clauses, such as criteria on archetype id, composition committal date/time, and the criteria on in which order the returned results should be listed.

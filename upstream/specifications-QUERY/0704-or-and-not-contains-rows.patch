@@ -1,0 +1,22 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..1b6a49d 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -999,6 +999,8 @@ EHR e
+       CONTAINS (OBSERVATION o [openEHR-EHR-OBSERVATION.laboratory-hba1c.v1] OR OBSERVATION o1 [openEHR-EHR-OBSERVATION.laboratory-glucose.v1])
+ --------
+ 
++An `OR` between containment constraints is satisfied when either operand is satisfied. Each combination of the objects its operands match yields one row, and a variable declared in an operand that matched no object is `NULL` in that row.
++
+ The logical operator `NOT` can be used in combination with `CONTAINS` to express an exclusion constraint,  i.e. the absence of any containment relationship between a parent and potential child items. The following example matches referral COMPOSITIONs that do not contain laboratory test result OBSERVATIONs:
+ 
+ --------
+@@ -1007,6 +1009,8 @@ EHR e
+         NOT CONTAINS OBSERVATION o [openEHR-EHR-OBSERVATION.laboratory_test_result.v1]
+ --------
+ 
++A variable declared in the right-hand operand of `NOT CONTAINS` matches no object, and is `NULL` wherever it is used.
++
+ === WHERE
+ 
+ An AQL `WHERE` clause is used to represent further criteria applied to the data items within the objects declared in the `FROM` clause. A `WHERE` clause expresses the query criteria that cannot be represented in other AQL clauses, such as criteria on archetype id, composition committal date/time, and the criteria on in which order the returned results should be listed.

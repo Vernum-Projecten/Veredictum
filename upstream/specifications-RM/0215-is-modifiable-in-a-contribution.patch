@@ -1,0 +1,26 @@
+diff --git a/docs/common/master06-change_control_package.adoc b/docs/common/master06-change_control_package.adoc
+index 8dc7ca3..742034d 100755
+--- a/docs/common/master06-change_control_package.adoc
++++ b/docs/common/master06-change_control_package.adoc
+@@ -89,7 +89,7 @@ The `CONTRIBUTION` class also contains an audit attribute. Whenever a `CONTRIBUT
+ 
+ The `_time_committed_` attribute in both the Contribution and Version audits should reflect the time of committal to an EHR server, i.e. the time of availability to other users in the same system. It should therefore be computed on the server in implementations where the data are created in a separate client context.
+ 
+-In terms of database management, Contributions are similar to nested transactions. An attempt to commit a Contribution should only succeed if each Version and/or Attestation in the Contribution is committed successfully.
++In terms of database management, Contributions are similar to nested transactions. An attempt to commit a Contribution should only succeed if each Version and/or Attestation in the Contribution is committed successfully. The order of the Versions in a Contribution carries no meaning.
+ 
+ === Digital Signature
+ 
+diff --git a/docs/ehr/master04-ehr_package.adoc b/docs/ehr/master04-ehr_package.adoc
+index 0d67028..7939bd5 100755
+--- a/docs/ehr/master04-ehr_package.adoc
++++ b/docs/ehr/master04-ehr_package.adoc
+@@ -243,6 +243,8 @@ The `EHR_STATUS._is_modifiable_` attribute is used to indicate whether _the cont
+ 
+ In any of these situations, the EHR can be deactivated by setting `_is_modifiable_` to `False`. An inactive EHR is still visible in the system, and will remain queryable, unless the `_is_queryable_` attribute is also set to `False`.
+ 
++When a Contribution commits a new version of the `EHR_STATUS` object together with other content, that content may be committed if `_is_modifiable_` is `True` in the `EHR_STATUS` the Contribution finds or in the one it commits. A single Contribution can therefore reactivate an EHR and add content to it, or add final content to an EHR and deactivate it.
++
+ == Time in the EHR
+ 
+ There are numerous times recorded in the EHR, at varying levels of granularity. Certain times are a guaranteed by-product of the scientific investigation process, including time of sampling or collection; time of measurement, time of a healthcare business event, time of data committal. The following figures illustrate the relationship between points on the timeline of real-world clinical activity, and the corresponding data elements in the openEHR EHR.

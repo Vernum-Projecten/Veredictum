@@ -1,0 +1,13 @@
+diff --git a/docs/ADL1.4/master05-cadl.adoc b/docs/ADL1.4/master05-cadl.adoc
+index 6d0bc4d..3f1afb8 100755
+--- a/docs/ADL1.4/master05-cadl.adoc
++++ b/docs/ADL1.4/master05-cadl.adoc
+@@ -207,7 +207,7 @@ The meaning of an existence constraint is to indicate whether a value - i.e. an
+ [.principle]
+ An *existence constraint* may be used directly after any attribute identifier, and indicates whether the object to which the attribute refers is mandatory or optional in the data.
+ 
+-Existence is shown using the same constraint language as the rest of the archetype definition. Existence constraints can take the values `{0}` , `{0..0}` , `{0..1}` , `{1}` , or `{1..1}` . The first two of these constraints may not seem initially obvious, but can be used to indicate that an attribute must not be present in the particular situation modelled by the archetype. The default existence constraint, if none is shown, is {1..1}.
++Existence is shown using the same constraint language as the rest of the archetype definition. Existence constraints can take the values `{0}` , `{0..0}` , `{0..1}` , `{1}` , or `{1..1}` . The first two of these constraints may not seem initially obvious, but can be used to indicate that an attribute must not be present in the particular situation modelled by the archetype. If no existence constraint is shown, the existence of the attribute is the one defined by the reference model.
+ 
+ === Single-valued Attributes
+ 

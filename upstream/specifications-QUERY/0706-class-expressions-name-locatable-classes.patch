@@ -1,0 +1,12 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..87c1ad9 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -947,6 +947,7 @@ The data available should be defined by an information model, known here as the
+ All the classes referenced by the `FROM` clause should be defined by the RM. For instance,
+ if the Reference Model is the {openehr_rm}[openEHR Reference Model^], the `FROM` clause should only include classes like
+ `EHR`, `COMPOSITION`, `OBSERVATION`, `EVALUATION`, and so on.
++Apart from `EHR` and `VERSION`, a class expression names a class that inherits from `LOCATABLE`; a class expression naming another class, such as `EVENT_CONTEXT`, makes the query invalid.
+ 
+ NOTE: The AQL specification is not bound to a specific Reference Model, but to use a
+ given RM, it should comply with some requirements: it should be an Object Oriented

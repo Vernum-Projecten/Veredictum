@@ -367,7 +367,7 @@ workflows:
       source: specs/openehr/RM/docs/UML/classes/revision_history.adoc
       section: REVISION_HISTORY Class
       quote: "Defines the notion of a revision history of audit items, each associated with the version for which that audit was committed."
-      report: 661
+      report: 240
     inputs:
       type: object
       properties:

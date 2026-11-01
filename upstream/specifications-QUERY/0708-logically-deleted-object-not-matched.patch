@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..dfc417a 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -269,6 +269,8 @@ FROM
+ 
+ `LATEST_VERSION` is the default. A `VERSION` class expression without a version predicate, such as `VERSION v`, is equivalent to `VERSION v[LATEST_VERSION]`, and a query that does not include a `VERSION` class expression is applied only to the latest version of each versioned object. To query earlier versions, `ALL_VERSIONS` or a standard predicate has to be stated.
+ 
++A versioned object whose latest version is in the lifecycle state `deleted` is not matched by a query applied to the latest version.
++
+ == Identified Paths
+ 
+ In AQL, an _identified path_ is the association of a <<_variables,variable>> reference (the identifier), a <<_predicates,predicate>> and/or an <<_openehr_path_syntax,openEHR path>>. Except for the `FROM` clause, an identified path may appear in any clause of an AQL statement. For example, it can be used to indicate the data to be returned in a `SELECT` clause, or the data item on which query criteria are applied in a `WHERE` clause.

@@ -158,7 +158,10 @@ is not an `upstream-report` issue here); the narrative lives only on the issue.
   `scripts/checks/upstream-patches-apply.sh` refuses a patch that does not
   apply there with `git apply --check`. A defect `master` already fixes
   carries no patch: the report records the fixing commit and quotes the
-  `master` text that fixes it.
+  `master` text that fixes it, on a line of its own,
+  `Fixed on master: specifications-<COMPONENT>@<40-hex sha>`.
+  `scripts/checks/upstream-report-patches.sh` refuses an open report with
+  neither a patch nor that line.
 - **Grounding**: docs text first. The released OAS is citable only where the
   docs text is silent, is always cited as the OAS, and loses every conflict. A
   behaviour the OAS DEFINES is not a reportable silence, and a "defect" that

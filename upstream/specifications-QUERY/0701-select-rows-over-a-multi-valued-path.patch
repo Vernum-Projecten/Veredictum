@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..2ccf2c8 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -1038,6 +1038,8 @@ A column expression is formed by an <<_identified_paths,identified path>>, a <<_
+ Where a variable name is specified, the full object of the type associated with the variable is retrieved, such as a `COMPOSITION`, `OBSERVATION` etc.
+ Where a function is specified, the call has to be done using the specified arguments, and the results are returned.
+ Where an identified path is specified, the data item(s) having that archetype path are returned.
++Where such a path passes through a multi-valued attribute, the result set holds one row for each value the path reaches; where it reaches no value, the row is kept and the column is `NULL`.
++A `SELECT` clause whose column expressions read no variable returns one row for each match of the `FROM` and `WHERE` clauses.
+ 
+ Each column expression may have a <<_name_alias,name alias>> renaming the associated data.
+ When the `SELECT` clause contains multiple column expressions, they are separated using a comma.

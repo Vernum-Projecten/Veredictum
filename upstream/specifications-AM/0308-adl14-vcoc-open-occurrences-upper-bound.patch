@@ -1,0 +1,13 @@
+diff --git a/docs/ADL1.4/master05-cadl.adoc b/docs/ADL1.4/master05-cadl.adoc
+index 6d0bc4d..0ce0e32 100755
+--- a/docs/ADL1.4/master05-cadl.adoc
++++ b/docs/ADL1.4/master05-cadl.adoc
+@@ -321,7 +321,7 @@ An occurrences constraint may appear directly after the type name of any object
+ Where `cardinality` constraints are used (remembering that `occurrences` is always there by default, if not explicitly specified), `cardinality` and `occurrences` must always be compatible. The validity rule is:
+ 
+ [.rule]
+-*VCOC*: cardinality/occurrences validity: the interval represented by: (the sum of all occurrences minimum values) .. (the sum of all occurrences maximum values) must be inside the interval of the cardinality.
++*VCOC*: cardinality/occurrences validity: the interval represented by: (the sum of all occurrences minimum values) .. (the sum of all occurrences maximum values) must be inside the interval of the cardinality, where an open occurrences upper bound (i.e. `n..*`) is interpreted as the maximum value allowed by the cardinality upper bound.
+ 
+ === "Any" Constraints
+ 
