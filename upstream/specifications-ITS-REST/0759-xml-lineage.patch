@@ -1,0 +1,16 @@
+diff --git a/specifications/docs/overview/Resources.md b/specifications/docs/overview/Resources.md
+--- a/specifications/docs/overview/Resources.md
++++ b/specifications/docs/overview/Resources.md
+@@ -74,6 +74,12 @@
+ 
+ When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest).
+ 
++Two lineages of these XSDs are published, and a document names its lineage by its namespace:
++the STABLE Release-1.0.2 schemas use `http://schemas.openehr.org/v1`, the TRIAL Release-2.0.0 schemas use `http://schemas.openehr.org/v2`.
++A service MUST accept a request payload in the `http://schemas.openehr.org/v1` namespace that is valid against the Release-1.0.2 schemas.
++A service MAY also accept a request payload in the `http://schemas.openehr.org/v2` namespace that is valid against the Release-2.0.0 schemas.
++A service that cannot process a request payload in the namespace it was sent in MUST respond with HTTP status code `400 Bad Request`.
++
+ A client MAY use the header `Content-Type: application/xml` in the requests to specify the XML payload format.
+ If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`.
+ 
