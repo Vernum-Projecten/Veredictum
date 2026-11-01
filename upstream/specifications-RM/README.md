@@ -16,6 +16,7 @@ commit `654296bb027b03b4b076101e7171f3359f44cebc`, the snapshot vendored under
 | `0717-partial-temporal-magnitude.patch` | #717 |
 | `0718-coded-text-value-is-rubric.patch` | #718 |
 | `0760-rm-slips.patch` | #760 |
+| `1048-reverse-relationships-invariant.patch` | #1048 |
 
 A patch is named after its report's number.
 `scripts/checks/upstream-patches-apply.sh` checks on every pull request that

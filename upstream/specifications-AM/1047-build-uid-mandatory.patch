@@ -1,0 +1,13 @@
+diff --git a/docs/ADL2/master07.05-adl_identification.adoc b/docs/ADL2/master07.05-adl_identification.adoc
+index f8cf199..2eb5657 100644
+--- a/docs/ADL2/master07.05-adl_identification.adoc
++++ b/docs/ADL2/master07.05-adl_identification.adoc
+@@ -27,7 +27,7 @@ archetype (adl_version=2.4.0; rm_release=1.0.3; uid=15E82D77-7DB7-4F70-8D8E-EED6
+ 
+ This identifier is set at initial creation or at any time later, and never subsequently changes. It acts as an identifier for the physical artefact, regardless of what semantics are changed, including changes to the constituent parts of the multi-axial identifier.
+ 
+-A `build_uid` identifier can also be specified, with a GUID value, identifying the current artefact. This identifier changes whenever any change is made to the text of the archetype, and can thus be used to disambiguate subsequent versions.
++A `build_uid` identifier is also specified, with a GUID value, identifying the current artefact. This identifier changes whenever any change is made to the text of the archetype, and can thus be used to disambiguate subsequent versions.
+ 
+ === Namespaces
+ 

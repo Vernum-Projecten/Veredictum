@@ -17,6 +17,7 @@ commit `15d7a3589d52e33aebd5efb97c321b2498407d6b`, the snapshot vendored under
 | `0945-opt-example-binding-namespace.patch` | #945 |
 | `0946-quantity-property-examples.patch` | #946 |
 | `0985-adl2-identifier-namespace.patch` | #985 |
+| `1047-build-uid-mandatory.patch` | #1047 |
 
 A patch is named after its report's number.
 `scripts/checks/upstream-patches-apply.sh` checks on every pull request that
