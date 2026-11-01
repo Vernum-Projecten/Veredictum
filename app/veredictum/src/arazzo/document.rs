@@ -6,7 +6,7 @@
 //!
 //! The gate refuses what the evaluator would otherwise have to guess about:
 //! a document the official Arazzo schema refuses, a key Arazzo does not
-//! define, an extension outside the three the catalogue allows, a criterion
+//! define, an extension the catalogue does not allow, a criterion
 //! with no citation, a citation whose quote is not in its source, a condition
 //! outside the profile, an operation or parameter that does not resolve, and
 //! a construct the evaluator does not drive yet.
@@ -883,7 +883,7 @@ pub enum FindingKind {
     /// A key Arazzo 1.1.0 does not define, which the model would drop.
     #[error("`{0}` is not a field Arazzo 1.1.0 defines here")]
     UnknownKey(String),
-    /// An extension other than the three the catalogue allows, or one in the
+    /// An extension the catalogue does not allow, or one in the
     /// wrong place.
     #[error("extension `{0}` is not allowed here")]
     ExtensionNotAllowed(String),
