@@ -1,0 +1,21 @@
+diff --git a/docs/bmm3/master06-core-types.adoc b/docs/bmm3/master06-core-types.adoc
+index 42d2c2b..2b84672 100644
+--- a/docs/bmm3/master06-core-types.adoc
++++ b/docs/bmm3/master06-core-types.adoc
+@@ -299,10 +299,13 @@ Boolean type_conforms_to (String a_type, anc_type)
+                 else
+                     return True;
+             }
+-            // in the following case, the descendant type is not generic, 
+-            // so the ancestor type cannot be either, for conformance
++            // in the following case, the descendant type is not generic: it conforms
++            // to a non-generic ancestor, and to a generic ancestor when one of its
++            // declared ancestor types conforms to it, e.g. Multiplicity_interval
++            // (an Interval<Integer>) conforms to Interval<Ordered>
+             else
+-                return not valid_generic_type_name (anc_type);
++                return not valid_generic_type_name (anc_type) or else
++                    bmm_def_class.ancestors.there_exists (a | type_conforms_to (a.type_name, anc_type));
+         }
+     }
+ }
