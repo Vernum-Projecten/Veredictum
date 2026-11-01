@@ -120,7 +120,9 @@ That same flag serves the console with `VEREDICTUM_CAPTURE_MODE` set, and
 stand-in: the run clock and its estimate, the connect probe's round trip, the
 run's own id, the address the fixture SUT bound, the output directory that
 id names wherever a screen prints it, and every id the engine generates for a
-generated input (numbered in the order a screen first names it, #990). Without it a capture pass rewrote most of the committed set with no
+generated input (numbered in the order a screen first names it, #990), plus the
+engine version the chrome prints, pinned at `0.3.1` so a release restales no
+capture (#1007). Without it a capture pass rewrote most of the committed set with no
 interface change at all, so the guard could not tell a real visual diff from a
 re-run (#480). What a run RECORDED is never pinned — the case counter, the case
 driving, the engine's own output and the finished tally are the run's own. The

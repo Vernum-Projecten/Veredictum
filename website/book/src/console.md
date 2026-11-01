@@ -11,7 +11,8 @@ conformance; `perf` and `perf-compare` stay on the command line.
 refreshed in the pull request that changes the interface. Capture mode fixes
 the per-run facts on screen (clock `00:00`, run id, fixture server address) so
 an unchanged interface gives identical images; what a run writes is
-unaffected. Captures read a frozen excerpt (`fixtures/console/catalogue/`:
+unaffected. The sidebar names engine 0.3.1 in every capture, whatever version
+is current, so a release changes no image. Captures read a frozen excerpt (`fixtures/console/catalogue/`:
 four capability folders, 166 cases), so their counts are the excerpt's.
 
 ## The landing
