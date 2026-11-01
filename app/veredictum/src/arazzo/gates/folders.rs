@@ -12,7 +12,8 @@
 //! over routes no openEHR OAS describes from reading as openEHR coverage.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::ops::ControlFlow;
+use std::path::Path;
 
 use roas_arazzo::common::reusable::ReusableOr;
 use roas_arazzo::v1_1::{ParameterLocation, ValueOrSelector, Workflow};
@@ -21,9 +22,10 @@ use serde_json::Value;
 use crate::arazzo::capabilities::Capabilities;
 use crate::arazzo::catalogue::SETUP_DIR;
 use crate::arazzo::cite::{QuoteChecker, check_level};
+use crate::arazzo::depends::{Library, Seen};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::surface::NegotiationHeader;
-use crate::arazzo::gates::{DOCUMENT_SUFFIX, Gate, GateFinding};
+use crate::arazzo::gates::{Gate, GateFinding};
 use crate::arazzo::source::{NON_OPENEHR_KEY, OperationIndex, split_qualified};
 use crate::arazzo::structure;
 use crate::vocab::FormatName;
@@ -218,53 +220,23 @@ fn workflow_media_types(workflow: &Workflow) -> BTreeSet<String> {
 }
 
 /// Whether a workflow of `document` sends the canonical JSON media type,
-/// itself or through a workflow it names in `dependsOn`, resolved among
-/// `documents` by document id.
+/// itself or through a workflow it names in `dependsOn` at any depth,
+/// resolved in `library`.
 #[must_use]
-pub fn sends_canonical_json(
-    document: &ArazzoDocument,
-    documents: &BTreeMap<&str, &ArazzoDocument>,
-) -> bool {
-    let mut seen = BTreeSet::new();
-    document
-        .description()
-        .workflows
-        .iter()
-        .any(|workflow| workflow_sends_json(document, workflow, documents, &mut seen))
-}
-
-/// Whether `workflow` of `document`, or a workflow its `dependsOn` names,
-/// sends [`FormatName::CanonicalJson`]'s media type; `seen` holds every
-/// workflow already visited, so a dependency cycle ends.
-fn workflow_sends_json(
-    document: &ArazzoDocument,
-    workflow: &Workflow,
-    documents: &BTreeMap<&str, &ArazzoDocument>,
-    seen: &mut BTreeSet<(PathBuf, String)>,
-) -> bool {
-    if !seen.insert((document.path().to_owned(), workflow.workflow_id.clone())) {
-        return false;
-    }
-    if workflow_media_types(workflow).contains(FormatName::CanonicalJson.media_type()) {
-        return true;
-    }
-    workflow.depends_on.iter().any(|id| {
-        // NOTE: a `dependsOn` entry that does not resolve is a finding of the
-        // document gate already, so it is legitimately absent here.
-        let resolved = match split_qualified(id) {
-            None => Some((document, id.as_str())),
-            Some((source, workflow_id)) => document
-                .workflow_sources()
-                .get(source)
-                .and_then(|file| file.file_name()?.to_str()?.strip_suffix(DOCUMENT_SUFFIX))
-                .and_then(|target| documents.get(target).copied())
-                .map(|target| (target, workflow_id)),
-        };
-        resolved.is_some_and(|(target, workflow_id)| {
-            target
-                .workflow(workflow_id)
-                .is_some_and(|dependency| workflow_sends_json(target, dependency, documents, seen))
-        })
+pub fn sends_canonical_json(document: &ArazzoDocument, library: &Library<'_>) -> bool {
+    let mut seen = Seen::default();
+    document.description().workflows.iter().any(|workflow| {
+        library
+            .walk(&mut seen, document, workflow, &mut |visit| {
+                if workflow_media_types(visit.workflow)
+                    .contains(FormatName::CanonicalJson.media_type())
+                {
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            })
+            .is_some()
     })
 }
 
@@ -294,6 +266,7 @@ pub fn check_needs(
     capabilities: &Capabilities,
     documents: &BTreeMap<&str, &ArazzoDocument>,
 ) -> Vec<GateFinding> {
+    let library = Library::new(documents.values().copied());
     let mut findings = Vec::new();
     for (id, needs) in &capabilities.documents {
         let at = format!("#/documents/{id}");
@@ -321,7 +294,7 @@ pub fn check_needs(
         let sent = sent_media_types(document);
         for format in &needs.formats {
             let sends = match format {
-                FormatName::CanonicalJson => sends_canonical_json(document, documents),
+                FormatName::CanonicalJson => sends_canonical_json(document, &library),
                 _ => sent.contains(format.media_type()),
             };
             if !sends {
@@ -339,7 +312,7 @@ pub fn check_needs(
         }
     }
     for (id, document) in documents {
-        if folder_of(document).is_none() || !sends_canonical_json(document, documents) {
+        if folder_of(document).is_none() || !sends_canonical_json(document, &library) {
             continue;
         }
         let states = capabilities
@@ -604,8 +577,9 @@ mod tests {
                 &docs,
             )
         };
-        assert!(sends_canonical_json(&json, &docs));
-        assert!(!sends_canonical_json(&xml, &docs));
+        let library = Library::new(docs.values().copied());
+        assert!(sends_canonical_json(&json, &library));
+        assert!(!sends_canonical_json(&xml, &library));
         assert!(needs(serde_json::json!({ "json": { "formats": ["canonical-json"] } })).is_empty());
         let unstated = needs(serde_json::json!({}));
         assert_eq!(gates(&unstated), [Gate::Identity]);
@@ -626,6 +600,64 @@ mod tests {
                 serde_json::json!({ "json": { "formats": ["canonical-json"] }, "xml": { "formats": ["canonical-json"] } })
             )),
             [Gate::Identity]
+        );
+    }
+
+    /// A document of one workflow sending `accept` and naming `depends_on`,
+    /// over the seeded OAS at `oas` and the `type: arazzo` source `setup`.
+    fn setup_world_document(oas: &str, setup: &str, accept: &str, depends_on: &str) -> String {
+        format!(
+            "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: s, url: {oas}, type: openapi }}\n  - {{ name: setup, url: {setup}, type: arazzo }}\nworkflows:\n  - workflowId: w\n    dependsOn: [{depends_on}]\n    steps:\n      - stepId: call\n        operationId: $sourceDescriptions.s.op\n        parameters: [{{ name: Accept, in: header, value: {accept} }}]\n        successCriteria:\n          - condition: $statusCode == 200\n"
+        )
+    }
+
+    #[test]
+    fn a_setup_outside_the_cases_is_followed_and_a_shared_stem_is_two_documents() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("oas.yaml")
+            .write_str("openapi: 3.0.3\npaths:\n  /x:\n    get:\n      operationId: op\n")
+            .unwrap();
+        let write = |at: &str, text: String| dir.child(at).write_str(&text).unwrap();
+        write(
+            "outside/shared.arazzo.yaml",
+            setup_world_document("../oas.yaml", "none.arazzo.yaml", "application/json", ""),
+        );
+        write(
+            "cases/_setup/shared.arazzo.yaml",
+            setup_world_document("../../oas.yaml", "none.arazzo.yaml", "application/xml", ""),
+        );
+        write(
+            "cases/ehr/far.arazzo.yaml",
+            setup_world_document(
+                "../../oas.yaml",
+                "../../outside/shared.arazzo.yaml",
+                "application/xml",
+                "$sourceDescriptions.setup.w",
+            ),
+        );
+        write(
+            "cases/ehr/near.arazzo.yaml",
+            setup_world_document(
+                "../../oas.yaml",
+                "../_setup/shared.arazzo.yaml",
+                "application/xml",
+                "$sourceDescriptions.setup.w",
+            ),
+        );
+        let load = |at: &str| ArazzoDocument::load(&dir.path().join(at)).unwrap();
+        let far = load("cases/ehr/far.arazzo.yaml");
+        let near = load("cases/ehr/near.arazzo.yaml");
+        let shared = load("cases/_setup/shared.arazzo.yaml");
+        let docs = BTreeMap::from([("far", &far), ("near", &near), ("shared", &shared)]);
+        let library = Library::new(docs.values().copied());
+        assert!(
+            sends_canonical_json(&far, &library),
+            "the JSON setup outside `cases/` is followed, not the XML `shared` the catalogue holds"
+        );
+        assert!(
+            !sends_canonical_json(&near, &library),
+            "the XML setup inside `cases/` is the one named, not the JSON file of the same stem"
         );
     }
 }

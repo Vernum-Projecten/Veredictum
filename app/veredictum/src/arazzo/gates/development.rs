@@ -15,15 +15,15 @@
 //! design, held to hard rule 1: a development result never counts toward a
 //! released one.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
+use std::ops::ControlFlow;
 
 use roas_arazzo::v1_1::Workflow;
 
 use crate::arazzo::cite::Citation;
+use crate::arazzo::depends::{Library, Seen};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::{Gate, GateFinding, document_id};
-use crate::arazzo::source::split_qualified;
 use crate::arazzo::structure;
 
 /// Refuses every workflow of `documents` that is not development-only and
@@ -34,25 +34,14 @@ use crate::arazzo::structure;
 /// escapes the gate by where it lives.
 #[must_use]
 pub fn check(documents: &BTreeMap<&str, &ArazzoDocument>) -> Vec<GateFinding> {
-    let mut index: BTreeMap<PathBuf, &ArazzoDocument> = BTreeMap::new();
-    for document in documents.values() {
-        if let Some(key) = key_of(document.path()) {
-            index.insert(key, document);
-        }
-    }
-    let known: BTreeSet<PathBuf> = index.keys().cloned().collect();
-    let externals = load_externals(documents.values().copied(), &known);
-    for (key, document) in &externals {
-        index.entry(key.clone()).or_insert(document);
-    }
+    let library = Library::new(documents.values().copied());
     let mut findings = Vec::new();
     for document in documents.values() {
         for workflow in &document.description().workflows {
             if structure::development_citation(workflow).is_some() {
                 continue;
             }
-            let mut seen = BTreeSet::new();
-            if let Some(reached) = reach(&index, document, workflow, &mut seen) {
+            if let Some(reached) = reach(&library, document, workflow) {
                 findings.push(finding(document, workflow, &reached));
             }
         }
@@ -72,100 +61,26 @@ struct Reached {
 }
 
 /// The first development-only workflow `workflow` of `document` reaches
-/// through `dependsOn`, depth first in `dependsOn` order; `seen` holds every
-/// workflow already visited, so a dependency cycle ends.
-fn reach(
-    index: &BTreeMap<PathBuf, &ArazzoDocument>,
-    document: &ArazzoDocument,
-    workflow: &Workflow,
-    seen: &mut BTreeSet<(PathBuf, String)>,
-) -> Option<Reached> {
-    for id in &workflow.depends_on {
-        // NOTE: a `dependsOn` entry that does not resolve is a finding of the
-        // document gate already, so it is legitimately absent here.
-        let Some((target, dependency)) = resolve(index, document, id) else {
-            continue;
-        };
-        if !seen.insert((target.path().to_owned(), dependency.workflow_id.clone())) {
-            continue;
+/// through `dependsOn`, depth first in `dependsOn` order.
+fn reach(library: &Library<'_>, document: &ArazzoDocument, workflow: &Workflow) -> Option<Reached> {
+    library.walk(&mut Seen::default(), document, workflow, &mut |visit| {
+        if visit.path.is_empty() {
+            return ControlFlow::Continue(());
         }
-        let label = label(target, dependency);
-        if let Some(citation) = structure::development_citation(dependency) {
-            return Some(Reached {
-                through: Vec::new(),
-                setup: label,
+        match structure::development_citation(visit.workflow) {
+            Some(citation) => ControlFlow::Break(Reached {
+                through: visit
+                    .path
+                    .iter()
+                    .skip(1)
+                    .map(|(document, workflow)| label(document, workflow))
+                    .collect(),
+                setup: label(visit.document, visit.workflow),
                 citation,
-            });
+            }),
+            None => ControlFlow::Continue(()),
         }
-        if let Some(mut reached) = reach(index, target, dependency, seen) {
-            reached.through.insert(0, label);
-            return Some(reached);
-        }
-    }
-    None
-}
-
-/// The document and workflow a `dependsOn` entry of `document` names: a
-/// workflow of `document`, or `$sourceDescriptions.<name>.<workflowId>` of
-/// a `type: arazzo` source (Arazzo 1.1.0 §Workflow Object `dependsOn`).
-fn resolve<'a>(
-    index: &BTreeMap<PathBuf, &'a ArazzoDocument>,
-    document: &'a ArazzoDocument,
-    id: &str,
-) -> Option<(&'a ArazzoDocument, &'a Workflow)> {
-    let Some((source, workflow_id)) = split_qualified(id) else {
-        return Some((document, document.workflow(id)?));
-    };
-    let key = key_of(document.workflow_sources().get(source)?)?;
-    let target = index.get(&key).copied()?;
-    Some((target, target.workflow(workflow_id)?))
-}
-
-/// Loads every `type: arazzo` source a `dependsOn` names, at any depth, that
-/// is not among `known`, keyed by its canonical path.
-fn load_externals<'a>(
-    documents: impl IntoIterator<Item = &'a ArazzoDocument>,
-    known: &BTreeSet<PathBuf>,
-) -> BTreeMap<PathBuf, ArazzoDocument> {
-    let mut loaded = BTreeMap::new();
-    let mut pending: Vec<PathBuf> = documents.into_iter().flat_map(setup_files).collect();
-    while let Some(file) = pending.pop() {
-        let Some(key) = key_of(&file) else {
-            continue;
-        };
-        if known.contains(&key) || loaded.contains_key(&key) {
-            continue;
-        }
-        // NOTE: a setup document that does not load is a finding of the
-        // document gate already, so it is legitimately absent here.
-        let Ok(document) = ArazzoDocument::load(&file) else {
-            continue;
-        };
-        pending.extend(setup_files(&document));
-        loaded.insert(key, document);
-    }
-    loaded
-}
-
-/// The files of the `type: arazzo` sources the `dependsOn` entries of
-/// `document` name.
-fn setup_files(document: &ArazzoDocument) -> Vec<PathBuf> {
-    document
-        .description()
-        .workflows
-        .iter()
-        .flat_map(|workflow| &workflow.depends_on)
-        .filter_map(|id| split_qualified(id))
-        .filter_map(|(source, _)| document.workflow_sources().get(source).cloned())
-        .collect()
-}
-
-/// The canonical path of `path`, so a source reached through `../` and the
-/// same document listed under the catalogue are one key.
-fn key_of(path: &Path) -> Option<PathBuf> {
-    // NOTE: a path that does not resolve names no document on disk, which the
-    // load and document gates report, so it is legitimately absent here.
-    std::fs::canonicalize(path).ok()
+    })
 }
 
 /// `<document>/<workflowId>`, the way a case id names a workflow.

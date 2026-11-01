@@ -38,6 +38,7 @@
 
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Instant;
@@ -48,6 +49,7 @@ use serde_json::Value;
 
 use crate::arazzo::check::JudgeEnv;
 use crate::arazzo::cite::{Citation, citation_of};
+use crate::arazzo::depends::{DocumentKey, Library, Seen, Unresolvable};
 use crate::arazzo::derive::derivations_of;
 use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
@@ -62,7 +64,7 @@ use crate::arazzo::results::{
 };
 use crate::arazzo::rows::Row;
 use crate::arazzo::scope::{self, Coverage, scope_of};
-use crate::arazzo::source::{Base, split_qualified};
+use crate::arazzo::source::Base;
 use crate::exec::signature::SigningMode;
 use crate::exec::transport::Transport;
 use crate::ixit::DeclaredEnvironment;
@@ -162,8 +164,14 @@ impl Plan {
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
     /// `dependsOn` names a workflow the document does not have.
-    #[error("the document has no workflow `{0}`")]
-    UnknownWorkflow(String),
+    #[error("the document has no workflow `{entry}`")]
+    UnknownWorkflow {
+        /// The `dependsOn` entry.
+        entry: String,
+        /// Why the entry names no workflow.
+        #[source]
+        reason: Unresolvable,
+    },
     /// `dependsOn` loops back to a workflow already being set up.
     #[error("`dependsOn` of `{0}` forms a cycle")]
     DependencyCycle(String),
@@ -246,7 +254,7 @@ pub struct Evaluator<'d> {
     schemas: ResponseSchemas,
     har: Har,
     replay: Option<VecDeque<Row>>,
-    externals: BTreeMap<String, (String, Rc<ArazzoDocument>)>,
+    library: Rc<Library<'d>>,
 }
 
 /// The document a workflow is run from: its case-id prefix and the document.
@@ -265,22 +273,10 @@ impl<'d> Evaluator<'d> {
         config: RunConfig,
         repo_root: &Path,
     ) -> Result<Self, RunError> {
-        let mut externals = BTreeMap::new();
-        for (source, file) in document.workflow_sources() {
-            let prefix = file
-                .file_name()
-                .and_then(std::ffi::OsStr::to_str)
-                .and_then(|n| n.strip_suffix(crate::arazzo::gates::DOCUMENT_SUFFIX))
-                .unwrap_or(source)
-                .to_owned();
-            externals.insert(
-                source.clone(),
-                (prefix, Rc::new(ArazzoDocument::load(file)?)),
-            );
-        }
+        let library = Rc::new(Library::strict([document])?);
         let har = config.recording();
         Ok(Self {
-            externals,
+            library,
             document,
             name: name.to_owned(),
             har,
@@ -567,7 +563,7 @@ impl<'d> Evaluator<'d> {
         index: usize,
         row: &Row,
     ) -> Option<ResultRow> {
-        self.uncovered_scope(self.document, workflow, row, &mut Vec::new())?;
+        self.uncovered_scope(self.document, workflow, row)?;
         Some(ResultRow {
             case: case.to_owned(),
             row: index,
@@ -587,24 +583,20 @@ impl<'d> Evaluator<'d> {
         document: &ArazzoDocument,
         workflow: &Workflow,
         inputs: &Row,
-        visited: &mut Vec<String>,
     ) -> Option<scope::ScopeSet> {
-        if let Some(set) = scope::uncovered(workflow, inputs, &self.config.scoped) {
-            return Some(set);
-        }
-        workflow.depends_on.iter().find_map(|id| {
-            if visited.contains(id) {
-                return None;
-            }
-            visited.push(id.clone());
-            // NOTE: an unresolvable `dependsOn` is not "uncovered"; the set-up reports it as a run error.
-            let (owner, workflow_id) = match split_qualified(id) {
-                Some((source, workflow_id)) => (&*self.externals.get(source)?.1, workflow_id),
-                None => (document, id.as_str()),
-            };
-            let dependency = owner.workflow(workflow_id)?;
-            self.uncovered_scope(owner, dependency, &Row::new(), visited)
-        })
+        let empty = Row::new();
+        self.library
+            .walk(&mut Seen::default(), document, workflow, &mut |visit| {
+                let inputs = if visit.path.is_empty() {
+                    inputs
+                } else {
+                    &empty
+                };
+                match scope::uncovered(visit.workflow, inputs, &self.config.scoped) {
+                    Some(set) => ControlFlow::Break(set),
+                    None => ControlFlow::Continue(()),
+                }
+            })
     }
 
     fn setup(
@@ -613,37 +605,46 @@ impl<'d> Evaluator<'d> {
         workflow: &Workflow,
         row: usize,
         transport: &mut dyn Transport,
-        stack: &mut Vec<String>,
+        stack: &mut Vec<(DocumentKey, String)>,
     ) -> Result<Result<WorkflowOutputs, Explanation>, RunError> {
+        let library = Rc::clone(&self.library);
         let mut outputs = WorkflowOutputs::new();
+        stack.push((library.key(document.path()), workflow.workflow_id.clone()));
         for id in &workflow.depends_on {
-            if stack.contains(id) || *id == workflow.workflow_id {
+            let target =
+                library
+                    .resolve(document, id)
+                    .map_err(|reason| RunError::UnknownWorkflow {
+                        entry: id.clone(),
+                        reason,
+                    })?;
+            let at = (
+                library.key(target.document.path()),
+                target.workflow.workflow_id.clone(),
+            );
+            if stack.contains(&at) {
                 return Err(RunError::DependencyCycle(id.clone()));
             }
-            // NOTE: Arazzo 1.1.0 §Workflow Object `dependsOn`: a workflow of another
-            // document is named `$sourceDescriptions.<name>.<workflowId>`.
-            let held: Rc<ArazzoDocument>;
-            let (owner, owner_document, workflow_id) = match split_qualified(id) {
-                Some((source, workflow_id)) => {
-                    let (prefix, external) = self
-                        .externals
-                        .get(source)
-                        .ok_or_else(|| RunError::UnknownWorkflow(id.clone()))?;
-                    let prefix = prefix.clone();
-                    held = Rc::clone(external);
-                    (prefix, &*held, workflow_id)
-                }
-                None => (name.to_owned(), document, id.as_str()),
+            let owner = match target.source {
+                None => name.to_owned(),
+                Some(source) => target
+                    .document
+                    .path()
+                    .file_name()
+                    .and_then(std::ffi::OsStr::to_str)
+                    .and_then(|n| n.strip_suffix(crate::arazzo::gates::DOCUMENT_SUFFIX))
+                    .unwrap_or(source)
+                    .to_owned(),
             };
-            let dependency = owner_document
-                .workflow(workflow_id)
-                .ok_or_else(|| RunError::UnknownWorkflow(id.clone()))?;
-            stack.push(workflow.workflow_id.clone());
+            let owner_document = target.document;
+            let dependency = target.workflow;
             let nested = self.setup((&owner, owner_document), dependency, row, transport, stack)?;
-            stack.pop();
             let nested = match nested {
                 Ok(nested) => nested,
-                Err(explanation) => return Ok(Err(explanation)),
+                Err(explanation) => {
+                    stack.pop();
+                    return Ok(Err(explanation));
+                }
             };
             let outcome = self.run_workflow(
                 (&owner, owner_document),
@@ -655,11 +656,13 @@ impl<'d> Evaluator<'d> {
                 transport,
             )?;
             if outcome.status != Status::Passed {
+                stack.pop();
                 return Ok(Err(setup_explanation(id, &outcome)));
             }
             outputs.extend(nested);
             outputs.insert(id.clone(), outcome.outputs);
         }
+        stack.pop();
         Ok(Ok(outputs))
     }
 
@@ -1529,6 +1532,7 @@ mod tests {
     use crate::exec::transport::RawResponse;
     use assert_fs::prelude::*;
     use reqwest::StatusCode;
+    use std::error::Error as _;
 
     /// A transport that answers from a fixed queue and records what it was sent.
     struct Scripted {
@@ -2026,6 +2030,71 @@ workflows:
         )
         .unwrap();
         assert_eq!(only(&results).status, Status::Errored);
+    }
+
+    #[test]
+    fn a_setup_document_resolves_its_own_sources() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("ehr.yaml").write_str(OAS).unwrap();
+        dir.child("base.arazzo.yaml")
+            .write_str(&SHARED_SETUP.replace("workflowId: make", "workflowId: first"))
+            .unwrap();
+        dir.child("setup.arazzo.yaml")
+            .write_str(
+                &SHARED_SETUP
+                    .replace(
+                        "type: openapi }\n",
+                        "type: openapi }\n  - { name: base, url: base.arazzo.yaml, type: arazzo }\n",
+                    )
+                    .replace(
+                        "  - workflowId: make\n",
+                        "  - workflowId: make\n    dependsOn: [$sourceDescriptions.base.first]\n",
+                    ),
+            )
+            .unwrap();
+        dir.child("doc.yaml").write_str(USES_SETUP).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        let mut transport = Scripted::new(&[(201, ""), (201, ""), (200, "")]);
+        let (results, har) = run_document(
+            &document,
+            "doc",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed);
+        assert_eq!(transport.sent.len(), 3);
+        assert!(har.to_text().unwrap().contains("base/first"));
+    }
+
+    #[test]
+    fn a_dependency_cycle_through_a_source_is_refused() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("ehr.yaml").write_str(OAS).unwrap();
+        dir.child("doc.arazzo.yaml")
+            .write_str(
+                &USES_SETUP
+                    .replace("url: setup.arazzo.yaml", "url: doc.arazzo.yaml")
+                    .replace("setup.make", "setup.read"),
+            )
+            .unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.arazzo.yaml")).unwrap();
+        let mut transport = Scripted::new(&[]);
+        let error = run_document(
+            &document,
+            "doc",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut transport,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&error, RunError::DependencyCycle(id) if id == "$sourceDescriptions.setup.read"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -2948,6 +3017,57 @@ workflows:
 ";
 
     #[test]
+    fn a_set_up_of_another_document_sharing_a_workflow_id_is_still_read_for_its_scope() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("rest.yaml").write_str(REST_OAS).unwrap();
+        let workflow = |id: &str, depends_on: &str, scope: &str| {
+            format!(
+                "  - workflowId: {id}\n    x-veredictum-cite: {{ source: s, section: d, quote: q }}\n    dependsOn: [{depends_on}]\n    steps:\n      - stepId: list\n        operationId: $sourceDescriptions.rest.list\n{scope}        successCriteria: [{{ condition: $statusCode == 200 }}]\n"
+            )
+        };
+        let head = "arazzo: 1.1.0\ninfo: { title: t, version: '1' }\nsourceDescriptions:\n  - { name: rest, url: rest.yaml, type: openapi }\n";
+        dir.child("other.arazzo.yaml")
+            .write_str(&format!(
+                "{head}workflows:\n{}{}",
+                workflow(
+                    "helper",
+                    "",
+                    "        x-veredictum-scope: system/template-*.crud\n"
+                ),
+                workflow("go", "helper", "")
+            ))
+            .unwrap();
+        dir.child("doc.yaml")
+            .write_str(&format!(
+                "{head}  - {{ name: other, url: other.arazzo.yaml, type: arazzo }}\nworkflows:\n{}{}",
+                workflow("helper", "", ""),
+                workflow("use", "helper, $sourceDescriptions.other.go", "")
+            ))
+            .unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        let mut plan = plan_with("use", &[Row::new()], Iteration::ResetPerRow);
+        plan.skips
+            .insert("helper".to_owned(), scope::undeclared_skip(dir.path()));
+        let config = RunConfig {
+            scoped: Coverage {
+                issued: [scope::ScopeSet::parse("system/template-*.r").unwrap()].into(),
+                minted: false,
+            },
+            ..config()
+        };
+        let mut transport = Scripted::new(&[]);
+        let (results, _) =
+            run_document(&document, "doc", config, dir.path(), &plan, &mut transport).unwrap();
+        let used = results
+            .rows
+            .iter()
+            .find(|row| row.case == "doc/use")
+            .unwrap();
+        assert_eq!(used.status, Status::Skipped, "{results:?}");
+        assert!(transport.sent.is_empty());
+    }
+
+    #[test]
     fn a_row_whose_set_up_presents_an_uncovered_scope_set_is_skipped_not_declared() {
         let dir = assert_fs::TempDir::new().unwrap();
         dir.child("rest.yaml").write_str(REST_OAS).unwrap();
@@ -3328,5 +3448,23 @@ workflows:
             assert_eq!(why.step, "control");
             assert_eq!(why.received, "not judged: no control yet: #835");
         }
+    }
+
+    #[test]
+    fn an_unknown_workflow_carries_why_it_does_not_resolve() {
+        let reason = Unresolvable::NoLocalWorkflow {
+            workflow_id: "w".to_owned(),
+        };
+        let error = RunError::UnknownWorkflow {
+            entry: "w".to_owned(),
+            reason: reason.clone(),
+        };
+        assert_eq!(error.to_string(), "the document has no workflow `w`");
+        assert_eq!(
+            error
+                .source()
+                .and_then(|source| source.downcast_ref::<Unresolvable>()),
+            Some(&reason)
+        );
     }
 }
