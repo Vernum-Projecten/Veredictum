@@ -17,6 +17,7 @@ use crate::arazzo::cite::{Citation, citation_of};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::{GateFinding, check_catalogue};
 use crate::arazzo::source::{Base, split_qualified};
+use crate::arazzo::spec_profile::SpecProfile;
 use crate::pipeline::Error;
 
 /// One step of a listed workflow.
@@ -153,7 +154,10 @@ pub fn read(root: &Path, spec_root: Option<&Path>) -> Result<Listing, Error> {
                 context: capabilities_path.display().to_string(),
                 message: error.to_string(),
             })?;
+        // NOTE: no openEHR spec governs this — our own design; the listing is
+        // the catalogue `validate` gates, so it reads the released profile's options.
         capabilities
+            .in_profile(SpecProfile::Released)
             .arm_documents()
             .map(|(option, arm, document)| {
                 (document.to_owned(), (option.to_owned(), arm.to_owned()))

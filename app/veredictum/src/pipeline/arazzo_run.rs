@@ -414,6 +414,7 @@ pub fn run_catalogue(
         request.root,
         declarations.statement.as_ref(),
         request.documents,
+        request.profile,
     )?;
     let declared_its_rest = catalogue::declared_versions(
         declarations.statement.as_ref(),

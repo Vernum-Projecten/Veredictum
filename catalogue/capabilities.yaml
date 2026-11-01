@@ -1,7 +1,9 @@
 # The options a statement answers: behaviour the released text leaves to the
 # implementation. Each arm names the documents that test it, by document id;
 # a statement selects one arm per option through its `options` list, and the
-# documents of every other arm are skipped with `option-not-selected`.
+# documents of every other arm are skipped with `option-not-selected`. An
+# option with `profile: development` is behaviour the development text alone
+# leaves open: a released run reads the catalogue without it.
 options:
   ehr-xml-read:
     description: >-
@@ -301,9 +303,9 @@ options:
       for it with Accept application/xml.
     arms:
       template-example-xml-supported:
-        documents: [template_example_xml]
+        documents: [template_example_xml, template_example_xml_adl2]
       template-example-xml-unsupported:
-        documents: [template_example_xml_not_acceptable]
+        documents: [template_example_xml_not_acceptable, template_example_xml_not_acceptable_adl2]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -317,9 +319,9 @@ options:
       406.
     arms:
       template-example-flat-supported:
-        documents: [template_example_flat]
+        documents: [template_example_flat, template_example_flat_adl2]
       template-example-flat-unsupported:
-        documents: [template_example_flat_not_acceptable]
+        documents: [template_example_flat_not_acceptable, template_example_flat_not_acceptable_adl2]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -334,9 +336,9 @@ options:
       answers 406.
     arms:
       template-example-structured-supported:
-        documents: [template_example_structured]
+        documents: [template_example_structured, template_example_structured_adl2]
       template-example-structured-unsupported:
-        documents: [template_example_structured_not_acceptable]
+        documents: [template_example_structured_not_acceptable, template_example_structured_not_acceptable_adl2]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -748,6 +750,63 @@ options:
       source: specs/openehr/BASE/docs/architecture_overview/master12-terminology.adoc
       section: Binding Terminology Value-sets to Archetypes
       quote: "Currently there is no standard for such queries."
+  adl2-id-coded:
+    description: >-
+      Whether the service accepts id-coded ADL 2 material: id-coded
+      operational templates on upload, and compositions whose node ids are
+      id-codes against them. The development text makes the at-code system
+      the one an openEHR system must support ("The **at-code coding system**
+      must be used for systems that need to be conformant to the _openEHR
+      Reference Model (RM)_", ADL2 master02-overview.adoc §An Example) and
+      requires id-coded support of no server, nor its refusal. The option
+      exists under the development profile alone: the release shows no
+      other ADL 2 coding, so a released run reads these documents as BASE.
+      The unsupported arm has no document, since no sentence requires a
+      refusal.
+    profile: development
+    arms:
+      adl2-id-coded-supported:
+        documents:
+          - adl2_dv_boolean
+          - adl2_dv_coded_text
+          - adl2_dv_count
+          - adl2_dv_date
+          - adl2_dv_date_time
+          - adl2_dv_duration
+          - adl2_dv_ehr_uri
+          - adl2_dv_interval_count
+          - adl2_dv_interval_date
+          - adl2_dv_interval_date_time
+          - adl2_dv_interval_duration
+          - adl2_dv_interval_ordinal
+          - adl2_dv_interval_proportion
+          - adl2_dv_interval_quantity
+          - adl2_dv_interval_scale
+          - adl2_dv_interval_time
+          - adl2_dv_multimedia
+          - adl2_dv_ordinal
+          - adl2_dv_parsable
+          - adl2_dv_proportion
+          - adl2_dv_quantity
+          - adl2_dv_scale
+          - adl2_dv_text
+          - adl2_dv_time
+          - adl2_dv_uri
+          - adl2_item_tree
+          - template_adl2
+          - flat_adl2
+          - template_example_xml_adl2
+          - template_example_xml_not_acceptable_adl2
+          - template_example_flat_adl2
+          - template_example_flat_not_acceptable_adl2
+          - template_example_structured_adl2
+          - template_example_structured_not_acceptable_adl2
+      adl2-id-coded-unsupported:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-AM/docs/UML/classes/org.openehr.am.aom2.adl_code_definitions.adoc
+      section: ADL_CODE_DEFINITIONS Class
+      quote: "openEHR systems must support at least the at-coded ADL2 archetypes."
 # What a document needs from the statement before it runs, by document id.
 # `formats` lists the wire formats the server must serve or process for the
 # document, in the statement's `tech_profiles` vocabulary, and a statement
@@ -811,8 +870,11 @@ documents:
   structured_read: { formats: [canonical-json, wt-structured] }
   template_adl14_web_template: { formats: [wt] }
   template_example_xml: { formats: [canonical-xml] }
+  template_example_xml_adl2: { formats: [canonical-xml] }
   template_example_flat: { formats: [wt-flat] }
+  template_example_flat_adl2: { formats: [wt-flat] }
   template_example_structured: { formats: [wt-structured] }
+  template_example_structured_adl2: { formats: [wt-structured] }
 # The documents whose only wire format is canonical JSON, sent by their own
 # steps or by a setup they name in `dependsOn`.
   admin_ehr_delete: { formats: [canonical-json] }
@@ -1001,6 +1063,7 @@ documents:
   system_options: { formats: [canonical-json] }
   template_adl14: { formats: [canonical-json] }
   template_adl2: { formats: [canonical-json] }
+  template_adl2_endpoint: { formats: [canonical-json] }
   template_adl2_at_coded: { formats: [canonical-json] }
   version_signature: { formats: [canonical-json] }
   versioned_party: { formats: [canonical-json] }

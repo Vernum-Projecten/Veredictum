@@ -178,3 +178,4 @@ options:
   aql-nonnumeric-aggregate: { theme: left-open, tier: spec-boundary }
   xml-namespace: { theme: canonical-xml, tier: spec-boundary }
   terminology-binding-unresolvable: { theme: left-open, tier: options }
+  adl2-id-coded: { theme: left-open, tier: options }

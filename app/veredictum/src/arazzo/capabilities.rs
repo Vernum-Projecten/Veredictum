@@ -10,9 +10,12 @@
 //! `option-not-selected` and the option's citation. A document's `applies`
 //! ranges and `formats` decide the `version-out-of-range` and
 //! `format-not-claimed` skips, and the `floors` and `extension-only` entries
-//! are what `validate` holds each capability folder to. No openEHR spec
-//! governs the file's shape — our own design; each option and each range
-//! cites the released sentence it rests on.
+//! are what `validate` holds each capability folder to. An option carrying
+//! `profile: development` exists under the development profile alone: a
+//! released run reads the catalogue without it, so its documents are BASE
+//! there and a statement's answer to it selects nothing
+//! ([`Capabilities::in_profile`]). No openEHR spec governs the file's shape —
+//! our own design; each option and each range cites the sentence it rests on.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -26,6 +29,7 @@ use crate::arazzo::cite::Citation;
 use crate::arazzo::gates::published::capabilities_schema;
 use crate::arazzo::gates::surface::Element;
 use crate::arazzo::results::{Skip, SkipReason, Why};
+use crate::arazzo::spec_profile::SpecProfile;
 use crate::vocab::{FormatName, SpecComponent};
 
 /// The file name under a catalogue root.
@@ -155,6 +159,44 @@ pub struct OptionDecl {
     /// The response branches the arms are the mutually exclusive answers to.
     #[serde(default)]
     pub decides: Vec<Decides>,
+    /// The one specification profile the option exists under; `None` for an
+    /// option of every profile.
+    #[serde(default)]
+    pub profile: Option<OptionProfile>,
+}
+
+/// The specification profile an option is scoped to.
+///
+/// Only the development profile scopes an option: the release is the text
+/// every unscoped option already rests on, so a released-only option has no
+/// use, and `released` is refused rather than accepted as a no-op. No openEHR
+/// spec governs this — our own design.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OptionProfile {
+    /// The option exists under [`SpecProfile::Development`] alone.
+    Development,
+}
+
+impl OptionProfile {
+    /// All variants, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[Self] = &[Self::Development];
+
+    /// The token `capabilities.yaml` spells.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::Development => "development",
+        }
+    }
+
+    /// The run profile this scope names.
+    #[must_use]
+    pub const fn spec_profile(self) -> SpecProfile {
+        match self {
+            Self::Development => SpecProfile::Development,
+        }
+    }
 }
 
 /// The response statuses of one operation that the arms of an option divide
@@ -178,6 +220,14 @@ pub struct Decides {
 }
 
 impl OptionDecl {
+    /// Whether the option exists under `profile`: always for an unscoped
+    /// option, and under its own profile alone for a scoped one.
+    #[must_use]
+    pub fn holds_under(&self, profile: SpecProfile) -> bool {
+        self.profile
+            .is_none_or(|scope| scope.spec_profile() == profile)
+    }
+
     /// The response elements the option decides.
     #[must_use]
     pub fn decided(&self) -> BTreeSet<Element> {
@@ -246,6 +296,27 @@ impl Capabilities {
             return Err(shape(violations));
         }
         serde_json::from_value(value).map_err(|error| shape(vec![error.to_string()]))
+    }
+
+    /// The capabilities a run under `profile` reads: every option that holds
+    /// under it ([`OptionDecl::holds_under`]), and the documents, floors and
+    /// extension-only folders unchanged.
+    ///
+    /// The documents of an option left out are BASE under `profile`, as if
+    /// no arm named them, and no arm of it is selectable.
+    #[must_use]
+    pub fn in_profile(&self, profile: SpecProfile) -> Self {
+        Self {
+            options: self
+                .options
+                .iter()
+                .filter(|(_, option)| option.holds_under(profile))
+                .map(|(name, option)| (name.clone(), option.clone()))
+                .collect(),
+            documents: self.documents.clone(),
+            floors: self.floors.clone(),
+            extension_only: self.extension_only.clone(),
+        }
     }
 
     /// The skip every row of `document` carries when the statement, whose
@@ -386,6 +457,113 @@ mod tests {
         file.write_str("options:\n  o:\n    description: d\n    arms: { a: {}, b: { documents: [x] } }\n    x-veredictum-cite: { source: s, section: t, quote: q }\n")
             .unwrap();
         assert!(Capabilities::load(file.path()).is_ok());
+    }
+
+    fn scoped() -> Capabilities {
+        serde_json::from_value(serde_json::json!({
+            "options": {
+                "ehr-xml-read": {
+                    "description": "d",
+                    "arms": {
+                        "ehr-xml-supported": { "documents": ["ehr_xml"] },
+                        "ehr-xml-unsupported": { "documents": [] }
+                    },
+                    "x-veredictum-cite": { "source": "specs/openehr/x.md", "section": "s", "quote": "q" }
+                },
+                "adl2-id-coded": {
+                    "description": "d",
+                    "profile": "development",
+                    "arms": {
+                        "adl2-id-coded-supported": { "documents": ["adl2_dv_count"] },
+                        "adl2-id-coded-unsupported": { "documents": [] }
+                    },
+                    "x-veredictum-cite": { "source": "specs/openehr-development/x.adoc", "section": "s", "quote": "q" }
+                }
+            },
+            "floors": { "content": 1 }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_development_option_holds_under_development_alone() {
+        let caps = scoped();
+        let root = Path::new(".");
+        let released = caps.in_profile(SpecProfile::Released);
+        assert_eq!(
+            released.options.keys().collect::<Vec<_>>(),
+            ["ehr-xml-read"]
+        );
+        assert_eq!(released.floors, caps.floors);
+        assert_eq!(released.skip_for("adl2_dv_count", &[], root), None);
+        let development = caps.in_profile(SpecProfile::Development);
+        assert_eq!(development, caps);
+        let skip = development.skip_for("adl2_dv_count", &[], root).unwrap();
+        assert_eq!(skip.reason, SkipReason::OptionNotSelected);
+        assert_eq!(skip.why.source, "specs/openehr-development/x.adoc");
+        let supported = vec!["adl2-id-coded-supported".to_owned()];
+        assert_eq!(
+            development.skip_for("adl2_dv_count", &supported, root),
+            None
+        );
+    }
+
+    #[test]
+    fn a_document_under_two_options_runs_only_when_both_arms_are_selected() {
+        let mut caps = scoped();
+        if let Some(arm) = caps
+            .options
+            .get_mut("ehr-xml-read")
+            .and_then(|o| o.arms.get_mut("ehr-xml-supported"))
+        {
+            arm.documents.push("adl2_dv_count".to_owned());
+        }
+        let caps = caps.in_profile(SpecProfile::Development);
+        let root = Path::new(".");
+        let both = vec![
+            "ehr-xml-supported".to_owned(),
+            "adl2-id-coded-supported".to_owned(),
+        ];
+        assert_eq!(caps.skip_for("adl2_dv_count", &both, root), None);
+        for one in [&both[..1], &both[1..]] {
+            assert!(
+                caps.skip_for("adl2_dv_count", one, root).is_some(),
+                "{one:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_schema_refuses_any_option_profile_but_development() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = dir.child("capabilities.yaml");
+        let option = |profile: &str| {
+            format!(
+                "options:\n  o:\n    description: d\n    profile: {profile}\n    arms: {{ a: {{}}, b: {{ documents: [x] }} }}\n    x-veredictum-cite: {{ source: s, section: t, quote: q }}\n"
+            )
+        };
+        for refused in ["released", "Development", "dev", "''", "[development]"] {
+            file.write_str(&option(refused)).unwrap();
+            assert!(
+                matches!(
+                    Capabilities::load(file.path()),
+                    Err(CapabilitiesError::Shape { .. })
+                ),
+                "{refused}"
+            );
+        }
+        file.write_str(&option("development")).unwrap();
+        let loaded = Capabilities::load(file.path()).unwrap();
+        assert_eq!(
+            loaded.options["o"].profile,
+            Some(OptionProfile::Development)
+        );
+        for profile in OptionProfile::ALL {
+            let parsed: OptionProfile =
+                serde_json::from_value(serde_json::json!(profile.token())).unwrap();
+            assert_eq!(parsed, *profile);
+        }
     }
 
     fn version(text: &str) -> SpecVersion {

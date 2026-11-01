@@ -309,6 +309,7 @@ pub mod read {
     use veredictum::arazzo::cite::Citation;
     use veredictum::arazzo::document::ArazzoDocument;
     use veredictum::arazzo::results::upstream_link;
+    use veredictum::arazzo::spec_profile::SpecProfile;
     use veredictum::arazzo::structure::{
         CHAPTERS_FILE, Chapters, Formalisms, Theme, Tier, arms_of, section_of, workflow_citations,
     };
@@ -498,8 +499,14 @@ pub mod read {
             None
         };
         let capabilities_path = root.join(CAPABILITIES_FILE);
+        // NOTE: no openEHR spec governs this — our own design; the catalogue page shows
+        // the catalogue `validate` gates, so it reads the released profile's options.
         let capabilities = if capabilities_path.is_file() {
-            Some(Capabilities::load(&capabilities_path).map_err(unavailable)?)
+            Some(
+                Capabilities::load(&capabilities_path)
+                    .map_err(unavailable)?
+                    .in_profile(SpecProfile::Released),
+            )
         } else {
             None
         };

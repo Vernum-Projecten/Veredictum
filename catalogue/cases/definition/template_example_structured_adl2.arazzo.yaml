@@ -1,0 +1,48 @@
+# The ADL 2 template example in the Simplified Structured JSON format: the served arm
+# of the `template-example-structured-read` option, and under the development profile
+# also the `supported` arm of the `adl2-id-coded` option, since the template it reads
+# is id-coded. Its ADL 1.4 twin is `template_example_structured.arazzo.yaml`, and its
+# other arm `template_example_structured_not_acceptable_adl2.arazzo.yaml`. Every quote
+# is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Template examples in the Simplified Structured format (ADL 2)
+  version: 0.1.0
+  description: >-
+    An example data instance of a stored ADL 2 template, read in the
+    Simplified Structured JSON format from a service that serves it.
+sourceDescriptions:
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+  - name: setup_adl2
+    url: ../_setup/content_templates_adl2.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_template_adl2_example-structured
+    summary: An example of a stored ADL 2 template asked for in the Simplified Structured format is served in it
+    description: >-
+      Reads an example data instance of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with Accept application/openehr.wt.structured+json. The
+      answer is 200 with Content-Type application/openehr.wt.structured+json.
+    dependsOn: [$sourceDescriptions.setup_adl2.upload_template-adl2_dv_count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "To use these formats, content negotiation SHOULD be done in the same manner as for the canonical XML or JSON format above, but instead of `application/xml` or `application/json`, clients and servers MUST use:"
+    steps:
+      - stepId: example
+        description: Read an example of the template with Accept application/openehr.wt.structured+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
+        parameters:
+          - { name: template_id, in: path, value: openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 }
+          - { name: Accept, in: header, value: application/openehr.wt.structured+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the template is successfully retrieved."
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/openehr\.wt\.structured\+json'

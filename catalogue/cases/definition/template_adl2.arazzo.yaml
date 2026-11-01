@@ -1,17 +1,20 @@
-# The ADL 2 operational templates of the DEFINITION API: the listing, the
-# upload of a valid raw operational template written here for the purpose,
-# the reads of a template_id that names nothing, and an upload whose body
-# does not parse or is declared as XML. Every quote is copied verbatim from
-# the named vendored file.
+# The ADL 2 operational templates of the DEFINITION API that carry id-coded
+# material: the upload of a valid raw id-coded operational template written
+# here for the purpose, its reads, versions and listings, the refusals
+# controlled by that upload, and the example reads of an id-coded setup
+# template. Under the development profile the document tests the arm
+# `adl2-id-coded-supported`; the endpoint checks that touch no id-coded
+# material are `template_adl2_endpoint.arazzo.yaml`. Every quote is copied
+# verbatim from the named vendored file.
 arazzo: 1.1.0
 info:
   title: ADL 2 templates
   version: 0.1.0
   x-veredictum-section: adl-2-templates
   description: >-
-    Listing ADL 2 operational templates, uploading a valid one, reading one
-    that does not exist and refusing an upload that does not parse, through
-    the DEFINITION API.
+    Uploading a valid id-coded ADL 2 operational template, reading and
+    listing it, refusing an upload that does not parse, and reading the
+    example of an id-coded template, through the DEFINITION API.
 sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
@@ -20,93 +23,6 @@ sourceDescriptions:
     url: ../_setup/content_templates_adl2.arazzo.yaml
     type: arazzo
 workflows:
-  - workflowId: list_templates_adl2
-    summary: The ADL 2 template list answers 200 in JSON
-    description: >-
-      Lists the ADL 2 operational templates with Accept application/json.
-      The listing answers 200 with Content-Type application/json.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/responses/200_TemplateList_adl2.yaml
-      section: description
-      quote: "`200 OK` is returned when the template list is successfully retrieved."
-    steps:
-      - stepId: list
-        description: List the ADL 2 templates.
-        operationId: $sourceDescriptions.definition.definition_template_adl2_list
-        parameters:
-          - { name: Accept, in: header, value: application/json }
-        successCriteria:
-          - condition: $statusCode == 200
-          - context: $response.header.Content-Type
-            type: regex
-            condition: '^application/json'
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-              section: JSON Format
-              quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
-
-  - workflowId: get_template_adl2-unknown
-    summary: Reading an ADL 2 template_id that names no template answers 404
-    description: >-
-      Reads a fresh ADL 2 template_id that was never uploaded, with Accept
-      text/plain. The read answers 404.
-    x-veredictum-cite: &unknown
-      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_template_id.yaml
-      section: description
-      quote: "`404 Not Found` is returned when a template with the specified `template_id` does not exist."
-    inputs: &run_input
-      type: object
-      properties:
-        run: { type: string, format: uuid }
-    steps:
-      - stepId: read
-        description: Read an ADL 2 template_id that was never uploaded.
-        operationId: $sourceDescriptions.definition.definition_template_adl2_get
-        parameters:
-          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0" }
-          - { name: Accept, in: header, value: text/plain }
-        successCriteria:
-          - condition: $statusCode == 404
-
-  - workflowId: get_template_adl2_version-unknown
-    summary: Reading an ADL 2 template_id at a version that names no template answers 404
-    description: >-
-      Reads a fresh ADL 2 template_id that was never uploaded at version
-      1.0.0, through the deprecated read at a version, with Accept
-      text/plain. The read answers 404.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_template_id_or_version.yaml
-      section: description
-      quote: "`404 Not Found` is returned when a template with the specified `template_id` at given `version` does not exist."
-    inputs: *run_input
-    steps:
-      - stepId: read
-        description: Read an ADL 2 template_id that was never uploaded, at version 1.0.0.
-        operationId: $sourceDescriptions.definition.definition_template_adl2_version_get
-        parameters:
-          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
-          - { name: version, in: path, value: "1.0.0" }
-          - { name: Accept, in: header, value: text/plain }
-        successCriteria:
-          - condition: $statusCode == 404
-
-  - workflowId: get_template_adl2_example-unknown
-    summary: An example of an ADL 2 template_id that names no template answers 404
-    description: >-
-      Reads an example data instance of a fresh ADL 2 template_id that was
-      never uploaded, with Accept application/json. The read answers 404.
-    x-veredictum-cite: *unknown
-    inputs: *run_input
-    steps:
-      - stepId: example
-        description: Read an example of an ADL 2 template_id that was never uploaded.
-        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
-        parameters:
-          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0" }
-          - { name: Accept, in: header, value: application/json }
-        successCriteria:
-          - condition: $statusCode == 404
-
   - workflowId: upload_template_adl2-minimal
     summary: A valid ADL 2 operational template is accepted and listed under its template_id
     description: >-
@@ -121,7 +37,10 @@ workflows:
       section: description
       quote: "Upload a new ADL2 operational template."
       report: 939
-    inputs: *run_input
+    inputs: &run_input
+      type: object
+      properties:
+        run: { type: string, format: uuid }
     steps:
       - &upload_minimal
         stepId: upload
@@ -534,28 +453,6 @@ workflows:
         successCriteria:
           - condition: $statusCode == 400
             x-veredictum-cite: *bad_request
-
-  - workflowId: upload_template_adl2-xml_content_type
-    summary: An ADL 2 upload declared as XML is refused with 415
-    description: >-
-      Uploads ADL text with Content-Type application/xml. The operation takes
-      a template as text/plain only and the body is not XML, so the service
-      cannot process it as XML and refuses the upload with 415.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-      section: XML Format
-      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
-    steps:
-      - stepId: upload
-        description: Upload ADL text declared as application/xml.
-        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
-        parameters:
-          - { name: Content-Type, in: header, value: application/xml }
-        requestBody:
-          contentType: application/xml
-          payload: "operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)"
-        successCriteria:
-          - condition: $statusCode == 415
 
   - workflowId: upload_template_adl2-return_minimal
     summary: An ADL 2 upload with Prefer return=minimal answers 201 with no body

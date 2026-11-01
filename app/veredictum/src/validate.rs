@@ -343,6 +343,10 @@ pub fn profile_report(
 /// the claims and the option arms against the catalogue under `root`, then
 /// the completeness of every claim.
 ///
+/// The review reads the released profile, the one `validate` gates the
+/// catalogue against: an arm of an option scoped to the development profile
+/// is accepted and selects nothing.
+///
 /// A skip's citation resolves against [`repo_root_with`] `root` and
 /// `spec_root`, the repository root `validate --specs` and `test --specs`
 /// both read.
@@ -375,7 +379,7 @@ pub fn review_statement(root: &Path, spec_root: Option<&Path>, path: &Path) -> V
     if !violations.is_empty() {
         return violations;
     }
-    match Selection::read(root, Some(&value), &[]) {
+    match Selection::read(root, Some(&value), &[], SpecProfile::Released) {
         Ok(selection) => {
             let mut findings = unclaimed_arm_formats(path, &selection);
             let repo_root = repo_root_with(root, spec_root);
@@ -843,6 +847,45 @@ mod tests {
         );
         let claimed = review(&["canonical-json", "canonical-xml"])?;
         assert!(claimed.is_empty(), "{claimed:?}");
+        Ok(())
+    }
+
+    /// A statement answering an option of the development profile passes
+    /// the released review, whichever arm it selects, and an arm no option
+    /// has is still refused.
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_statement_answering_a_development_option_passes_the_released_review()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = assert_fs::TempDir::new()?;
+        let path = dir.path().join("statement.json");
+        let review = |arm: &str| -> Result<Vec<super::Finding>, std::io::Error> {
+            let statement = serde_json::json!({
+                "product": { "name": "x", "version": "1", "vendor": "v", "identifier": "urn:x" },
+                "schedule_release": "cnf-2.0-w2",
+                "claims": { "capabilities": ["content"] },
+                "options": [arm]
+            });
+            std::fs::write(&path, statement.to_string())?;
+            Ok(review_statement(
+                &repo_root().join("catalogue"),
+                None,
+                &path,
+            ))
+        };
+        for arm in ["adl2-id-coded-supported", "adl2-id-coded-unsupported"] {
+            let findings = review(arm)?;
+            assert!(findings.is_empty(), "{arm}: {findings:?}");
+        }
+        let typo = review("adl2-id-coded-maybe")?;
+        assert!(
+            typo.iter()
+                .any(|f| f.message.contains("adl2-id-coded-maybe")),
+            "{typo:?}"
+        );
         Ok(())
     }
 

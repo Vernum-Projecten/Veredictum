@@ -26,6 +26,7 @@ use std::path::{Path, PathBuf};
 use crate::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities};
 use crate::arazzo::cite::{QuoteChecker, check_level};
 use crate::arazzo::document::{ArazzoDocument, source_finding};
+use crate::arazzo::spec_profile::SpecProfile;
 
 /// The suffix every Arazzo document carries.
 pub const DOCUMENT_SUFFIX: &str = ".arazzo.yaml";
@@ -232,11 +233,14 @@ pub fn check_catalogue(catalogue_root: &Path, spec_root: Option<&Path>) -> Vec<G
     ));
     findings.extend(development::check(&loaded));
     if let Some(specs) = spec_root {
+        let released = capabilities
+            .as_ref()
+            .map(|c| c.in_profile(SpecProfile::Released));
         check_surface(
             &workflows,
             specs,
             &documents,
-            capabilities.as_ref(),
+            released.as_ref(),
             &mut findings,
         );
     }
@@ -554,7 +558,8 @@ fn arm_covered(
     )
 }
 
-/// The surface gate, over the scope `cases/surface.yaml` declares.
+/// The surface gate, over the scope `cases/surface.yaml` declares, reading
+/// the options of the released profile in `capabilities`.
 ///
 /// A statement runs one arm of an option alone, so the documents under an
 /// option's arms cover what [`surface::option_covered`] credits them with:
