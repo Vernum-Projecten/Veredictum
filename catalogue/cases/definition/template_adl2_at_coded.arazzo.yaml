@@ -1,16 +1,18 @@
 # At-coded ADL 2 operational templates of the DEFINITION API: the upload of
 # a valid at-coded raw operational template written here for the purpose,
-# and its read. The at-code coding system is development text, so every
-# workflow here is development-only. Every quote is copied verbatim from the
-# named vendored file.
+# its read, and the empty and unparseable upload refusals controlled by that
+# upload. The at-code coding system is development text, so every workflow
+# here is development-only. Every quote is copied verbatim from the named
+# vendored file.
 arazzo: 1.1.0
 info:
   title: ADL 2 templates, at-coded
   version: 0.1.0
   x-veredictum-section: adl-2-templates
   description: >-
-    Uploading an at-coded ADL 2 operational template and reading it back
-    through the DEFINITION API.
+    Uploading an at-coded ADL 2 operational template, reading it back, and
+    refusing an upload that holds no template or does not parse, through the
+    DEFINITION API.
 sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
@@ -186,3 +188,53 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/200_Template_adl2_retrieved.yaml
               section: description
               quote: "`200 OK` is returned when the template is successfully retrieved."
+
+  - workflowId: upload_template_adl2-at_coded-empty_body
+    x-veredictum-control: upload_template_adl2-at_coded
+    summary: An ADL 2 upload with an empty body is refused with 400, beside the at-coded control
+    description: >-
+      Uploads an empty body as text/plain, the request of
+      `template_adl2` `upload_template_adl2-empty_body`, controlled by the
+      at-coded upload so that a development run judges it whichever arm of
+      the id-coded option the statement selects. An empty body holds no
+      operational template, so the upload is refused with 400.
+    x-veredictum-cite: *at_coded
+    steps:
+      - stepId: upload
+        description: Upload an empty body.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: ""
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &bad_request
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: upload_template_adl2-at_coded-unparseable
+    x-veredictum-control: upload_template_adl2-at_coded
+    summary: An ADL 2 upload whose body does not parse is refused with 400, beside the at-coded control
+    description: >-
+      Uploads a text/plain body that opens an operational template and
+      breaks off inside its header, the request of `template_adl2`
+      `upload_template_adl2-unparseable`, controlled by the at-coded upload
+      so that a development run judges it whichever arm of the id-coded
+      option the statement selects. The body does not parse as ADL, so the
+      upload is refused with 400.
+    x-veredictum-cite: *at_coded
+    steps:
+      - stepId: upload
+        description: Upload a body that does not parse as ADL.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: "operational_template (adl_version=2.0.6; rm_release=1.0.2; generated"
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
