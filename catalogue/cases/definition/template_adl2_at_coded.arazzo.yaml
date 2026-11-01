@@ -1,0 +1,188 @@
+# At-coded ADL 2 operational templates of the DEFINITION API: the upload of
+# a valid at-coded raw operational template written here for the purpose,
+# and its read. The at-code coding system is development text, so every
+# workflow here is development-only. Every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: ADL 2 templates, at-coded
+  version: 0.1.0
+  x-veredictum-section: adl-2-templates
+  description: >-
+    Uploading an at-coded ADL 2 operational template and reading it back
+    through the DEFINITION API.
+sourceDescriptions:
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: upload_template_adl2-at_coded
+    summary: An at-coded ADL 2 operational template is accepted and listed under its template_id
+    description: >-
+      Uploads a raw at-coded ADL 2 operational template under a fresh
+      template_id: a COMPOSITION whose root node is at0000, of category
+      event, whose content is an inlined at-coded OBSERVATION archetype down
+      to one ELEMENT with a DV_TEXT value. It then lists the ADL 2 templates
+      matching that template_id. The upload answers 201 and the listing holds
+      the template.
+    x-veredictum-cite: &at_coded
+      source: specs/openehr-development/specifications-AM/docs/UML/classes/org.openehr.am.aom2.adl_code_definitions.adoc
+      section: ADL_CODE_DEFINITIONS Class
+      quote: "openEHR systems must support at least the at-coded ADL2 archetypes."
+    inputs: &run_input
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - &upload_at_coded
+        stepId: upload
+        description: Upload the at-coded operational template under a fresh template_id.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          # NOTE: development ADL2 master04.2-cadl_basics.adoc §Node Identifier and Coding Systems:
+          # an at-coded root object is always at0000; master10-templates.adoc gives the OPT form.
+          payload: |-
+            operational_template (adl_version=2.4.0; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"An at-coded operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[at0000] matches {
+                    category matches {
+                        DV_CODED_TEXT[at0001] matches {
+                            defining_code matches {[at0002]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[at0003, openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[at0001] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[at0002] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[at0003] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[at0004] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[at0005]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["at0000"] = <
+                            text = <"Minimal at-coded">
+                            description = <"An at-coded event composition">
+                        >
+                        ["at0002"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                        ["at0003"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at0002"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["at0000"] = <
+                                text = <"Minimal observation">
+                                description = <"An at-coded observation with one text element">
+                            >
+                            ["at0002"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["at0004"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_Template_adl2_upload.yaml
+              section: description
+              quote: "`201 Created` is returned when the template has been successfully uploaded."
+      - stepId: list
+        description: List the ADL 2 templates whose template_id matches the uploaded one.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_list
+        parameters:
+          - { name: template_id, in: query, value: "openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_TemplateList_adl2.yaml
+              section: description
+              quote: "`200 OK` is returned when the template list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.template_id == 'openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/parameters/query/filter_template_id.yaml
+              section: description
+              quote: "Pattern for matching `template_id` (supports wildcards `*`)"
+
+  - workflowId: get_template_adl2-at_coded
+    summary: An uploaded at-coded ADL 2 template is read back as ADL text
+    description: >-
+      Uploads the at-coded ADL 2 operational template under a fresh
+      template_id, then reads it by that template_id with Accept text/plain.
+      The read answers 200.
+    x-veredictum-cite: *at_coded
+    inputs: *run_input
+    steps:
+      - *upload_at_coded
+      - stepId: read
+        description: Read the template with Accept text/plain.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef_at-{$inputs.run}.v1.0.0" }
+          - { name: Accept, in: header, value: text/plain }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Template_adl2_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the template is successfully retrieved."

@@ -906,6 +906,7 @@ documents:
   adl2_dv_text: { formats: [canonical-json] }
   adl2_dv_time: { formats: [canonical-json] }
   adl2_dv_uri: { formats: [canonical-json] }
+  adl2_at_coded: { formats: [canonical-json] }
   content_observation: { formats: [canonical-json] }
   contribution_create: { formats: [canonical-json] }
   contribution_create_refused: { formats: [canonical-json] }
@@ -1000,6 +1001,7 @@ documents:
   system_options: { formats: [canonical-json] }
   template_adl14: { formats: [canonical-json] }
   template_adl2: { formats: [canonical-json] }
+  template_adl2_at_coded: { formats: [canonical-json] }
   version_signature: { formats: [canonical-json] }
   versioned_party: { formats: [canonical-json] }
   versioned_party_read_xml_not_acceptable: { formats: [canonical-json] }

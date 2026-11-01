@@ -6535,3 +6535,133 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
               section: "description"
               quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+
+  - workflowId: upload_template-adl2_at_coded
+    summary: The at-coded ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_at_coded.v1.0.0 is on the server
+    description: >-
+      Uploads the at-coded ADL 2 operational template
+      openEHR-EHR-COMPOSITION.cnf_adl2_at_coded.v1.0.0, whose root node is
+      at0000 and whose every node and value code is an at-code. A server that
+      already holds a template with that template_id refuses the upload with
+      409, which leaves the same precondition in place. The at-code coding
+      system is development text, so the setup is development-only.
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-AM/docs/UML/classes/org.openehr.am.aom2.adl_code_definitions.adoc
+      section: ADL_CODE_DEFINITIONS Class
+      quote: "openEHR systems must support at least the at-coded ADL2 archetypes."
+    steps:
+      - stepId: upload
+        description: Upload the template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        x-veredictum-cite:
+          source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
+          section: "description"
+          quote: "Upload a new ADL2 operational template."
+          report: 939
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          # NOTE: development ADL2 master04.2-cadl_basics.adoc §Node Identifier and Coding Systems:
+          # an at-coded root object is always at0000; master10-templates.adoc gives the OPT form.
+          payload: |-
+            operational_template (adl_version=2.4.0; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.cnf_adl2_at_coded.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"An at-coded operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[at0000] matches {
+                    category matches {
+                        DV_CODED_TEXT[at0001] matches {
+                            defining_code matches {[at0002]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[at0003, openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[at0001] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[at0002] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[at0003] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[at0004] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[at0005]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["at0000"] = <
+                            text = <"CNF ADL 2 at-coded">
+                            description = <"An at-coded event composition">
+                        >
+                        ["at0002"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                        ["at0003"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at0002"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal_at_coded.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["at0000"] = <
+                                text = <"Minimal observation">
+                                description = <"An at-coded observation with one text element">
+                            >
+                            ["at0002"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["at0004"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
