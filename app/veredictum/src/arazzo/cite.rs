@@ -328,13 +328,16 @@ pub enum CiteError {
         /// The quote.
         quote: String,
     },
-    /// The source belongs to a document the release has retired.
-    #[error("`{file}` belongs to `{document}`, which the release marks RETIRED")]
+    /// The source belongs to a document the text read has retired or
+    /// superseded.
+    #[error("`{file}` belongs to `{document}`, which the text read marks {status}")]
     Retired {
         /// The cited source.
         file: String,
-        /// The retired document.
+        /// The retired or superseded document.
         document: String,
+        /// The status the text gives it: RETIRED or SUPERSEDED.
+        status: SpecStatus,
     },
     /// The release states no status for the document the source belongs to.
     #[error("the cited text has no release status: {0}")]
@@ -616,12 +619,13 @@ impl<'a> QuoteChecker<'a> {
         match self.maturities.of(source) {
             Ok(Maturity::Document {
                 document,
-                status: SpecStatus::Retired,
+                status: status @ (SpecStatus::Retired | SpecStatus::Superseded),
                 ..
             }) => {
                 return Err(CiteError::Retired {
                     file: source.to_owned(),
                     document,
+                    status,
                 });
             }
             // NOTE: no openEHR spec governs this — our own design; a tree without the vendored
@@ -1545,6 +1549,7 @@ mod tests {
             Err(CiteError::Retired {
                 file: retired.source.clone(),
                 document: "simplified_data_template".to_owned(),
+                status: SpecStatus::Retired,
             })
         );
         let released = cite(

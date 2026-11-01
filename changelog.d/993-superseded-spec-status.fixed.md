@@ -1,0 +1,1 @@
+- A run under the development profile no longer refuses to start when the pinned snapshot marks a cited document SUPERSEDED: the status is known, a citation into it is refused like one into a RETIRED document, and the case is skipped with `cited-text-absent` (#993).
