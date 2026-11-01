@@ -1,0 +1,13 @@
+diff --git a/docs/UML/classes/org.openehr.rm.common.locatable.adoc b/docs/UML/classes/org.openehr.rm.common.locatable.adoc
+index 74d6524..2cb8465 100644
+--- a/docs/UML/classes/org.openehr.rm.common.locatable.adoc
++++ b/docs/UML/classes/org.openehr.rm.common.locatable.adoc
+@@ -21,7 +21,7 @@ a|Runtime name of this fragment, used to build runtime paths. This is the term p
+ 
+ h|*1..1*
+ |*archetype_node_id*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`
+-a|Design-time archetype identifier of this node taken from its generating archetype; used to build archetype paths. Always in the form of an at-code, e.g.  `at0005`. This value enables a 'standardised' name for this node to be generated, by referring to the generating archetype local terminology. 
++a|Design-time archetype identifier of this node taken from its generating archetype; used to build archetype paths. Below an archetype root point, always in the form of an at-code, e.g.  `at0005`. This value enables a 'standardised' name for this node to be generated, by referring to the generating archetype local terminology. 
+ 
+ At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object.
+ 
