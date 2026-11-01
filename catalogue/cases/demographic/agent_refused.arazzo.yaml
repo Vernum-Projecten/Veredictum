@@ -145,6 +145,49 @@ workflows:
           - condition: $statusCode == 400
             x-veredictum-cite: *bad_request
 
+  - workflowId: create_agent-roles_empty
+    x-veredictum-control: $sourceDescriptions.agent.create_agent
+    summary: An AGENT whose roles list is empty is refused with 400
+    description: >-
+      Creates an AGENT whose roles list is present and empty. The published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json, AGENT.roles, minItems 1)
+      refuses the body, so it is syntactically invalid content, and the create
+      is answered 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - stepId: create
+        description: Create the refused AGENT.
+        operationId: $sourceDescriptions.demographic.agent_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &roles_empty
+            _type: AGENT
+            name: { _type: DV_TEXT, value: agent v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-AGENT.agent.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-AGENT.agent.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Agent One }
+            roles: []
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
   - workflowId: create_agent-archetype_details_missing
     x-veredictum-control: $sourceDescriptions.agent.create_agent
     summary: An AGENT archetype root without archetype_details is refused with 422
