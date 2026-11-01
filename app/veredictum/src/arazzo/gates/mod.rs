@@ -11,6 +11,7 @@
 
 pub mod aql;
 pub mod chapters;
+pub mod development;
 pub mod folders;
 pub mod profile;
 pub mod published;
@@ -69,6 +70,9 @@ pub enum Gate {
     /// A document, folder, section, option or report the reading structure
     /// does not place, or places twice.
     Structure,
+    /// A workflow resting on released text that depends, at any depth, on a
+    /// development-only workflow.
+    DevelopmentSetup,
 }
 
 impl Gate {
@@ -90,6 +94,7 @@ impl Gate {
             Self::Floor => "arazzo-floor",
             Self::Realization => "arazzo-realization-scope",
             Self::Structure => "arazzo-structure",
+            Self::DevelopmentSetup => "arazzo-development-setup",
         }
     }
 }
@@ -225,6 +230,7 @@ pub fn check_catalogue(catalogue_root: &Path, spec_root: Option<&Path>) -> Vec<G
         capabilities.as_ref(),
         repo_root.as_deref(),
     ));
+    findings.extend(development::check(&loaded));
     if let Some(specs) = spec_root {
         check_surface(
             &workflows,

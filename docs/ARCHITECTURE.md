@@ -2142,6 +2142,14 @@ vendor reads why a row is red without opening `results.json`.
   snapshot of every cited upstream report's title and state, holds exactly
   the reports the citations name, and `scripts/checks/report-refs.sh` holds
   it to the tracker.
+- **Development setups** (`arazzo-development-setup`): a workflow that is
+  not development-only and names, in `dependsOn`, a development-only
+  workflow, directly or through other setups, in its own document or in
+  another, is refused, and the finding names both workflows and the
+  development citation. A setup runs whatever it cites, so the pairing would
+  rest a released verdict on development text (hard rule 1). A
+  development-only workflow may depend on anything. No openEHR spec governs
+  this; it is our own design.
 - **Maturity** (`arazzo-citation`): every cited file's release status is
   read from the vendored manifests; a citation into a document the release
   marks RETIRED is refused, as is one whose document states no known status.
