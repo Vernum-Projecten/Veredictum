@@ -11,6 +11,7 @@ commit `e6ff2a4e55c13cc79e15376a46c29f4c1e529f92`, the snapshot vendored under
 | Patch | Report |
 |---|---|
 | `0719-archetype-xsd-carries-aom14-temporal-fields.patch` | #719 |
+| `1009-party-reverse-relationships-function.patch` | #1009 |
 
 A patch is named after its report's number.
 `scripts/checks/upstream-patches-apply.sh` checks on every pull request that

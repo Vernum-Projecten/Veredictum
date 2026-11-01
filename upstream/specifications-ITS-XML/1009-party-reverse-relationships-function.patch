@@ -1,0 +1,11 @@
+diff --git a/components/RM/latest/Demographic.xsd b/components/RM/latest/Demographic.xsd
+--- a/components/RM/latest/Demographic.xsd
++++ b/components/RM/latest/Demographic.xsd
+@@ -18,7 +18,6 @@
+ 					<xs:element name="identities" type="PARTY_IDENTITY" maxOccurs="unbounded"/>
+ 					<xs:element name="contacts" type="CONTACT" minOccurs="0" maxOccurs="unbounded"/>
+ 					<xs:element name="relationships" type="PARTY_RELATIONSHIP" minOccurs="0" maxOccurs="unbounded"/>
+-					<xs:element name="reverse_relationships" type="LOCATABLE_REF" minOccurs="0" maxOccurs="unbounded"/>
+ 					<xs:element name="details" type="ITEM_STRUCTURE" minOccurs="0"/>
+ 				</xs:sequence>
+ 			</xs:extension>

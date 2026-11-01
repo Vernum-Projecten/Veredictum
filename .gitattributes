@@ -51,3 +51,4 @@ specs/openehr-development/** -text
 # The brand palette and the seal are design assets, not source: without this the
 # language bar gives a CSS file the same weight as the runner.
 assets/** linguist-documentation
+upstream/specifications-ITS-XML/1009-party-reverse-relationships-function.patch -text
