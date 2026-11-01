@@ -1177,3 +1177,51 @@ workflows:
           - context: $response.body#/relationships/0/target/id/value
             type: regex
             condition: '^{$steps.target.outputs.versioned_object_uid}$'
+
+  - workflowId: update_person-relationship_target_reverse
+    summary: A PERSON targeted by another PERSON's relationship lists it in reverse_relationships
+    description: >-
+      Creates two PERSONs, then updates the first with a PARTY_RELATIONSHIP
+      whose source is the first PERSON's container and whose target is the
+      second's, and reads the second PERSON's latest version back. The party
+      at the target end lists the relationship in reverse_relationships, so
+      the list holds a reference. The update carries the relationship because
+      a create cannot name the container uid the server has not yet assigned.
+      The released text types the reference as a LOCATABLE_REF without fixing
+      which UID_BASED_ID it carries or its path, so only its presence is
+      asserted.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/demographic/master02-demographic_package.adoc
+      section: Party Relationships
+      quote: "each Party involved in a relationship includes it in its relationships list, if it is at the source end, or in the `_reverse_relationships_` list, if at the target end."
+      report: 1053
+    steps:
+      - *create
+      - *target
+      - stepId: update
+        description: Update the first PERSON with the relationship whose target is the second PERSON.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_related
+          replacements:
+            - { target: /relationships/0/source/id/value, value: $steps.create.outputs.versioned_object_uid }
+            - { target: /relationships/0/target/id/value, value: $steps.target.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *updated
+      - stepId: get
+        description: "Retrieve the second PERSON's latest version."
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.target.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - condition: $response.body#/reverse_relationships/0 != null

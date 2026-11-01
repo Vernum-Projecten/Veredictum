@@ -763,6 +763,7 @@ workflows:
               source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
               section: Logical Deletion
               quote: "set the `_lifecycle_state_` value to the code for \"deleted\""
+              development: { contested: 1008 }
           - condition: $response.body#/data == null
             x-veredictum-cite:
               source: specs/openehr/RM/docs/common/master06-change_control_package.adoc

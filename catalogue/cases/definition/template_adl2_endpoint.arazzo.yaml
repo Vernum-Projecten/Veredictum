@@ -122,6 +122,6 @@ workflows:
           - { name: Content-Type, in: header, value: application/xml }
         requestBody:
           contentType: application/xml
-          payload: "operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)"
+          payload: "operational_template (adl_version=2.0.6; rm_release=1.0.2; build_uid=2A77A2A9-F311-425B-BDA3-BDE7E463E5A4; generated)"
         successCriteria:
           - condition: $statusCode == 415
