@@ -10,6 +10,7 @@ commit `654296bb027b03b4b076101e7171f3359f44cebc`, the snapshot vendored under
 
 | Patch | Report |
 |---|---|
+| `0353-archetype-node-id-root-point.patch` | #353 |
 | `0717-partial-temporal-magnitude.patch` | #717 |
 | `0718-coded-text-value-is-rubric.patch` | #718 |
 | `0760-rm-slips.patch` | #760 |
