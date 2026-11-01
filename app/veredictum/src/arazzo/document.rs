@@ -1620,6 +1620,53 @@ mod tests {
     }
 
     #[test]
+    fn every_unresolvable_depends_on_and_control_keeps_its_wording() {
+        let (dir, _) = fixture(&(twin() + &refusal("r", Some("twin"))));
+        let refused = refusal(
+            "w",
+            Some(
+                "[nope, $sourceDescriptions.ehr.twin, $sourceDescriptions.other.nope, \
+                 $sourceDescriptions.missing.w, $sourceDescriptions.other.r, $sourceDescriptions.other.twin]",
+            ),
+        )
+        .replace(
+            "    steps:\n",
+            "    dependsOn: [nope, $sourceDescriptions.ehr.twin, $sourceDescriptions.other.nope, \
+             $sourceDescriptions.missing.w, $sourceDescriptions.other.twin]\n    steps:\n",
+        );
+        let doc = format!(
+            "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }}\n  - {{ name: other, url: ehr.arazzo.yaml, type: arazzo }}\n  - {{ name: missing, url: nowhere.arazzo.yaml, type: arazzo }}\nworkflows:\n{refused}"
+        );
+        let file = dir.child("catalogue/cases/refused.arazzo.yaml");
+        file.write_str(&doc).unwrap();
+        let loaded = ArazzoDocument::load(file.path()).unwrap();
+        let cases = dir.path().join("catalogue/cases");
+        let other = cases.join("ehr.arazzo.yaml");
+        let missing = cases.join("nowhere.arazzo.yaml");
+        let unloadable = ArazzoDocument::load(&missing).unwrap_err().to_string();
+        let found: Vec<(String, String)> = loaded
+            .check(dir.path())
+            .into_iter()
+            .map(|f| (f.location, f.kind.to_string()))
+            .collect();
+        let at = |message: String| ("w".to_owned(), message);
+        assert_eq!(
+            found,
+            [
+                at("not driven by the evaluator: dependsOn `nope`, which is not a workflow of this document".to_owned()),
+                at("not driven by the evaluator: dependsOn `$sourceDescriptions.ehr.twin`, whose source `ehr` is not a `type: arazzo` source".to_owned()),
+                at(format!("not driven by the evaluator: dependsOn `$sourceDescriptions.other.nope`, which is not a workflow of `{}`", other.display())),
+                at(format!("not driven by the evaluator: dependsOn `$sourceDescriptions.missing.w`: {unloadable}")),
+                at("`x-veredictum-control` names `nope`, which is not a workflow of this document".to_owned()),
+                at("`x-veredictum-control` names `$sourceDescriptions.ehr.twin`, dependsOn `$sourceDescriptions.ehr.twin`, whose source `ehr` is not a `type: arazzo` source".to_owned()),
+                at(format!("`x-veredictum-control` names `$sourceDescriptions.other.nope`, dependsOn `$sourceDescriptions.other.nope`, which is not a workflow of `{}`", other.display())),
+                at(format!("`x-veredictum-control` names `$sourceDescriptions.missing.w`, dependsOn `$sourceDescriptions.missing.w`: {unloadable}")),
+                at("`x-veredictum-control` names `$sourceDescriptions.other.r`, which is itself a refusal workflow".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
     fn a_control_of_another_document_resolves_through_its_arazzo_source() {
         let (dir, _) = fixture(&twin());
         let workflows = refusal("w", Some("$sourceDescriptions.other.twin"));
