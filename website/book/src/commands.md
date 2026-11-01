@@ -410,6 +410,12 @@ rows files and capability folders read, and exits `1` on any finding.
   `application/json` (itself or through a `dependsOn` setup) without stating
   `canonical-json`.
 
+**Development setups (`arazzo-development-setup`).** A case that rests on
+released text and depends, through `dependsOn` at any depth, on a workflow
+citing development text alone is refused: the setup would run under the
+released profile and the released verdict would rest on development text. A
+development-only case may depend on anything.
+
 **`chapters.yaml` (`arazzo-structure`)** is the reading structure every view
 follows: it places each capability folder in one chapter and declares each
 folder's BASE sections. A document no option arm names is BASE and names its

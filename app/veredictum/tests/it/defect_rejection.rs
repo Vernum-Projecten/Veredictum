@@ -89,6 +89,9 @@ defects! {
         ("arazzo-floor-below.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-floor"),
     arazzo_extension_only_unmarked =>
         ("arazzo-extension-only-unmarked.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-realization-scope"),
+    // A released case resting on a setup that cites development text alone.
+    arazzo_development_setup =>
+        ("arazzo-development-setup.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-development-setup"),
     // The reading structure: a folder in no chapter or in two, a BASE
     // document with no section or an unknown one, a section nothing uses,
     // an OPTION document with a section, an option with no theme, a spec
