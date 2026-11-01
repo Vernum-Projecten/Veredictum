@@ -2,10 +2,9 @@
 
 <!-- toc -->
 
-This page is for a tendering authority that wants to require openEHR
-conformance in a call for tenders. It gives a requirement clause to paste, the
-five parameters to fill in, and the equivalence duty that comes with naming any
-conformance scheme in a public procurement. The clause comes from the design
+For a tendering authority requiring openEHR conformance in a call for
+tenders: a clause to paste, its five parameters, and the equivalence duty that
+comes with naming any conformance scheme. The clause comes from the design
 record (`docs/ARCHITECTURE.md` §10).
 
 ## The clause
@@ -23,31 +22,29 @@ record (`docs/ARCHITECTURE.md` §10).
 
 ## The five parameters
 
-Each parameter maps to a field of the vendor's statement
-(`schemas/statement.schema.json`), so a submission can be checked against the
-requirement field by field.
+Each maps to a field of the vendor's statement (`schemas/statement.schema.json`),
+so a submission can be checked field by field.
 
 | Parameter | What you choose | Where the vendor answers it |
 |---|---|---|
-| **R, the release** | the catalogue release the statement must be judged against, and the openEHR specification versions you require | `schedule_release`, and `spec_versions` (for example `"its_rest": "1.1.0"`) |
-| **C, the capabilities** | the parts of the REST API the product must cover, named by the folders under `catalogue/cases/`: `ehr`, `ehr_status`, `composition`, `contribution`, `directory`, `query`, `definition`, `demographic` and the others | `claims.capabilities` |
-| **O, the option arms** | for each behaviour the release leaves to the implementation that matters to you, the arm you need, from `catalogue/capabilities.yaml`; for example `composition-xml-supported` if you need canonical XML | `options` |
-| **The technology profile** | the ITS and the wire formats the product must serve; canonical JSON at the least | `tech_profiles`, for example `its-rest` with `canonical-json` |
+| **R, the release** | the catalogue release to judge against, and the openEHR specification versions you require | `schedule_release`, and `spec_versions` (for example `"its_rest": "1.1.0"`) |
+| **C, the capabilities** | the parts of the REST API the product must cover, by folder under `catalogue/cases/`: `ehr`, `ehr_status`, `composition`, `contribution`, `directory`, `query`, `definition`, `demographic` and the others | `claims.capabilities` |
+| **O, the option arms** | for each option in `catalogue/capabilities.yaml` that matters to you, the arm you need; for example `composition-xml-supported` for canonical XML | `options` |
+| **The technology profile** | the ITS and wire formats the product must serve; canonical JSON at the least | `tech_profiles`, for example `its-rest` with `canonical-json` |
 | **The rung** | how much independent checking stands behind the claim | the attestation the vendor supplies |
 
-The rungs are set out in `docs/ARCHITECTURE.md` §9:
+The rungs (`docs/ARCHITECTURE.md` §9):
 
 | Rung | Name | What stands behind the claim |
 |---|---|---|
 | 0 | Published statement | the vendor publishes its statement and results itself |
 | 1 | Self-declared | rung 0 plus a signed declaration of conformity by an authorised officer, under ISO/IEC 17050-1 |
-| 2 | Community-verified | the results are reproduced by a named witness re-running the instrument against the vendor's deployment |
+| 2 | Community-verified | a named witness reproduces the results by re-running the instrument against the vendor's deployment |
 | 3 | Certified | an accredited laboratory runs the instrument and an accredited body certifies; not offered until surveillance is funded |
 
-A result counts toward a released claim only when it was judged against the
-released specification text: its `specification` member reads `released`
-([the method](methodology.md#two-specification-profiles)). Ask for the
-statement and the `results.json` it was run with, and check them with
+Only a result whose `specification` member reads `released` counts toward a
+released claim ([the method](methodology.md#two-specification-profiles)). Ask
+for the statement and the `results.json` it was run with, and check them with
 `veredictum validate --statement` and `veredictum show`
 ([Command reference](commands.md)). No certificate is issued before the
 openEHR SEC approves the instrument, and every 0.x result is marked
@@ -55,8 +52,8 @@ openEHR SEC approves the instrument, and every 0.x result is marked
 
 ## An example requirement
 
-A hospital that needs EHRs, compositions, contributions, folders, templates
-and AQL over canonical JSON, and does not need XML, could paste:
+For a hospital that needs EHRs, compositions, contributions, folders,
+templates and AQL over canonical JSON, and no XML:
 
 > The offered product must demonstrate openEHR conformance to the Veredictum
 > catalogue release named in its statement, judged against the released
@@ -73,17 +70,16 @@ and AQL over canonical JSON, and does not need XML, could paste:
 > submitted results prior to acceptance.
 
 It names no option arm, so either answer to every option is acceptable. To
-require XML on top, add `composition-xml-supported` and the other `*-xml-supported`
-arms you need as the required option arms. It asks for rung 0, because rung 0
-is what a vendor can supply today; raise it once higher rungs are operated.
+require XML, add `composition-xml-supported` and the other `*-xml-supported`
+arms you need. It asks for rung 0, which is what a vendor can supply today;
+raise it once higher rungs are operated.
 
 ## The equivalence duty
 
-The "or by equivalent means of proof" sentence is not optional for an
-authority bound by Directive 2014/24/EU on public procurement. Naming one
-scheme's statement or certificate as the only acceptable proof is open to
-challenge as discriminatory, because the Directive obliges the authority to
-accept equivalents:
+An authority bound by Directive 2014/24/EU on public procurement must keep
+"or by equivalent means of proof". Naming one scheme's statement or
+certificate as the only acceptable proof is open to challenge as
+discriminatory:
 
 - **Technical specifications** (Article 42(3)(b)): a specification set by
   reference to a standard or technical reference system "shall be accompanied
@@ -100,12 +96,12 @@ accept equivalents:
   referred to in paragraph 1, such as a technical dossier of the
   manufacturer" where the operator had no access to them.
 
-The clause keeps the requirement objective. The instrument, its catalogue and
-its schemas are public and free under Apache-2.0, so any vendor can produce
-the evidence and any authority can check it, and the witnessed re-run gives
-the authority a way to test a submission it doubts.
+The requirement stays objective: the instrument, catalogue and schemas are
+public and free under Apache-2.0, so any vendor can produce the evidence and
+any authority can check it, and the witnessed re-run tests a doubtful
+submission.
 
-The Directive is quoted from the text published at
+The Directive is quoted from
 <https://www.legislation.gov.uk/eudr/2014/24/contents> as it stood on
 31 December 2020; the authoritative version is on EUR-Lex
 (<https://eur-lex.europa.eu/eli/dir/2014/24/oj>). This page is not legal
@@ -114,9 +110,7 @@ law that transposes the Directive.
 
 ## Comparing submissions
 
-Statements and results are computable documents with published schemas, so
-two vendors' submissions can be compared field by field: capability by
-capability, option by option and chapter by chapter. The instrument publishes
-no comparison and keeps no registry (`docs/ARCHITECTURE.md` §15.10); you
-compare the documents the vendors supplied. [Reading a result](reading-results.md)
-explains what each row of a result means for the decision.
+Statements and results have published schemas, so two submissions compare
+field by field: capability, option and chapter. The instrument publishes no
+comparison and keeps no registry (`docs/ARCHITECTURE.md` §15.10).
+[Reading a result](reading-results.md) explains each row for the decision.

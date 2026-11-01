@@ -2,19 +2,21 @@
 
 <!-- toc -->
 
-Every code block below is `veredictum <command> --help` from the binary itself:
-this page is rendered by `scripts/render/commands-md.sh` out of clap's own
-output, so a flag cannot land in the binary and go missing here. The sections
-follow the order `veredictum --help` lists them in, and the prose under each
-one is written by hand and lives in `website/book/commands/`.
+Each code block is the binary's own `veredictum <command> --help`, rendered by
+`scripts/render/commands-md.sh`, in the order `veredictum --help` lists them.
+The notes under each are hand-written in `website/book/commands/`.
 
-Two commands make the conformance record: `validate` checks the catalogue,
-and `test` drives it or re-judges its recording. `export`
-renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
-system. `perf` measures a workload against a live server, `perf-compare`
-compares performance records or runs two servers interleaved, `perf-judge`
-re-derives a performance record, `verify` checks a conformance certificate
-offline, and the rest render or explore.
+| Command | Does |
+|---|---|
+| `validate` | checks the catalogue |
+| `test` | drives the catalogue, or re-judges its recording |
+| `export` | renders a results document as JUnit XML, CTRF and a Markdown summary |
+| `perf` | measures a workload against a live server |
+| `perf-compare` | compares performance records, or runs two servers interleaved |
+| `perf-judge` | re-derives a performance record |
+| `verify` | checks a conformance certificate offline |
+
+The rest render or explore.
 
 ## emit-schemas
 
@@ -28,10 +30,9 @@ Options:
   -h, --help       Print help
 ```
 
-Byte-deterministic. The schemas in the repository's `schemas/` directory are
-this command's output, drift-tested against it, which is how the published
-format and the code that reads it stay one thing. Author against these if you
-are writing your own catalogue or your own harness.
+Byte-deterministic. The repository's `schemas/` directory is this command's
+output, drift-tested against it. Author against these schemas when writing your
+own catalogue or harness.
 
 ## test
 
@@ -122,61 +123,53 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`test` drives the Arazzo catalogue under `catalogue/`. It replaces the removed
-`run` subcommand, which no longer exists under any name.
+`test` drives the Arazzo catalogue under `catalogue/`. (The removed `run`
+subcommand exists under no name.)
 
-**What runs.** Every document under `cases/<capability>/`, in path order. The
-shared setups under `cases/_setup/` are not cases: a setup runs only where a
-case names it in `dependsOn`. `--document <ID>` narrows the run to named
-documents, which is how you re-drive one family while working on a fix; a
-narrowed `results.json` is a working tool, never the record you submit.
+**What runs.** Every document under `cases/<capability>/`, in path order.
+Setups under `cases/_setup/` are not cases; they run where a case names them
+in `dependsOn`, and each workflow runs its own, so nothing set up carries over.
+`--document <ID>` narrows the run for re-driving one family during a fix; a
+narrowed `results.json` is never the record you submit.
 
-**What runs last.** A workflow whose rows file says `server: exclusive` changes
-state it did not create, such as the bulk delete of every EHR, and runs only
-when the IXIT declares `environment.exclusive_server: true`. It runs in a final
-phase, after every other workflow of every document, so nothing it deletes is
-taken from a workflow still to come. Within each phase the documents keep path
-order and the workflows keep document order, and `results.json` lists the rows
-in the order they ran. Nothing set up is carried from one workflow to the
-next: each workflow runs its own `dependsOn` setups, so no setup result
-outlives an exclusive workflow. A re-judgement follows the same order. No
-openEHR specification governs this order; it is this instrument's own design.
-A workflow that declares no inputs carries the marker in a rows file with no
-`rows`, and the workflow then runs once. A conformance-only IXIT declares
-`exclusive_server` alone: the other `environment` members describe the
-hardware a measured run was taken on, and only `perf` and `perf-compare`
-read them. `test` reads no `instances` either, since `--base-url`
-names the server, so `{ "environment": { "exclusive_server": true } }` is a
-whole IXIT for it. The IXIT is checked against the published IXIT schema
-before anything runs, and one that fails it, such as a misspelled member,
-stops the run with exit status 2 naming the file and the violation.
+**What runs last.** A workflow whose rows file says `server: exclusive`
+changes state it did not create, such as deleting every EHR. It runs only when
+the IXIT declares `environment.exclusive_server: true`, in a final phase after
+every other workflow. Within a phase, documents keep path order and workflows
+document order; `results.json` lists rows in run order, and a re-judgement
+follows it. A workflow with no inputs carries the marker in a rows file with no
+`rows` and runs once. No openEHR specification governs this order; it is this
+instrument's own design.
 
-**Which text.** `--profile development`, the default, reads every citation
-against the pinned `master` of each openEHR specification repository, the
-line that carries the newest text, under
-`specs/openehr-development/`; `--profile released` reads the frozen release
-under `specs/openehr/`. A case whose cited file, section or sentence the
-snapshot lacks is skipped as `cited-text-absent`, naming the profile and what
-is missing. The results record the profile under `specification`, with the
-repository, branch and commit of every snapshot directory, and the terminal
-view, `show`, every export and the console name them. A development result
-never builds a certificate and is never compared with or counted toward a
-released result, so a certificate needs a `--profile released` run. The
-catalogue is gated against the release under either profile. Pass a
-re-judgement the profile the recorded run was given.
+**The IXIT.** `test` reads `exclusive_server` alone (the other `environment`
+members are for `perf` and `perf-compare`) and no `instances`, since
+`--base-url` names the server: `{ "environment": { "exclusive_server": true } }`
+is a whole IXIT. It must pass the published IXIT schema first, or the run
+stops with exit status 2 naming file and violation (a misspelled member, say).
 
-**What the party declares.** A statement names the capabilities it claims in
-`claims.capabilities`, the field the published statement schema defines. For
-this catalogue a capability is a folder under `cases/` (`ehr`, `demographic`,
-`admin`, …), and a statement claims at least one. Every workflow of a document
-in a folder the statement does not claim is skipped as `not-claimed`, citing
-the schema's claims clause; no openEHR specification governs the claim
-mechanism, which is this instrument's own design. A setup a claimed document
-depends on still runs, wherever it lives. The statement's `options` list picks
-one arm of each option in `capabilities.yaml`, and the documents of every
-other arm are skipped as `option-not-selected`. A name that is not a folder, a
-token that names no arm, or two arms of one option stops the run. Without a
-statement, every capability runs and no arm is selected.
+**Which text.** `--profile development` (default) reads citations against the
+pinned `master` snapshot under `specs/openehr-development/`; `--profile
+released` reads the frozen release under `specs/openehr/`. A case whose cited
+file, section or sentence the snapshot lacks is skipped as
+`cited-text-absent`, naming the profile and what is missing. `results.json` records the profile under `specification`
+with the repository, branch and commit of every snapshot directory, and every
+view names them. A development result never builds a certificate and is never
+compared with or counted toward a released result. The catalogue is gated
+against the release under either profile. Re-judge with the recorded run's
+profile.
+
+**The claim.** A statement claims at least one capability folder under
+`cases/` (`ehr`, `demographic`, `admin`, …) in `claims.capabilities`.
+
+| Statement | Effect |
+|---|---|
+| folder not claimed | its documents skip as `not-claimed`, citing the statement schema's claims clause; setups a claimed document needs still run |
+| `options` | one arm per option in `capabilities.yaml`; other arms' documents skip as `option-not-selected` |
+| a name that is no folder, a token that is no arm, two arms of one option | the run stops |
+| no statement | every capability runs, no arm selected |
+
+No openEHR specification governs the claim mechanism; it is this instrument's
+own design.
 
 ```json
 {
@@ -187,67 +180,54 @@ statement, every capability runs and no arm is selected.
 }
 ```
 
-**Versions and formats.** `capabilities.yaml` states what a document needs
-from the statement under `documents:`. An `applies` range bounds the release
-versions of one component (`rm`, `base`, `am`, `aql`, `its_rest` or `term`,
-the keys of the statement's `spec_versions`) with an inclusive `min`, `max`
-or both, each `MAJOR.MINOR.PATCH`, and cites the released sentence that sets
-the bound. When the statement declares a version of that component outside
-the range, every workflow of the document is skipped as
-`version-out-of-range`, citing that sentence. A component the statement does
-not declare decides nothing, and a declared version that is not
-`MAJOR.MINOR.PATCH` for a ranged component stops the run. A `formats` list
-names the wire formats the server must serve or process for the document,
-in the `tech_profiles` vocabulary (`canonical-json`, `canonical-xml`,
-`wt-flat`, `wt-structured`, `wt`). When the statement's its-rest profile
-leaves one out, every workflow of the document is skipped as
-`format-not-claimed`, citing the statement schema's `tech_profiles` clause.
-A statement without an its-rest profile claims every format. Only the
-documents that need a server to serve or accept a format carry it: the
-documents that pin a refusal of XML (406 or 415) run for every party, and the
-option arm the statement selects decides them. A statement that selects
-`ehr-xml-supported` and does not claim `canonical-xml` therefore runs nothing
-of `ehr_xml`, and `validate --statement` refuses that arm (`arm-format`) and a
-claimed folder in which nothing is left to run. Every document that sends
-`application/json` needs `canonical-json`, so a statement claiming only
-canonical XML runs the documents that need no JSON.
+**Versions and formats.** `capabilities.yaml` says under `documents:` what a
+document needs:
 
-The IXIT answers the `declared` inputs a rows file reads. A workflow with an
-administrative step needs the administrative principal: without
-`--admin-auth`, it is skipped as `not-declared`. A workflow sent to the SMART
-Platform base URL needs `--platform-url`, and a row that presents a SMART
-scope set needs a token for it (see SMART on openEHR below); either is skipped
-as `not-declared` without.
+- **`applies`:** an inclusive `min`, `max` or both (`MAJOR.MINOR.PATCH`) on one
+  component's version (`rm`, `base`, `am`, `aql`, `its_rest`, `term`: the keys
+  of `spec_versions`), citing the sentence setting the bound. A declared
+  version outside it skips the document as `version-out-of-range`. An
+  undeclared component decides nothing; a malformed version for a ranged
+  component stops the run.
+- **`formats`:** wire formats the server must serve or process
+  (`canonical-json`, `canonical-xml`, `wt-flat`, `wt-structured`, `wt`). One
+  missing from the statement's its-rest profile skips the document as
+  `format-not-claimed`, citing the schema's `tech_profiles` clause. No its-rest
+  profile claims every format.
 
-**Credentials.** `--auth` and `--admin-auth` say how the CDR wants each
-principal to log in: `none`, `basic` or `bearer`, with the variables
-[Logging in to the CDR](authentication.md) lists. Each secret is read from the
-environment, from the variable itself or from a file named by the variable
-with `_FILE` appended, which is how container secrets are mounted. Setting both is
-refused. A variable set to the empty string counts as unset, because a CI
-system expands a secret it does not hold to an empty value, so the run stops
-on the missing credential instead of presenting an empty one. No credential
-is recorded: the HAR carries `[not recorded]` in place of every
-`Authorization` value, and records only whether the administrative principal
-was supplied, the Platform base URL, and which scope sets the IXIT covers, so
-a re-judgement skips the same workflows and rows.
+Documents pinning a refusal of XML (406 or 415) carry no format and run for
+every party, decided by the selected arm. So selecting `ehr-xml-supported`
+without claiming `canonical-xml` runs nothing of `ehr_xml`, and
+`validate --statement` refuses that arm (`arm-format`) and any claimed folder
+left with nothing to run. Every document sending `application/json` needs
+`canonical-json`, so a statement claiming only canonical XML runs the
+documents that need no JSON.
 
-**SMART on openEHR.** The `smart` folder carries the SMART on openEHR
-documents. The specification is in the DEVELOPMENT state in Release-1.1.0, so
-a statement may leave the folder unclaimed. Two things set it apart.
+**Declared inputs.** The IXIT answers a rows file's `declared` inputs. Skipped
+as `not-declared`: a workflow with an administrative step without
+`--admin-auth`, one sent to the SMART Platform base URL without
+`--platform-url`, and a row whose SMART scope set has no token.
 
-- **The Platform base URL:** SMART on openEHR serves its discovery document
-  "relative to the _Platform_ base URL", which can differ from the openEHR
-  REST base `--base-url` names. Pass it as `--platform-url` (for example
-  `https://platform.example`). The route lives in
-  `catalogue/sources/smart-platform.openapi.yaml`, Veredictum's own OpenAPI
-  document, whose root says `x-veredictum-base: platform`; no released
-  OpenAPI document declares it.
-- **Scoped tokens:** a step that says `x-veredictum-scope` presents an access
-  token whose `scope` claim is the named scope set, usually a rows-file input,
-  so each row carries its own token. The instrument never asks an
-  Authorization Server for one. The IXIT's `scoped_tokens` member says where
-  each comes from:
+**Credentials.** `--auth` and `--admin-auth` take `none`, `basic` or `bearer`,
+with the variables [Logging in to the CDR](authentication.md) lists. A secret
+comes from the variable or from the file its `_FILE` twin names (setting both
+is refused). An empty variable counts as unset, since CI expands a missing
+secret to empty. The HAR records `[not recorded]` for every `Authorization`
+value, plus whether the administrative principal was supplied, the Platform
+base URL and the covered scope sets, so a re-judgement skips the same rows.
+
+**SMART on openEHR.** The `smart` folder; the specification is DEVELOPMENT in
+Release-1.1.0, so a statement may leave it unclaimed.
+
+- **`--platform-url`:** SMART serves discovery "relative to the _Platform_
+  base URL", which can differ from `--base-url` (for example
+  `https://platform.example`). The route is in
+  `catalogue/sources/smart-platform.openapi.yaml`, Veredictum's own document
+  with root `x-veredictum-base: platform`; no released OpenAPI document
+  declares it.
+- **Scoped tokens:** a step with `x-veredictum-scope` presents a token whose
+  `scope` claim is the named set, usually per row. The instrument never asks
+  an Authorization Server; the IXIT's `scoped_tokens` supplies them:
 
   ```json
   {
@@ -268,58 +248,49 @@ a statement may leave the folder unclaimed. Two things set it apart.
   }
   ```
 
-  `issued` maps a scope set to the variable that holds a token your own
-  Authorization Server issued for it, read like every other credential from
-  the variable or its `_FILE`. A variable must be named
-  `VEREDICTUM_SCOPED_TOKEN_<NAME>`, so an IXIT cannot point the instrument at
-  any other secret in the environment. `mint` declares a test issuer your
-  deployment trusts: for a scope set with no issued token, the instrument signs
-  an RS256 token carrying `iss`, `sub`, `aud`, `iat`, `exp`, the
-  space-delimited `scope` and any further `claims`, with the RSA private key in
-  `VEREDICTUM_SCOPED_TOKEN_KEY` or `VEREDICTUM_SCOPED_TOKEN_KEY_FILE`. Never
-  give it key material a production deployment trusts. Scope sets compare as
-  sets, so `"openid user/x.r"` and `"user/x.r openid"` are one. Every declared
-  variable is checked before the first request: an unset one stops the run
-  with exit status 2. A row whose scope set neither member covers is skipped
-  as `not-declared`, citing the SMART sentence that has the Platform evaluate
-  scopes when it issues tokens.
+  - **`issued`:** scope set to a variable (or its `_FILE`) holding a token
+    your Authorization Server issued. Names must be
+    `VEREDICTUM_SCOPED_TOKEN_<NAME>`, so an IXIT cannot reach other secrets.
+  - **`mint`:** a test issuer your deployment trusts. For a set with no issued
+    token, the instrument signs RS256 with `iss`, `sub`, `aud`, `iat`, `exp`,
+    the space-delimited `scope` and any `claims`, using the RSA private key in
+    `VEREDICTUM_SCOPED_TOKEN_KEY` or `VEREDICTUM_SCOPED_TOKEN_KEY_FILE`. Never
+    give it key material a production deployment trusts.
 
-  No openEHR specification governs how a test instrument obtains tokens; the
-  member and the minting are this instrument's own design.
+  Scope sets compare as sets (`"openid user/x.r"` equals `"user/x.r openid"`).
+  An unset declared variable stops the run before the first request with exit
+  status 2. A row neither member covers skips as `not-declared`, citing the
+  SMART sentence that has the Platform evaluate scopes when issuing tokens. No
+  openEHR specification governs how a test instrument obtains tokens; this is
+  the instrument's own design.
 
 The SMART text does not say what a request outside its granted scopes
-receives, or which operation a scope grants (upstream report #758), so the
-catalogue carries the granted side only.
+receives, or which operation a scope grants (upstream report #758), so only
+the granted side is tested.
 
-**The server's identity.** `results.json` records once, under `server`, what
-the server stated about itself through the ITS-REST System OPTIONS operation
-(`OPTIONS <base>/`), in the same classified form `veredictum identify`
-prints. When a workflow of the run sent that request, `server.read` is
-`exchange` and `server.entry` names the recording entry. When none did, the
-run reads it once after the catalogue, through the ordinary principal's
-credential, and `server.read` is `read` (or `unanswered` when the request got
-no response); the recording's log keeps that read, so a re-judgement records
-the same identity and never asks the server. The release the server states is
-`server.answer.options.restapi_specs_version`, and a server that states none
-leaves it absent. The operation says services SHOULD answer, so no outcome
-here counts toward conformance.
-
-When the statement declares `spec_versions.its_rest` and the server states a
-different `restapi_specs_version`, compared as written, `results.json` carries
-a `review` note of kind `restapi-version-differs` naming both values, and the
-run prints it after the row counts. The note changes no row and no exit
-status. No openEHR specification governs this comparison; it is this
-instrument's own design.
+**The server's identity.** `results.json` records under `server` what the
+ITS-REST System OPTIONS operation (`OPTIONS <base>/`) returned, classified as
+`veredictum identify` prints it. If a workflow sent it, `server.read` is
+`exchange` and `server.entry` names the recording entry. Otherwise the run
+reads it once after the catalogue with the ordinary credential (`read`, or
+`unanswered` without a response), and the recording keeps it for
+re-judgement. The stated release is
+`server.answer.options.restapi_specs_version`, absent if none. Services SHOULD
+answer, so nothing here counts toward conformance. When it differs (as
+written) from the statement's `spec_versions.its_rest`, a `review` note of
+kind `restapi-version-differs` names both and prints after the row counts,
+changing no row or exit status. No openEHR specification governs this
+comparison; it is this instrument's own design.
 
 **Re-judging.** `--rejudge <RECORDING>` answers every request from the
 recording and reuses every recorded input, so `results.json` comes out
-byte-identical. Pass the root, statement, IXIT and `--document` list the
-recorded run was given; a replay that does not line up with the recording is
-refused rather than judged.
+byte-identical. Pass the recorded run's root, statement, IXIT and
+`--document` list; a replay that does not line up is refused.
 
-**In the container image.** The image's entry point hands any argument other
-than `healthcheck` to the engine, and `VEREDICTUM_CATALOGUE` points `--root`
-at the catalogue the image ships:
+**In the container image.** The entry point passes any argument but
+`healthcheck` to the engine, and `VEREDICTUM_CATALOGUE` points `--root` at the
+shipped catalogue. The image runs as uid 65532, so the mount must be writable
+by it.
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" \
@@ -328,13 +299,10 @@ docker run --rm -v "$PWD/out:/work/out" \
     test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
 ```
 
-The image runs as uid 65532, so the mounted directory must be writable by it.
-
-**Other Arazzo tools.** The documents are plain Arazzo 1.1.0, so any Arazzo
-tool reads them and a workflow runner can smoke-run them. The verdict is
-`test`'s alone: the citations, the judges, the statement-driven selection and
-the attribution of every red row live in the `x-veredictum-*` extensions and
-in this pipeline, which a generic runner ignores.
+**Other Arazzo tools** read the documents and can smoke-run them. The verdict
+is `test`'s alone: citations, judges, statement-driven selection and
+attribution live in the `x-veredictum-*` extensions, which a generic runner
+ignores.
 
 ## identify
 
@@ -365,19 +333,18 @@ Options:
 ```
 
 Prints what the server states about itself through the ITS-REST System
-`OPTIONS` operation, and exits `0` whatever the server answered: a server that
-does not offer the document is within the specification, which says services
-SHOULD answer. It exits `2` only when no answer arrived at all, or when the
-credential `--auth` names is not supplied. It reads the credential exactly as
-`test` does ([Logging in to the CDR](authentication.md)), `_FILE` forms included.
+`OPTIONS` operation. Run it before `test` to see which product and version a
+run against that base URL will grade.
 
-Run it before `test` to see which product and version a run against the same
-base URL is about to grade.
+- **Exit `0`:** whatever the server answered, since the specification says
+  services SHOULD answer and a server may decline.
+- **Exit `2`:** no answer arrived, or the credential `--auth` names is not
+  supplied. Credentials are read as `test` reads them
+  ([Logging in to the CDR](authentication.md)), `_FILE` forms included.
 
-The document it prints has an `outcome` of `offered`, `not_offered`,
+The printed document's `outcome` is `offered`, `not_offered`,
 `not_options_document` or `invalid_status`, and
-`schemas/identity.schema.json` describes it, so a script reading it has a
-schema to validate against.
+`schemas/identity.schema.json` describes it.
 
 ## validate
 
@@ -417,64 +384,63 @@ Options:
 
 Every gate over the Arazzo catalogue: the official Arazzo 1.1 schema, source
 and parameter resolution, citation resolution against the vendored
-specifications, the condition profile, requirement levels, unknown keys, the
-rows files, surface coverage, identity and links, and the AQL parser check. It
-prints one line per finding and a summary line naming the documents,
-workflows, rows files and capability folders it read, and exits `1` if the
-finding count is not zero.
+specifications, the condition profile, requirement levels, unknown keys, rows
+files, surface coverage, identity and links, and the AQL parser check. It
+prints one line per finding and a summary naming the documents, workflows,
+rows files and capability folders read, and exits `1` on any finding.
 
-`capabilities.yaml` also holds every capability folder to two marks. Its
-`floors` give each folder the workflow count it keeps: a folder without a
-floor, a floor naming no folder, and a folder holding fewer workflows than its
-floor are refused (`arazzo-floor`), and the test suite re-derives every floor
-from the catalogue, so a change that adds workflows raises the floor with
-them. Its `extension-only` list names the folders verified only over the
-routes of Veredictum's own sources, the documents under `catalogue/sources/`
-whose `info` carries `x-veredictum-non-openehr: true`, which no openEHR OAS
-describes: a listed folder with a step calling an unmarked source, and an
-unlisted folder whose every step calls a marked one, are refused
-(`arazzo-realization-scope`). Under `documents`, an `applies` range or a
-`formats` entry naming no document is refused, as are a range starting after
-its end and a format the document never sends in `Accept` or `Content-Type`.
-A capability document that sends `application/json`, itself or through a
-setup it names in `dependsOn`, and does not state `canonical-json` is refused
-too.
+**`capabilities.yaml` gates.**
 
-`chapters.yaml` is the reading structure every view of a result follows: it
-places each capability folder in one chapter and declares each folder's BASE
-sections. A document no option arm names is BASE and names its section with
-`x-veredictum-section` on its `info`; a document an arm names is OPTION and
-names none. A folder in no chapter or in two, a BASE document with no section
-or an unknown one, a section no document uses, an OPTION document with a
-section, an option with no theme and tier, a spec-boundary option whose
-citation names no report, and a `reports.yaml` out of step with the reports
-the citations name are refused (`arazzo-structure`). A citation into a
-document the release marks RETIRED is refused (`arazzo-citation`).
+- **`floors` (`arazzo-floor`):** each folder's minimum workflow count. Refused:
+  a folder without a floor, a floor naming no folder, a folder below its floor.
+  The test suite re-derives every floor, so adding workflows raises the floor.
+- **`extension-only` (`arazzo-realization-scope`):** the folders verified only
+  over Veredictum's own sources (documents under `catalogue/sources/` whose
+  `info` carries `x-veredictum-non-openehr: true`, which no openEHR OAS
+  describes). Refused: a listed folder with a step calling an unmarked source,
+  and an unlisted folder whose every step calls a marked one.
+- **`documents`:** refused are an `applies` range or `formats` entry naming no
+  document, a range starting after its end, a format the document never sends
+  in `Accept` or `Content-Type`, and a document that sends
+  `application/json` (itself or through a `dependsOn` setup) without stating
+  `canonical-json`.
 
-Supplying `--statement` adds the static review of that one declaration: it is
-held to the published statement schema, which requires at least one claimed
-capability folder, every capability it claims must be a capability folder of
-the catalogue, and every option arm it selects must be an arm of an option in
-`capabilities.yaml`, one arm per option. Each claimed folder must then hold a
-document the statement lets run: one whose arm it selects, whose `applies`
-ranges contain the versions it declares, and whose formats it claims. A claim
-nothing can run for is refused (`claim-completeness`), since it would verify
-nothing. A selected option arm one of whose documents needs a format the
-statement does not claim is refused (`arm-format`): the run would skip that
-document, so nothing would verify the arm. No openEHR specification governs the floors, the realization scope
-or the claim gates; they are this instrument's own design.
+**`chapters.yaml` (`arazzo-structure`)** is the reading structure every view
+follows: it places each capability folder in one chapter and declares each
+folder's BASE sections. A document no option arm names is BASE and names its
+section with `x-veredictum-section` on its `info`; one an arm names is OPTION
+and names none. Refused: a folder in no chapter or two, a BASE document with no
+or an unknown section, an unused section, an OPTION document with a section,
+an option with no theme and tier, a spec-boundary option whose citation names
+no report, and a `reports.yaml` out of step with the reports citations name. A
+citation into a document the release marks RETIRED is refused
+(`arazzo-citation`).
 
-`--profile development` keeps every gate above, against the release, and then
-reads every case citation against the development snapshot under
+**`--statement`** adds the static review of one declaration. It must pass the
+published statement schema (at least one claimed capability folder), claim
+only catalogue folders, and select only arms of options in
+`capabilities.yaml`, one per option. Each claimed folder needs a document the
+statement lets run: its arm selected, its `applies` ranges containing the
+declared versions, its formats claimed. Refused:
+
+- **`claim-completeness`:** a claim nothing can run for.
+- **`arm-format`:** a selected arm with a document needing a format the
+  statement does not claim, since the run would skip it and nothing would
+  verify the arm.
+
+No openEHR specification governs the floors, the realization scope or the
+claim gates; they are this instrument's own design.
+
+**`--profile development`** keeps every gate above against the release, then
+reads every case citation against the snapshot under
 `specs/openehr-development/` beside `--specs`. A citation whose file, section
-or sentence the snapshot lacks prints as an `[info]` line naming the case, and
-the profile's counts follow per component; neither is a finding, and the exit
-status stays `0` for them. A citation the snapshot refuses for any other
-reason is a `profile-citation` finding, and so is a citation's `development`
-wording that the snapshot does not hold, or one whose released quote still
-occurs there unchanged. The repository's own gate runs
-`--profile released`, where zero findings is the only passing result, and a
-second `--profile development` pass that reports the absences.
+or sentence the snapshot lacks prints as an `[info]` line naming the case,
+followed by per-component counts; neither is a finding, and the exit status
+stays `0`. A `profile-citation` finding is a citation the snapshot refuses for
+any other reason, a `development` wording the snapshot does not hold, or one
+whose released quote still occurs there unchanged. The repository's own gate
+runs `--profile released`, where zero findings is the only pass, and a second
+`--profile development` pass that reports the absences.
 
 ## perf
 
@@ -556,39 +522,37 @@ Options:
 ```
 
 Latency is measured from the planned arrival instant under open-loop Poisson
-arrivals, so a stall shows up as latency instead of disappearing into a
-slowed-down request rate. The run has one shape, and no flag lengthens it: the
-ladder finds the knee in at most ten minutes after seeding, and the record
-says what such a run cannot show. [Measured performance](running.md#measured-performance)
-walks a run phase by phase and explains how to read the record.
+arrivals, so a stall shows up as latency. The run has one shape and no flag
+lengthens it: the ladder finds the knee in at most ten minutes after seeding,
+and the record states what such a run cannot show.
+[Measured performance](running.md#measured-performance) walks a run phase by
+phase and explains the record.
 
-`--root` is `perf/` in this repository: the workloads, the payloads they send
-and the host prescriptions. `--workload` names one workload document, an
-embedded one or your own, which is labelled `custom`. `--catalogue` is only
-read for the capability folders and option arms a workload's `requires`
-tokens name, and `--statement` drops the interactions your claims do not
-cover, with the drop recorded.
+- **`--root`:** `perf/` in this repository: workloads, the payloads they send,
+  and host prescriptions.
+- **`--workload`:** one workload document, embedded or your own (labelled
+  `custom`).
+- **`--catalogue`:** read only for the capability folders and option arms a
+  workload's `requires` tokens name.
+- **`--statement`:** drops the interactions your claims do not cover, and
+  records the drop.
+- **`--corpus-state`:** where the seeded corpus listing is stored (default:
+  the record's path with extension `corpus.json`). Seeding runs before the
+  clock, closed-loop.
+- **`--corpus reuse`:** reuses that corpus; refused before the warm-up when the
+  server's read-back counts, the stored digest or the recipe moved.
+- **`--posture`:** the posture profile the canaries check after seeding and
+  after the last plateau. A contradiction refuses the run.
+- **`--host-prescription`:** a prescription under `perf/hosts/`, embedded in
+  the record and read against the generator's measured fingerprint.
+- **`--network-leg`:** where the generator sat.
 
-The corpus is seeded before the clock, closed-loop, and its listing is stored
-beside the record (`--corpus-state`, by default the record's path with the
-extension `corpus.json`). `--corpus reuse` reuses that corpus instead of
-seeding again, and is refused before the warm-up when the server's read-back
-counts, the stored digest or the recipe moved.
-
-The `environment` block is mandatory because a latency number is a claim
-about a deployment, and a claim with no deployment described cannot be checked
-or reproduced. Every member of it is mandatory here (`hardware_class`,
-`cores`, `memory_gb`, `storage_class`, `topology`), and a run whose IXIT lacks
-one stops before it sends a request, naming the member. A conformance run
-reads only `exclusive_server`, so a conformance-only IXIT may leave the others
-out. The optional `containers` block names the server and database containers
-and the `database` the server-side readings query.
-
-`--posture` declares the posture profile the canaries check after seeding and
-after the last plateau; a contradiction refuses the run. `--host-prescription`
-names a prescription under `perf/hosts/`, which the record embeds and reads
-the generator's measured fingerprint against, and `--network-leg` says where
-the generator sat.
+The IXIT's `environment` block is mandatory, because a latency number is a
+claim about a deployment. Every member is required here (`hardware_class`,
+`cores`, `memory_gb`, `storage_class`, `topology`), and a missing one stops the
+run before any request, naming it. A conformance run reads only
+`exclusive_server`. The optional `containers` block names the server and
+database containers and the `database` the server-side readings query.
 
 ## perf-workloads
 
@@ -609,21 +573,19 @@ A workload is the traffic a measured run offers: a versioned document under
 `perf/workloads/`, published as `schemas/perf-workload.schema.json`. This
 command loads every workload through its gates and prints, per workload, the
 expanded per-operation mix, the read:write ratio and the planned run range
-after seeding. A defect is reported against the file and the field, and the
-command exits `1`.
+after seeding. A defect is reported against file and field, with exit `1`.
 
-With `--out` it writes `perf-workloads.json`, the byte-deterministic manifest
-of the workloads this binary pins by sha256, and `perf-workloads.md`, the page
-generated from it: every interaction, operation, query class and payload with
-its share and its source. The book's [Performance workloads](perf-workloads.md)
-page is that page, written with `--out website/book/src` and held to the
-pinned workloads by a test. A committed workload whose bytes match no pin is
-refused there, so a changed workload raises its version and its pin together.
-The command also holds `perf/payloads.yaml` to what the workloads read: an
-entry no workload reads is refused, as is a pinned payload whose bytes moved.
-
-With `--workload` it checks one document of your own instead. A document that
-matches no pinned digest is labelled `custom`.
+- **`--out`:** writes `perf-workloads.json`, the byte-deterministic manifest of
+  the workloads this binary pins by sha256, and `perf-workloads.md`, the page
+  generated from it (every interaction, operation, query class and payload
+  with its share and source). The book's
+  [Performance workloads](perf-workloads.md) page is written with
+  `--out website/book/src` and held to the pins by a test. A committed
+  workload whose bytes match no pin is refused, so a workload's version and
+  pin change together. `perf/payloads.yaml` is held to what the workloads
+  read: an unread entry or a pinned payload whose bytes moved is refused.
+- **`--workload`:** checks one document of your own. One matching no pinned
+  digest is labelled `custom`.
 
 ## perf-compare
 
@@ -722,22 +684,19 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-A single run carries sampling intervals and nothing else. Two GitHub-hosted
-runs of the same code have read up to 156 % apart, so a number from one run
-set beside a number from another says little about the two systems. An
-interleaved run puts both sides on one host in one window: each rung of the
-shared ladder runs A then B, the next rung B then A, so a drift in the host
-during the run lands on both sides.
+Two GitHub-hosted runs of the same code have read up to 156 % apart, so
+numbers from separate runs say little about two systems. An interleaved run
+puts both sides on one host in one window: each rung of the shared ladder runs
+A then B, the next B then A, so host drift lands on both sides.
 
-`--aa` measures what that interleaving leaves: the same target on both sides.
-Its floor, the largest ratio per metric, is attached to both records and turns
-their `between_run_noise` from `unmeasured` into the floor. Pass that record or
-its `perf-compare.json` as `--floor` to an `--ab` run, and a ratio has to clear
-the floor as well as `--tolerance` before it reads as a difference.
-
-With `--result`, the records were measured apart, so their plateaus were
-offered different rates. The table still lines them up, and the ratios are
-shown as `different rates` rather than judged.
+- **`--aa`:** the same target on both sides, measuring what interleaving
+  leaves. Its floor, the largest ratio per metric, is attached to both records
+  and turns their `between_run_noise` from `unmeasured` into the floor.
+- **`--ab` with `--floor`:** pass an A/A record or its `perf-compare.json`, and
+  a ratio must clear the floor as well as `--tolerance` to read as a
+  difference.
+- **`--result`:** records measured apart were offered different rates. The
+  table still lines them up, with ratios shown as `different rates`, unjudged.
 
 ## perf-assets
 
@@ -817,10 +776,9 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`export` reads the `results.json` the Arazzo evaluator writes and renders the
-three views a CI system shows. Each is a pure function of that document, so
-exporting the same results twice writes the same bytes, and none of them
-carries a clock reading the results document does not carry.
+`export` renders the Arazzo `results.json` as the views a CI system shows.
+Each is a pure function of that document, so the same results write the same
+bytes, with no clock reading the results do not carry.
 
 | Status | JUnit XML | CTRF 0.2.0 |
 |---|---|---|
@@ -830,69 +788,67 @@ carries a clock reading the results document does not carry.
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
 
-A warning row is a SHOULD the server did not follow, which never counts
-against the server, so no view counts it as failed and a CI that fails a job
-on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
-four-part explanation in `<system-out>`, opened by a line that says it is
-a warning, and no `failures` count includes it. In CTRF it is `other`, and
-`summary.failed` excludes it.
+A warning is a SHOULD the server did not follow and never counts against it,
+so no view counts it as failed and a CI job does not fail on it. In JUnit it
+is the four-part explanation in `<system-out>`, opened by a line naming it a
+warning, outside every `failures` count. In CTRF it is `other`, outside
+`summary.failed`.
 
-A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
-`<case> row <n>`. The text of a `<failure>` or `<error>` is the row's
-four-part explanation, its `message` is a one-line summary, and its `type`
-says whose problem the row is (`server` or `instrument`). A
-`<skipped>` carries the skip reason and the citation that makes the case not
-apply. A suite whose case the results place carries `<properties>` naming the
-part, chapter, band, capability, section or option and arm, formalism, TRIAL
-mark and upstream reports, each property named `eu.veredictum.<name>`. Every
-`time` is `0`, because the results document carries no timing.
+**JUnit XML.** A workflow is a `<testsuite>`; a row is a `<testcase>` named
+`<case> row <n>`.
 
-JUnit XML has no single owner, so the view is held to the two schemas the tools
-that read it publish: the document to the Jenkins xUnit plugin's `junit-10.xsd`,
-which defines the `<testsuites>` root, and each `<testsuite>` to Apache Maven
-Surefire's test report schema. Both are vendored, and a CI gate validates the
-pinned views against them with `xmllint`.
+- **`<failure>` and `<error>`:** text is the four-part explanation, `message`
+  a one-line summary, `type` whose problem it is (`server` or `instrument`).
+- **`<skipped>`:** the skip reason and the citation that makes the case not
+  apply.
+- **`<properties>`:** on a suite the results place, named
+  `eu.veredictum.<name>`: part, chapter, band, capability, section or option
+  and arm, formalism, TRIAL mark and upstream reports.
+- **`time`:** always `0`, since the results carry no timing.
 
-In CTRF, every test has `type` `conformance`, a `suite` path of the document
-then the part, chapter, band and section or option it is read under, and
-`labels` naming where it sits. A red row's `message` is the same four-part
-explanation. Everything CTRF does not define sits in `extra` under the one
-namespaced key `eu.veredictum`, as CTRF §4.6.1 asks: the case id, the row, the
-skip reason, the citation and, where the citation names one, the link to its
-upstream report. The CTRF document validates against the schema the CTRF
-project publishes for `specVersion` 0.2.0, its latest release.
+JUnit XML has no single owner, so the view is held to two published schemas:
+the document to the Jenkins xUnit plugin's `junit-10.xsd` (which defines the
+`<testsuites>` root), each `<testsuite>` to Apache Maven Surefire's test
+report schema. Both are vendored, and a CI gate validates the pinned views
+against them with `xmllint`.
 
-**What the Markdown summary holds.** It is written for a person reading it on
-GitHub, in two parts. A table names the server and the instrument, and a
-summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
-chapter, each chapter a table of its bands and each band a table of its
-sections. `## OPTIONS` follows the same chapters and bands, each band a table
-of its options with their kind (Recommended (SHOULD), Optional (MAY), or
-`@SpecDiverge` for an option that exists only because the released text is
-unclear) and the
-arm the statement selected, and a collapsed note on what each option decides.
-The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
-are only counted. Each failed, warning or errored row is a collapsed block
-whose summary names the outcome, the case and where it sits; opening it shows
-the step, what was checked, expected against received, the exchange, whose
-problem it is and the row's inputs as a table, with the cited sentence quoted
-below it. The warning rows follow with their citations, and the skipped rows
-counted by reason with the full list collapsed. A case resting on text an
-upstream report records as unclear or contradictory is tagged `@SpecDiverge`
-where it appears, and a closing note counts those cases and links the reports
-they are judged by. JUnit carries the tag as the `eu.veredictum.tag` property
-and CTRF in the test's standard `tags`.
+**CTRF.** Every test has `type` `conformance`, a `suite` path (the document,
+then part, chapter, band and section or option) and `labels` naming where it
+sits. A red row's `message` is the four-part explanation. Everything CTRF does
+not define sits in `extra` under the key `eu.veredictum`, as CTRF §4.6.1
+asks: case id, row, skip reason, citation and, where the citation names one,
+the upstream report link. The document validates against the CTRF project's
+schema for `specVersion` 0.2.0, its latest release.
 
-**Where the Markdown summary goes.** GitHub Actions sets
-`GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
-that file, so the job's summary page shows it with no third-party action.
-`--markdown <file>` writes it to a file as well. With neither, the summary is
-printed to standard output and every other console line goes to standard
-error, so the summary can be piped.
+**The Markdown summary**, for a person reading it on GitHub:
+
+- A table naming the server and the instrument, and a summary table counting
+  BASE and OPTIONS rows.
+- `## BASE`, chapter by chapter: each chapter a table of its bands, each band
+  a table of its sections.
+- `## OPTIONS`, by the same chapters and bands: each band a table of its
+  options with their kind (Recommended (SHOULD), Optional (MAY), or
+  `@SpecDiverge` for an option that exists only because the released text is
+  unclear), the selected arm, and a collapsed note on what the option decides.
+  Cases resting on TRIAL text sit in their band here.
+- Passed rows are only counted. Each failed, warning or errored row is a
+  collapsed block naming outcome, case and place; open, it shows the step, what
+  was checked, expected against received, the exchange, whose problem it is,
+  the row's inputs as a table, and the cited sentence.
+- Warning rows with their citations, then skipped rows counted by reason, with
+  the full list collapsed.
+- A case resting on text an upstream report records as unclear or
+  contradictory is tagged `@SpecDiverge`, and a closing note counts those cases
+  and links their reports. JUnit carries the tag as the `eu.veredictum.tag`
+  property, CTRF in the test's standard `tags`.
+
+**Where the summary goes.** `export` appends it to `GITHUB_STEP_SUMMARY` when
+GitHub Actions sets it, so the job summary shows it with no third-party
+action. `--markdown <file>` writes it to a file too. With neither, it goes to
+standard output and every other line to standard error, so it can be piped.
 
 **A vendor's GitHub Actions job.** [The GitHub Action](github-action.md) runs
-[`test`](#test) and then `export` in one step, with the image of the release it
-belongs to:
+[`test`](#test) and then `export` in one step, with its release's image:
 
 ```yaml
       - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
@@ -907,24 +863,22 @@ belongs to:
 ```
 
 The step writes `junit.xml`, `ctrf.json` and `summary.md` into `conformance/`,
-appends the summary to the job summary, annotates the rows that need attention,
-and fails the job when a row counts against the server. Its page has a
-complete workflow, and [GitLab CI](gitlab-ci.md) has the same as a template.
+appends the summary to the job summary, annotates the rows that need
+attention, and fails the job when a row counts against the server. Its page
+has a complete workflow, and [GitLab CI](gitlab-ci.md) has a template.
 
-`--annotations <file>` writes those annotations as GitHub Actions workflow
-commands: one `::error` per failed or errored row and one `::warning` per
-warning row, at most 10 of each, then a `::notice` naming how many more rows
-the summary lists.
+`--annotations <file>` writes those annotations as workflow commands: one
+`::error` per failed or errored row and one `::warning` per warning row, at
+most 10 of each, then a `::notice` counting the rows the summary lists beyond
+them.
 
-The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
-JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
-server's response bodies verbatim, so it belongs where the operator keeps the
-run, never in a public artifact.
+GitLab (`artifacts:reports:junit`), Jenkins (the JUnit plugin) and most other
+CI systems read the JUnit file. `conformance/recording.har` holds response
+bodies verbatim, so it stays with the operator, never in a public artifact.
 
-A `perf-result.json` has one exported view, the Markdown summary, with the
-same content `show` prints laid out as tables. `--junit`, `--ctrf` and
-`--annotations` refuse it with exit status 2, since a performance record has
-no test cases to list.
+A `perf-result.json` has one view, the Markdown summary, holding what `show`
+prints as tables. `--junit`, `--ctrf` and `--annotations` refuse it with exit
+status 2, since a performance record has no test cases.
 
 ## badge
 
@@ -954,10 +908,10 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`badge` draws the static badges a vendor shows in a README, from the result
-document it is given. Each badge is a pure function of that document, so
-drawing the same document twice writes the same bytes. The SVG is measured
-with a fixed table of character widths, so no font and no network is read.
+`badge` draws a vendor's static README badges from a result document. Each
+badge is a pure function of that document, so the same input writes the same
+bytes. Text is measured with a fixed width table, so no font or network is
+read.
 
 | Document | Files written |
 |---|---|
@@ -968,11 +922,10 @@ with a fixed table of character widths, so no font and no network is read.
 veredictum badge --results conformance/results.json --out conformance/badges
 ```
 
-The `.json` file is a Shields.io endpoint document, so a badge can also be
-served by Shields from wherever the file is published. Every badge reports the
-vendor's own run and is never a certificate. [Badges](badges.md) has what each
-badge says, the colour rules, and how to publish them from GitHub, GitLab or
-any other CI.
+The `.json` file is a Shields.io endpoint document, so Shields can serve the
+badge from wherever the file is published. Every badge reports the vendor's
+own run and is never a certificate. [Badges](badges.md) covers what each says,
+the colour rules, and publishing from GitHub, GitLab or any other CI.
 
 ## show
 
@@ -1009,14 +962,13 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`show` reads the `results.json` the Arazzo evaluator writes and prints it in
-the terminal, so a result can be read without exporting it first.
-[`test`](#test) prints the same view when a run finishes.
+`show` prints a `results.json` in the terminal, the same view
+[`test`](#test) prints when a run finishes.
 
-Each line is one group of rows, with a bar of 24 cells and the count of each
-mark. The bar gives every mark that has a row at least one cell, so a single
-failure among a thousand passes still shows. The cells differ in shape as well
-as colour: `█` passed, `▓` failed, `▒` errored, `░` warning, `·` skipped.
+Each line is one group of rows: a 24-cell bar and the count of each mark.
+Every mark with a row gets at least one cell, so one failure among a thousand
+passes still shows. Cells differ in shape as well as colour: `█` passed, `▓`
+failed, `▒` errored, `░` warning, `·` skipped.
 
 ```text
 BASE
@@ -1026,39 +978,37 @@ BASE
     DIRECTORY                               no cases
 ```
 
-A result reads in two parts, the ones every view uses. BASE lists each chapter
-and band in the order the catalogue declares. OPTIONS lists the same chapters
-and bands, one line per option with the arm the statement selected and its
-kind: Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option
-that exists only because the released text is unclear or contradictory. A
-closing note counts the cases tagged `@SpecDiverge` and names the upstream
-reports they are judged by.
-An option with no arm selected is listed once and its rows count nowhere. The
-cases whose citations rest on text the release marks TRIAL are listed in their
-band under OPTIONS, never in a BASE count. Report numbers come from the snapshot
-the catalogue commits; nothing is fetched while the view is printed.
+- **BASE:** each chapter and band in catalogue order.
+- **OPTIONS:** the same chapters and bands, one line per option with the
+  selected arm and its kind: Recommended (SHOULD), Optional (MAY), or
+  `@SpecDiverge` for an option that exists only because the released text is
+  unclear or contradictory. An option with no arm selected is listed once and
+  its rows count nowhere. Cases citing text the release marks TRIAL are listed
+  in their band here, never in a BASE count.
+- **Closing note:** counts the `@SpecDiverge` cases and names the upstream
+  reports they are judged by. Report numbers come from the catalogue's
+  committed snapshot; nothing is fetched.
 
-A warning row is a SHOULD the server did not follow. It is counted apart
-from the failed rows, and `--failed` lists it under its own heading after the
-failed and errored rows, never among them.
+Warning rows are counted apart from failures, and `--failed` lists them under
+their own heading after the failed and errored rows.
 
-**Colour.** With `--color auto`, the default, the view is coloured only when
-standard output is a terminal and `NO_COLOR` is unset or empty, as
-<https://no-color.org/> asks. `--color always` and `--color never` override
-both, so `veredictum show results.json --color always | less -R` keeps the
-colour.
+**Colour.** `--color auto`, the default, colours only when standard output is
+a terminal and `NO_COLOR` is unset or empty (<https://no-color.org/>).
+`--color always` and `--color never` override both, so
+`veredictum show results.json --color always | less -R` keeps colour.
 
-**A performance record.** Given a `perf-result.json`, which names its
-`family`, `show` prints the record instead: a header with the target, the
-environment, the workload and its digest, the corpus, the between-run noise
-and the scope of one run; a line per plateau with offered and achieved rates,
-p50 to max and the error share, marked `✓` when it qualifies and `✕` when it
-fails, with `unsteady` where the halves disagree; the operations at the knee
-and at the lowest plateau with the quantile each is judged at; the knee, peak,
-population and fit sentences; a sparkline of p99 against the offered rate;
-and the server-side readings. A quantile with fewer than 10 samples above it
-prints `n/r`, not resolvable. Every number comes from the record, and the view
-fits 80 columns.
+**A performance record.** Given a `perf-result.json` (it names its `family`),
+`show` prints, within 80 columns and only from the record:
+
+- a header: target, environment, workload and digest, corpus, between-run
+  noise and the scope of one run;
+- a line per plateau: offered and achieved rates, p50 to max, error share,
+  `✓` when it qualifies and `✕` when it fails, `unsteady` where the halves
+  disagree;
+- the operations at the knee and at the lowest plateau, with each one's
+  judged quantile (`n/r`, not resolvable, below 10 samples above it);
+- the knee, peak, population and fit sentences;
+- a sparkline of p99 against offered rate, and the server-side readings.
 
 ## verify
 
@@ -1086,17 +1036,17 @@ Options:
 ```
 
 The offline check of a conformance certificate. It reads the two files you
-name and reaches no network, so a certificate verifies with the published JWK
-Set alone: the copy at `https://console.veredictum.eu/.well-known/jwks.json`,
-or the one committed in this repository as `deploy/hosted/jwks.json`. Any JOSE
-library verifies the same signature; what this command adds is the refusal of
-a key the set marks `revoked_at`, and of a certificate issued after its key's
-`expires_at`, which a generic library ignores.
+name and no network, so the published JWK Set is enough: the copy at
+`https://console.veredictum.eu/.well-known/jwks.json`, or
+`deploy/hosted/jwks.json` in this repository. Any JOSE library verifies the
+signature; this command also refuses a key the set marks `revoked_at` and a
+certificate issued after its key's `expires_at`, which a generic library
+ignores.
 
-A verified certificate prints what it states: the server with who supplied
-each identity field, the base URL, the catalogue digest, the engine version and
-its approval status, the verdict summary, and the SHA-256 digests of the run's
+A verified certificate prints the server with who supplied each identity
+field, the base URL, the catalogue digest, the engine version and its approval
+status, the verdict summary, and the SHA-256 digests of the run's
 `results.json` and HAR recording. Run `sha256sum` over the two files a vendor
-received to check they are the exchanges the certificate covers. The payload's
-JSON Schema is `schemas/certificate.schema.json`, and the key set's is
+supplied to check they are the ones the certificate covers. The payload's
+schema is `schemas/certificate.schema.json`; the key set's is
 `schemas/jwks.schema.json`.

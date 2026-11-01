@@ -1,105 +1,76 @@
 # Installation
 
-The zeroth way installs nothing: the hosted instrument at
-[console.veredictum.eu](https://console.veredictum.eu) browses the catalogue
-and drives functional conformance runs against a publicly reachable CDR.
-Everything below is for running the instrument yourself, which reaches a
-deployment the internet cannot, runs the measured instruments, and works
-offline.
-
-Four ways end at the same place: a `veredictum` you can point at a catalogue.
-Pick by what you already have installed. Whichever you pick, you also want a
-clone of the repository, and the next section says why.
+To install nothing, use the hosted instrument at
+[console.veredictum.eu](https://console.veredictum.eu): it browses the
+catalogue and runs functional conformance against a publicly reachable CDR.
+Install locally to reach private deployments, run the measured instruments, or
+work offline.
 
 <!-- toc -->
 
 ## What you need, and why a clone is part of it
 
-The instrument reads three things at run time: the catalogue, the vendored
-specification oracle, and your own declaration of the deployment under test. It
-reads all three as paths you pass on the command line, so the code and the data
-travel separately.
-
-That split is deliberate. The catalogue and the specification oracle together
-are over 300 MB of data, which no package registry accepts, and an operator may
-legitimately want to point the instrument at a catalogue of their own. So the
-published crate and the published image carry the code, and a clone of the
-repository is where the data lives:
+The instrument reads three paths at run time: the catalogue, the vendored
+specification oracle, and your declaration of the deployment under test. The
+catalogue and oracle are over 300 MB, too large for a package registry, so the
+crate and the image carry the code and a clone carries the data:
 
 ```bash
 git clone https://github.com/Vernum-Projecten/Veredictum
 cd Veredictum
 ```
 
-The four ways below all run the same subcommands against that clone.
+Every install path below runs against that clone.
 
 ## With cargo
-
-The binary is on [crates.io](https://crates.io/crates/veredictum). Take this
-path if you want the command on your `PATH`.
 
 ```bash
 cargo install veredictum --locked
 veredictum validate --root catalogue --specs specs/openehr
 ```
 
-`--locked` is worth understanding rather than copying: it builds against the
-`Cargo.lock` the release was tested with. Leave it off and cargo resolves fresh
-versions of every dependency, which is a different build from the one the
-project's gates ran.
-
-The library target is published with the binary, so you can consume the typed
-artifact model and the published JSON Schemas directly rather than
-reimplementing the format.
+`--locked` builds against the release's tested `Cargo.lock`; without it cargo
+resolves fresh dependency versions. The crate also publishes a library target
+with the typed artifact model and the JSON Schemas.
 
 ## With Docker: the web console
 
-The container image is the web console: a browser frontend over the same
-instrument, served by its own binary. The CLI is deliberately not distributed
-as an image: a static binary needs no container, and the release binaries below
-are its no-toolchain path.
-
-The fastest start is the operator compose file, which pins the image to the
-version it shipped with and binds the console to loopback on port 3210:
+The image is the web console. The CLI ships as release binaries, not an image.
+The operator compose file pins the image version and binds the console to
+loopback on port 3210:
 
 ```bash
 curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
 docker compose up
 ```
 
-Open <http://127.0.0.1:3210>. Releases cut after v0.1.1 attach the same file
-to the [release page](https://github.com/Vernum-Projecten/Veredictum/releases),
-pinned to that release's image. The equivalent `docker run`, if you would
-rather not use compose:
+Open <http://127.0.0.1:3210>. Releases after v0.1.1 attach the same file,
+pinned to that release's image, to the
+[release page](https://github.com/Vernum-Projecten/Veredictum/releases).
+Without compose:
 
 ```bash
 docker run --rm -p 127.0.0.1:3210:3000 -v "$PWD:/work" \
     ghcr.io/vernum-projecten/veredictum:<tag>
 ```
 
-Substitute a published tag from the
-[package page](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum)
-for `<tag>`. The image is multi-architecture and is pushed by digest, with its
-tags applied only after a smoke run and a vulnerability scan of that digest have
-passed.
+Take `<tag>` from the
+[package page](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum).
+The image is multi-architecture and pushed by digest; tags apply only after a
+smoke run and a vulnerability scan of that digest pass.
 
-The image carries the release's own catalogue and specification oracle, at
-`/work/catalogue` and `/work/specs`, so it works in an empty directory and a
-record produced with it names the catalogue of a published release. To grade
-against your own checkout instead, bind-mount it over those paths. The console has no login, so both
-invocations above bind it to loopback; exposing it further is the operator's
-decision, behind their own gate. [The console chapter](console.md) shows what it
-does today.
+The image carries the release's catalogue and oracle at `/work/catalogue` and
+`/work/specs`, so it works in an empty directory. Bind-mount your own checkout
+over those paths to grade against it. The console has no login, so both
+commands bind loopback; exposing it is the operator's decision.
+[The console chapter](console.md) shows what it does.
 
 ## From a release binary
 
-Prebuilt binaries for `x86_64` and `aarch64` Linux are attached to every
-[release](https://github.com/Vernum-Projecten/Veredictum/releases). Each tarball
-ships with a `sha256sum`, a CycloneDX dependency SBOM and a Sigstore bundle.
-
-Verify the bundle before you run the binary. The check that matters is not just
-"this file is signed" but "this file was built by the workflow in this
-repository", which is what `--signer-workflow` asserts:
+Every [release](https://github.com/Vernum-Projecten/Veredictum/releases)
+attaches `x86_64` and `aarch64` Linux binaries, each tarball with a
+`sha256sum`, a CycloneDX SBOM and a Sigstore bundle. Verify before running;
+`--signer-workflow` asserts the file was built by this repository's workflow:
 
 ```bash
 gh attestation verify veredictum-<tag>-<target>.tar.gz \
@@ -107,38 +78,34 @@ gh attestation verify veredictum-<tag>-<target>.tar.gz \
     --signer-workflow Vernum-Projecten/Veredictum/.github/workflows/release-build.yml
 ```
 
-A release is created as a draft and published only once every expected asset is
-attached, so you never meet a release whose binaries are still uploading. Its
-tag is signed, and a repository rule refuses to delete one, so a tag is never
-re-pointed at different code. The recovery path for a bad cut is the next
-version.
+A release stays a draft until every asset is attached. Tags are signed and a
+repository rule refuses their deletion, so a tag never moves; a bad cut is
+fixed by the next version.
 
 ## From source
 
-The toolchain pins itself from `rust-toolchain.toml`, so you do not choose a
-Rust version:
+`rust-toolchain.toml` pins the toolchain:
 
 ```bash
 cargo run -- validate --root catalogue --specs specs/openehr
 ```
 
-The declared minimum supported Rust version is 1.98, verified in CI against
-that floor rather than assumed. The only extra tool is `cargo-nextest`, and only
-if you intend to run the project's own test suite.
+The minimum supported Rust version is 1.98, checked in CI. `cargo-nextest` is
+needed only to run the project's own tests.
 
 ## Checking that the install works
 
-`validate` is the check to run first, because it needs no server:
+`validate` needs no server:
 
 ```bash
 veredictum validate --root catalogue --specs specs/openehr
 ```
 
-A working install over an intact clone prints one line and exits zero:
+An intact clone prints one line and exits zero:
 
 ```text
 253 document(s), 1820 workflow(s), 376 rows file(s), 15 capability folder(s), 0 finding(s)
 ```
 
-Any finding count above zero is a failure of the catalogue, not of your setup,
-and the findings printed above that line say which document is at fault.
+A finding count above zero is a catalogue failure, not a setup problem; the
+findings printed above the line name the document at fault.

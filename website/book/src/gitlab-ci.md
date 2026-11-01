@@ -2,16 +2,9 @@
 
 <!-- toc -->
 
-This repository ships a GitLab CI template, `ci/gitlab/veredictum.yml`. One
-`include:` in a vendor's `.gitlab-ci.yml` runs the instrument against their
-server, keeps the results, the CI views and the badges as job artifacts, shows
-the rows in the merge request's test report, and fails the pipeline exactly
-when [the GitHub Action](github-action.md) fails its step.
-
-The template is versioned by the same `vX.Y.Z` tags as the binary and the
-container image, and it runs the release image of the tag you include it
-from. It needs a runner that can run Docker-in-Docker, which GitLab.com's
-hosted Linux runners can.
+`ci/gitlab/veredictum.yml` is a GitLab CI template, versioned by the same
+`vX.Y.Z` tags as the binary and image. It needs a runner that can run
+Docker-in-Docker, as GitLab.com's hosted Linux runners can.
 
 ## Including the template
 
@@ -26,26 +19,18 @@ include:
       profile: released
 ```
 
-Name a release tag, never a branch, so the pipeline runs the bytes you
-reviewed. GitLab reads a remote include from any public URL and gives it the
-typed inputs its header declares
+Name a release tag, never a branch
 ([includes](https://docs.gitlab.com/ci/yaml/includes/),
 [inputs](https://docs.gitlab.com/ci/inputs/)).
 
 ## The two jobs
 
-The include adds two jobs to the `stage` you name.
-
-1. **`<job-name>`** (default `veredictum`) pulls
-   `ghcr.io/vernum-projecten/veredictum:X.Y.Z` and runs `test` against
-   `base-url`, then `export` and `badge` over the result. It writes
-   `results.json`, `junit.xml`, `ctrf.json`, `summary.md` and `badges/` into
-   `out-dir`, with `recording.har` when `keep-recording` is `true`, and keeps
-   them as artifacts, `junit.xml` also as the JUnit report the merge request
-   shows. It saves the run's exit status beside them and always succeeds, so
-   its artifacts belong to a pipeline GitLab can serve the badges from.
-2. **`<job-name>-verdict`** reads that exit status and fails as the GitHub
-   Action's step does:
+1. **`<job-name>`** (default `veredictum`) runs `test`, `export` and `badge`
+   with `ghcr.io/vernum-projecten/veredictum:X.Y.Z`, keeping `results.json`,
+   `junit.xml` (also the merge request's test report), `ctrf.json`,
+   `summary.md` and `badges/` as artifacts. It always succeeds, so its badges
+   stay servable.
+2. **`<job-name>-verdict`** fails on the saved exit status:
 
 | Exit status | Meaning | The verdict job |
 |---|---|---|
@@ -54,13 +39,10 @@ The include adds two jobs to the `stage` you name.
 | `2` | the run could not start or finish | fails |
 | `3` | no row counts against the server, and at least one is inconclusive: the instrument could not judge it | fails, or passes with `fail-on-inconclusive: false` |
 
-The image has no shell, so the run job drives it from the Docker CLI image
-through a Docker-in-Docker service, both pinned by digest, and moves every
-file in and out with `docker cp`. The run joins the Docker-in-Docker
-service's network, so `base-url` must be reachable from there: a test
-deployment of your server, such as a review environment, works. A server
-started as another service of the same job is not something the template
-sets up.
+The run uses a digest-pinned Docker CLI image and Docker-in-Docker service.
+The instrument image has no shell, so files move in and out with `docker cp`.
+`base-url` must be reachable from that service's network (a review
+environment works; a server started as another service of the job does not).
 
 ## Inputs
 
@@ -81,15 +63,12 @@ sets up.
 | `stage` | `test` | the stage both jobs run in |
 | `job-name` | `veredictum` | the run job's name; the verdict job is this name with `-verdict` appended |
 
-`recording.har` holds the server's response bodies verbatim, and a CDR under
-test can hold real patient data even in a test EHR. It is written on every
-run and left out of the artifacts unless you set `keep-recording`, because a
-public project's artifacts can be downloaded by anyone.
+Leave `keep-recording` off for a public project: the recording holds response
+bodies verbatim.
 
 ## CI/CD variables
 
-A credential is never an input. Set it as a masked CI/CD variable under the
-name the engine reads, and the run job hands it to the container by name:
+Credentials are masked CI/CD variables, never inputs:
 
 | Your CDR wants | Input | CI/CD variables |
 |---|---|---|
@@ -98,30 +77,18 @@ name the engine reads, and the run job hands it to the container by name:
 | a bearer token | `auth: bearer` | `VEREDICTUM_CDR_TOKEN` |
 
 `admin-auth` reads `VEREDICTUM_CDR_ADMIN_USER` and
-`VEREDICTUM_CDR_ADMIN_PASSWORD`, or `VEREDICTUM_CDR_ADMIN_TOKEN`. The SMART on
-openEHR documents read the scoped tokens the IXIT's `scoped_tokens` member
-names: `VEREDICTUM_SCOPED_TOKEN_KEY` for a `mint` test issuer, and each
-`VEREDICTUM_SCOPED_TOKEN_<NAME>` an `issued` entry names.
-
-A variable of the File type holds a path rather than the value. Give it the
-name with `_FILE` appended, `VEREDICTUM_SCOPED_TOKEN_KEY_FILE` for example,
-and the run job copies the file into the container. An empty variable counts
-as unset, so a missing one stops the run with exit status `2` instead of
-presenting an empty credential to your server.
+`VEREDICTUM_CDR_ADMIN_PASSWORD`, or `VEREDICTUM_CDR_ADMIN_TOKEN`. SMART reads
+`VEREDICTUM_SCOPED_TOKEN_KEY` for a `mint` issuer and each
+`VEREDICTUM_SCOPED_TOKEN_<NAME>` an `issued` entry names. For a File-type
+variable append `_FILE` (for example `VEREDICTUM_SCOPED_TOKEN_KEY_FILE`). An
+empty variable stops the run with exit `2`.
 
 ## Badges
 
-The run job draws the four [badges](badges.md) into `badges/` in `out-dir`.
-GitLab serves a job artifact by URL from the latest successful pipeline of a
-branch, and [Badges](badges.md#gitlab) gives the URL and the README snippet.
-A verdict job that fails the pipeline leaves that URL on the last successful
-pipeline's badges; `allow-failure: true` keeps it on the newest run.
+See [Badges](badges.md#gitlab) for the artifact URL and README snippet.
 
 ## The template's own checks
 
-`scripts/release/check-gitlab-template.sh` holds the template's image tag to
-the engine version on every pull request and to the tag being released in the
-release pipeline, and refuses an interpolation that names an undeclared input,
-an input no job reads, or an input named like a credential. The test suite
-validates the template, with its inputs substituted, against GitLab's own CI
-configuration schema.
+`scripts/release/check-gitlab-template.sh` pins the template's image tag to
+the engine version and refuses undeclared, unread or credential-named inputs.
+The test suite validates the template against GitLab's CI schema.

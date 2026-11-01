@@ -1,7 +1,6 @@
-`export` reads the `results.json` the Arazzo evaluator writes and renders the
-three views a CI system shows. Each is a pure function of that document, so
-exporting the same results twice writes the same bytes, and none of them
-carries a clock reading the results document does not carry.
+`export` renders the Arazzo `results.json` as the views a CI system shows.
+Each is a pure function of that document, so the same results write the same
+bytes, with no clock reading the results do not carry.
 
 | Status | JUnit XML | CTRF 0.2.0 |
 |---|---|---|
@@ -11,69 +10,67 @@ carries a clock reading the results document does not carry.
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
 
-A warning row is a SHOULD the server did not follow, which never counts
-against the server, so no view counts it as failed and a CI that fails a job
-on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
-four-part explanation in `<system-out>`, opened by a line that says it is
-a warning, and no `failures` count includes it. In CTRF it is `other`, and
-`summary.failed` excludes it.
+A warning is a SHOULD the server did not follow and never counts against it,
+so no view counts it as failed and a CI job does not fail on it. In JUnit it
+is the four-part explanation in `<system-out>`, opened by a line naming it a
+warning, outside every `failures` count. In CTRF it is `other`, outside
+`summary.failed`.
 
-A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
-`<case> row <n>`. The text of a `<failure>` or `<error>` is the row's
-four-part explanation, its `message` is a one-line summary, and its `type`
-says whose problem the row is (`server` or `instrument`). A
-`<skipped>` carries the skip reason and the citation that makes the case not
-apply. A suite whose case the results place carries `<properties>` naming the
-part, chapter, band, capability, section or option and arm, formalism, TRIAL
-mark and upstream reports, each property named `eu.veredictum.<name>`. Every
-`time` is `0`, because the results document carries no timing.
+**JUnit XML.** A workflow is a `<testsuite>`; a row is a `<testcase>` named
+`<case> row <n>`.
 
-JUnit XML has no single owner, so the view is held to the two schemas the tools
-that read it publish: the document to the Jenkins xUnit plugin's `junit-10.xsd`,
-which defines the `<testsuites>` root, and each `<testsuite>` to Apache Maven
-Surefire's test report schema. Both are vendored, and a CI gate validates the
-pinned views against them with `xmllint`.
+- **`<failure>` and `<error>`:** text is the four-part explanation, `message`
+  a one-line summary, `type` whose problem it is (`server` or `instrument`).
+- **`<skipped>`:** the skip reason and the citation that makes the case not
+  apply.
+- **`<properties>`:** on a suite the results place, named
+  `eu.veredictum.<name>`: part, chapter, band, capability, section or option
+  and arm, formalism, TRIAL mark and upstream reports.
+- **`time`:** always `0`, since the results carry no timing.
 
-In CTRF, every test has `type` `conformance`, a `suite` path of the document
-then the part, chapter, band and section or option it is read under, and
-`labels` naming where it sits. A red row's `message` is the same four-part
-explanation. Everything CTRF does not define sits in `extra` under the one
-namespaced key `eu.veredictum`, as CTRF §4.6.1 asks: the case id, the row, the
-skip reason, the citation and, where the citation names one, the link to its
-upstream report. The CTRF document validates against the schema the CTRF
-project publishes for `specVersion` 0.2.0, its latest release.
+JUnit XML has no single owner, so the view is held to two published schemas:
+the document to the Jenkins xUnit plugin's `junit-10.xsd` (which defines the
+`<testsuites>` root), each `<testsuite>` to Apache Maven Surefire's test
+report schema. Both are vendored, and a CI gate validates the pinned views
+against them with `xmllint`.
 
-**What the Markdown summary holds.** It is written for a person reading it on
-GitHub, in two parts. A table names the server and the instrument, and a
-summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
-chapter, each chapter a table of its bands and each band a table of its
-sections. `## OPTIONS` follows the same chapters and bands, each band a table
-of its options with their kind (Recommended (SHOULD), Optional (MAY), or
-`@SpecDiverge` for an option that exists only because the released text is
-unclear) and the
-arm the statement selected, and a collapsed note on what each option decides.
-The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
-are only counted. Each failed, warning or errored row is a collapsed block
-whose summary names the outcome, the case and where it sits; opening it shows
-the step, what was checked, expected against received, the exchange, whose
-problem it is and the row's inputs as a table, with the cited sentence quoted
-below it. The warning rows follow with their citations, and the skipped rows
-counted by reason with the full list collapsed. A case resting on text an
-upstream report records as unclear or contradictory is tagged `@SpecDiverge`
-where it appears, and a closing note counts those cases and links the reports
-they are judged by. JUnit carries the tag as the `eu.veredictum.tag` property
-and CTRF in the test's standard `tags`.
+**CTRF.** Every test has `type` `conformance`, a `suite` path (the document,
+then part, chapter, band and section or option) and `labels` naming where it
+sits. A red row's `message` is the four-part explanation. Everything CTRF does
+not define sits in `extra` under the key `eu.veredictum`, as CTRF §4.6.1
+asks: case id, row, skip reason, citation and, where the citation names one,
+the upstream report link. The document validates against the CTRF project's
+schema for `specVersion` 0.2.0, its latest release.
 
-**Where the Markdown summary goes.** GitHub Actions sets
-`GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
-that file, so the job's summary page shows it with no third-party action.
-`--markdown <file>` writes it to a file as well. With neither, the summary is
-printed to standard output and every other console line goes to standard
-error, so the summary can be piped.
+**The Markdown summary**, for a person reading it on GitHub:
+
+- A table naming the server and the instrument, and a summary table counting
+  BASE and OPTIONS rows.
+- `## BASE`, chapter by chapter: each chapter a table of its bands, each band
+  a table of its sections.
+- `## OPTIONS`, by the same chapters and bands: each band a table of its
+  options with their kind (Recommended (SHOULD), Optional (MAY), or
+  `@SpecDiverge` for an option that exists only because the released text is
+  unclear), the selected arm, and a collapsed note on what the option decides.
+  Cases resting on TRIAL text sit in their band here.
+- Passed rows are only counted. Each failed, warning or errored row is a
+  collapsed block naming outcome, case and place; open, it shows the step, what
+  was checked, expected against received, the exchange, whose problem it is,
+  the row's inputs as a table, and the cited sentence.
+- Warning rows with their citations, then skipped rows counted by reason, with
+  the full list collapsed.
+- A case resting on text an upstream report records as unclear or
+  contradictory is tagged `@SpecDiverge`, and a closing note counts those cases
+  and links their reports. JUnit carries the tag as the `eu.veredictum.tag`
+  property, CTRF in the test's standard `tags`.
+
+**Where the summary goes.** `export` appends it to `GITHUB_STEP_SUMMARY` when
+GitHub Actions sets it, so the job summary shows it with no third-party
+action. `--markdown <file>` writes it to a file too. With neither, it goes to
+standard output and every other line to standard error, so it can be piped.
 
 **A vendor's GitHub Actions job.** [The GitHub Action](github-action.md) runs
-[`test`](#test) and then `export` in one step, with the image of the release it
-belongs to:
+[`test`](#test) and then `export` in one step, with its release's image:
 
 ```yaml
       - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
@@ -88,21 +85,19 @@ belongs to:
 ```
 
 The step writes `junit.xml`, `ctrf.json` and `summary.md` into `conformance/`,
-appends the summary to the job summary, annotates the rows that need attention,
-and fails the job when a row counts against the server. Its page has a
-complete workflow, and [GitLab CI](gitlab-ci.md) has the same as a template.
+appends the summary to the job summary, annotates the rows that need
+attention, and fails the job when a row counts against the server. Its page
+has a complete workflow, and [GitLab CI](gitlab-ci.md) has a template.
 
-`--annotations <file>` writes those annotations as GitHub Actions workflow
-commands: one `::error` per failed or errored row and one `::warning` per
-warning row, at most 10 of each, then a `::notice` naming how many more rows
-the summary lists.
+`--annotations <file>` writes those annotations as workflow commands: one
+`::error` per failed or errored row and one `::warning` per warning row, at
+most 10 of each, then a `::notice` counting the rows the summary lists beyond
+them.
 
-The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
-JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
-server's response bodies verbatim, so it belongs where the operator keeps the
-run, never in a public artifact.
+GitLab (`artifacts:reports:junit`), Jenkins (the JUnit plugin) and most other
+CI systems read the JUnit file. `conformance/recording.har` holds response
+bodies verbatim, so it stays with the operator, never in a public artifact.
 
-A `perf-result.json` has one exported view, the Markdown summary, with the
-same content `show` prints laid out as tables. `--junit`, `--ctrf` and
-`--annotations` refuse it with exit status 2, since a performance record has
-no test cases to list.
+A `perf-result.json` has one view, the Markdown summary, holding what `show`
+prints as tables. `--junit`, `--ctrf` and `--annotations` refuse it with exit
+status 2, since a performance record has no test cases.

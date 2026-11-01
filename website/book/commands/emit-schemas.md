@@ -1,4 +1,3 @@
-Byte-deterministic. The schemas in the repository's `schemas/` directory are
-this command's output, drift-tested against it, which is how the published
-format and the code that reads it stay one thing. Author against these if you
-are writing your own catalogue or your own harness.
+Byte-deterministic. The repository's `schemas/` directory is this command's
+output, drift-tested against it. Author against these schemas when writing your
+own catalogue or harness.
