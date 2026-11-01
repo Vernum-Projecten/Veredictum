@@ -444,7 +444,7 @@ pub fn badges(results: &Results) -> Vec<Badge> {
         ),
         counted(
             BadgeName::Options,
-            "options",
+            "OPTIONS",
             reading.options.selected_tally(),
         ),
         Badge {

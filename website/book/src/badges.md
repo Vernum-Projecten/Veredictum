@@ -14,13 +14,13 @@ Drawn from test fixtures (instrument version 0.3.1), each with its Markdown.
 A passing result judged against the release, with one BASE warning, which no badge shows:
 
 ![openEHR BASE: 3/3 passed](badges/passing/base.svg)
-![openEHR options: 1/1 passed](badges/passing/options.svg)
+![openEHR OPTIONS: 1/1 passed](badges/passing/options.svg)
 ![specification: released](badges/passing/profile.svg)
 ![veredictum: self-run v0.3.1](badges/passing/instrument.svg)
 
 ```markdown
 ![openEHR BASE: 3/3 passed](badges/passing/base.svg)
-![openEHR options: 1/1 passed](badges/passing/options.svg)
+![openEHR OPTIONS: 1/1 passed](badges/passing/options.svg)
 ![specification: released](badges/passing/profile.svg)
 ![veredictum: self-run v0.3.1](badges/passing/instrument.svg)
 ```
@@ -28,13 +28,13 @@ A passing result judged against the release, with one BASE warning, which no bad
 A failing result: one BASE row failed, one BASE and one option row errored:
 
 ![openEHR BASE: 2/4 passed, 1 failed, 1 errored](badges/failing/base.svg)
-![openEHR options: 0/1 passed, 1 errored](badges/failing/options.svg)
+![openEHR OPTIONS: 0/1 passed, 1 errored](badges/failing/options.svg)
 ![specification: released](badges/failing/profile.svg)
 ![veredictum: self-run v0.3.1](badges/failing/instrument.svg)
 
 ```markdown
 ![openEHR BASE: 2/4 passed, 1 failed, 1 errored](badges/failing/base.svg)
-![openEHR options: 0/1 passed, 1 errored](badges/failing/options.svg)
+![openEHR OPTIONS: 0/1 passed, 1 errored](badges/failing/options.svg)
 ![specification: released](badges/failing/profile.svg)
 ![veredictum: self-run v0.3.1](badges/failing/instrument.svg)
 ```
@@ -42,13 +42,13 @@ A failing result: one BASE row failed, one BASE and one option row errored:
 The passing result judged against the development snapshot:
 
 ![openEHR BASE dev: 3/3 passed](badges/development/base.svg)
-![openEHR options dev: 1/1 passed](badges/development/options.svg)
+![openEHR OPTIONS dev: 1/1 passed](badges/development/options.svg)
 ![specification: development (master)](badges/development/profile.svg)
 ![veredictum: self-run v0.3.1](badges/development/instrument.svg)
 
 ```markdown
 ![openEHR BASE dev: 3/3 passed](badges/development/base.svg)
-![openEHR options dev: 1/1 passed](badges/development/options.svg)
+![openEHR OPTIONS dev: 1/1 passed](badges/development/options.svg)
 ![specification: development (master)](badges/development/profile.svg)
 ![veredictum: self-run v0.3.1](badges/development/instrument.svg)
 ```
@@ -100,7 +100,7 @@ SVG title and `aria-label` carry the full text, such as
 | Badge | Label | Message |
 |---|---|---|
 | `base` | `openEHR BASE`, or `openEHR BASE dev` | passed out of the BASE rows and the rows the outline places nowhere that bear on the verdict (passed, failed and errored), then the failed and errored counts when there are any: `318/318 passed`, `312/318 passed, 6 failed`, `310/318 passed, 6 failed, 2 errored`. A warning shows on no badge |
-| `options` | `openEHR options`, or `openEHR options dev` | the same count over the option arms the statement selected and the cases resting on TRIAL text, which are read with the options |
+| `options` | `openEHR OPTIONS`, or `openEHR OPTIONS dev` | the same count over the option arms the statement selected and the cases resting on TRIAL text, which are read with the options |
 | `profile` | `specification` | `released`, or `development (master)` with the branch the snapshot was taken from |
 | `instrument` | `veredictum` | `self-run v<version>` |
 
@@ -187,7 +187,7 @@ In the README:
 
 ```markdown
 [![openEHR BASE](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/base.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
-[![openEHR options](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/options.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
+[![openEHR OPTIONS](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/options.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
 [![specification](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/profile.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
 [![veredictum](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/instrument.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
 ```
