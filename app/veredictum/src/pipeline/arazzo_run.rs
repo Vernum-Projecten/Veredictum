@@ -51,9 +51,13 @@ pub const RECORDING_FILE: &str = "recording.har";
 /// The catalogue and the declarations one run reads.
 #[derive(Debug, Clone, Copy)]
 pub struct ArazzoRunRequest<'a> {
-    /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
-    /// parent is the root citations and OAS sources resolve against.
+    /// The catalogue root, holding `capabilities.yaml` and `cases/`.
     pub root: &'a Path,
+    /// The vendored openEHR spec tree (`specs/openehr`), whose grandparent is
+    /// the repository root: citations resolve against it, and an OAS source,
+    /// which resolves relative to its document, is named by its path from
+    /// it. Without it, the catalogue root's parent is that root.
+    pub specs: Option<&'a Path>,
     /// The party's statement, whose `claims.capabilities` and `options`
     /// decide what runs.
     pub statement: Option<&'a Path>,
@@ -255,11 +259,46 @@ impl std::fmt::Display for RunVerdict {
     }
 }
 
-/// The root citations and OAS sources resolve against: the catalogue root's
-/// parent, where the vendored `specs/` tree sits beside it.
+/// Returns the repository root of the catalogue under `root`: its parent,
+/// where the vendored `specs/` tree sits beside it.
+///
+/// Citations resolve against it, and an OAS source, which resolves relative
+/// to its document, is named by its path from it.
 #[must_use]
 pub fn repo_root_of(root: &Path) -> PathBuf {
     root.join("..")
+}
+
+/// Returns the repository root of the catalogue under `root` read against
+/// the vendored openEHR spec tree `specs`.
+///
+/// It is the grandparent of `specs` when that is given, and otherwise
+/// [`repo_root_of`] the catalogue root; `test --specs` and
+/// `validate --specs` both read it this way.
+#[must_use]
+pub fn repo_root_with(root: &Path, specs: Option<&Path>) -> PathBuf {
+    specs.map_or_else(|| repo_root_of(root), |specs| specs.join("../.."))
+}
+
+impl ArazzoRunRequest<'_> {
+    /// Returns the repository root, [`repo_root_with`] the catalogue root and
+    /// [`Self::specs`].
+    ///
+    /// Citations resolve against it, and an OAS source, which resolves
+    /// relative to its document, is named by its path from it.
+    #[must_use]
+    pub fn repo_root(&self) -> PathBuf {
+        repo_root_with(self.root, self.specs)
+    }
+
+    /// The vendored openEHR spec tree the catalogue is gated against:
+    /// [`Self::specs`] when it is given, and otherwise `specs/openehr` under
+    /// [`Self::repo_root`].
+    #[must_use]
+    pub fn spec_root(&self) -> PathBuf {
+        self.specs
+            .map_or_else(|| self.repo_root().join("specs/openehr"), Path::to_path_buf)
+    }
 }
 
 /// What a run drives.
@@ -321,7 +360,7 @@ pub fn run_catalogue(
     request: &ArazzoRunRequest<'_>,
     drive: Drive<'_>,
 ) -> Result<ArazzoRunOutcome, Error> {
-    let repo_root = repo_root_of(request.root);
+    let repo_root = request.repo_root();
     let read = |path: Option<&Path>, context: &str| -> Result<Option<Value>, Error> {
         path.map(|path| read_json(path, context)).transpose()
     };
@@ -382,7 +421,7 @@ pub fn run_catalogue(
     )?
     .remove(&SpecComponent::ItsRest)
     .map(|version| version.to_string());
-    let findings = check_catalogue(request.root, Some(&repo_root.join("specs/openehr")));
+    let findings = check_catalogue(request.root, Some(&request.spec_root()));
     if !findings.is_empty() {
         return Err(Error::ArazzoGate(findings));
     }

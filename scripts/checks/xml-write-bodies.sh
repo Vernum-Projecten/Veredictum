@@ -6,9 +6,11 @@
 #
 # ITS-REST `Resources.md` §XML Format: "both request payloads and responses
 # MUST conform to the published XSDs". The documents an `*-xml-write-accepted`
-# arm of `catalogue/capabilities.yaml` names send XML a service is expected to
-# process, so each body is held to a schema here, chosen by its root's
-# namespace:
+# arm of a catalogue's `capabilities.yaml` names send XML a service is expected
+# to process, so each body is held to a schema here, chosen by its root's
+# namespace. Every Arazzo catalogue root of the tree is read
+# (`catalogue-roots.sh`, #983), and an arm naming a document its own root does
+# not hold is a finding:
 #
 # - `http://schemas.openehr.org/v1`, the 1.0.2 lineage: a `composition` root
 #   against `ALL/Composition.xsd`, an `items` root against `ALL/Structure.xsd`.
@@ -27,10 +29,14 @@
 # and yq reads the documents. No openEHR spec governs the check itself — our
 # own design.
 #
-# Usage: scripts/checks/xml-write-bodies.sh               # the catalogue
+# Usage: scripts/checks/xml-write-bodies.sh               # every catalogue root
 #        scripts/checks/xml-write-bodies.sh --self-test   # seeded violations
+# Env:   XML_WRITE_BODIES_TREE the git tree whose catalogue roots are scanned
+#                              (default: the repository)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# shellcheck source=scripts/checks/catalogue-roots.sh
+source scripts/checks/catalogue-roots.sh
 
 ROOT="$PWD"
 NSV1="$ROOT/specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL"
@@ -118,20 +124,46 @@ check_document() {
   return "$found"
 }
 
-# The documents every `*-xml-write-accepted` arm names, as files.
+# The documents every `*-xml-write-accepted` arm of the catalogue root $1
+# names, as files of that root.
 accepted_documents() {
-  local id file
+  local root="$1" id file
   yq e '.options[].arms | to_entries[] | select(.key | test("-xml-write-accepted$")) | .value.documents[]' \
-    catalogue/capabilities.yaml |
+    "$root/capabilities.yaml" |
     while read -r id; do
-      file="$(find catalogue/cases -name "$id.arazzo.yaml" | head -n 1)"
+      file="$(find "$root/cases" -name "$id.arazzo.yaml" | head -n 1)"
       if [[ -z "$file" ]]; then
-        echo "xml-write-bodies: the arm document $id is in no catalogue file" >&2
+        echo "xml-write-bodies: the arm document $id is in no file of $root" >&2
         echo "MISSING"
       else
         echo "$file"
       fi
     done
+}
+
+# scan <git tree>: every accepting-arm document of every catalogue root in the
+# tree validates, and the tree holds a root.
+scan() {
+  local tree="$1" roots root doc found=0 checked=0
+  roots="$(catalogue_roots "$tree")"
+  if [[ -z "$roots" ]]; then
+    echo "xml-write-bodies: no catalogue root (capabilities.yaml beside cases/) in $tree" >&2
+    return 1
+  fi
+  while IFS= read -r root; do
+    while read -r doc; do
+      if [[ "$doc" == "MISSING" ]]; then
+        found=1
+        continue
+      fi
+      check_document "$doc" || found=1
+      checked=$((checked + 1))
+    done < <(accepted_documents "$tree/$root")
+  done <<< "$roots"
+  if [[ "$found" -ne 0 ]]; then
+    return 1
+  fi
+  echo "xml-write-bodies: the XML bodies of $checked accepting-arm documents validate"
 }
 
 if [[ "${1:-}" == "--self-test" ]]; then
@@ -161,25 +193,36 @@ if [[ "${1:-}" == "--self-test" ]]; then
     echo "xml-write-bodies self-test: a document with no XML body passed" >&2
     ok=0
   fi
+  # Two roots: the first's arm names a document it holds, whose body
+  # validates; the second's, three levels down, names one it does not hold.
+  tree="$WORK/tree"
+  mkdir -p "$tree/catalogue/cases/ehr" "$tree/fixtures/console/catalogue/cases/ehr"
+  git -C "$tree" init -q
+  for root in catalogue fixtures/console/catalogue; do
+    printf 'options:\n  xml-write:\n    arms:\n      ehr-xml-write-accepted:\n        documents: [good]\n' > "$tree/$root/capabilities.yaml"
+  done
+  printf 'options:\n  xml-write:\n    arms:\n      ehr-xml-write-accepted:\n        documents: [gone]\n' > "$tree/fixtures/console/catalogue/capabilities.yaml"
+  {
+    printf 'arazzo: 1.1.0\nworkflows:\n  - workflowId: w\n    steps:\n      - stepId: s\n        requestBody:\n          contentType: application/xml\n          payload: |\n'
+    printf '            <items %s xsi:type="FOLDER" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name></items>\n' "$V1"
+  } > "$tree/catalogue/cases/ehr/good.arazzo.yaml"
+  cp "$tree/catalogue/cases/ehr/good.arazzo.yaml" "$tree/fixtures/console/catalogue/cases/ehr/good.arazzo.yaml"
+  out="$(scan "$tree" 2>&1 || true)"
+  if [[ "$out" != *"the arm document gone is in no file of $tree/fixtures/console/catalogue"* || "$out" == *"good.arazzo.yaml body"* ]]; then
+    echo "xml-write-bodies self-test: the second root's stale arm document was not refused alone: $out" >&2
+    ok=0
+  fi
+  mkdir -p "$WORK/empty"
+  git -C "$WORK/empty" init -q
+  if scan "$WORK/empty" >/dev/null 2>&1; then
+    echo "xml-write-bodies self-test: a tree with no catalogue root passed" >&2
+    ok=0
+  fi
   if [[ "$ok" -eq 1 ]]; then
-    echo "xml-write-bodies self-test: every seeded violation is refused"
+    echo "xml-write-bodies self-test: every seeded violation is refused, in every catalogue root"
     exit 0
   fi
   exit 1
 fi
 
-found=0
-checked=0
-while read -r doc; do
-  if [[ "$doc" == "MISSING" ]]; then
-    found=1
-    continue
-  fi
-  check_document "$doc" || found=1
-  checked=$((checked + 1))
-done < <(accepted_documents)
-
-if [[ "$found" -ne 0 ]]; then
-  exit 1
-fi
-echo "xml-write-bodies: the XML bodies of $checked accepting-arm documents validate"
+scan "${XML_WRITE_BODIES_TREE:-.}"

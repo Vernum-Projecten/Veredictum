@@ -50,7 +50,7 @@ Usage: veredictum test [OPTIONS]
 
 Options:
       --root <ROOT>
-          The catalogue root, holding `capabilities.yaml` and `cases/`. Its parent holds the vendored `specs/` tree its citations and OAS sources resolve against. The container image sets it to the catalogue it ships
+          The catalogue root, holding `capabilities.yaml` and `cases/`. Without `--specs`, its parent holds the vendored `specs/` tree its citations and OAS sources resolve against. The container image sets it to the catalogue it ships
           
           [env: VEREDICTUM_CATALOGUE]
           [default: catalogue]
@@ -114,6 +114,9 @@ Options:
           - released:    The frozen release: the oracle of every released claim
           
           [default: development]
+
+      --specs <SPECS>
+          The vendored openEHR spec tree; citations resolve against the directory two levels above it, and the development snapshot sits at `specs/openehr-development/` beside it. Without it, the tree is `specs/openehr` in the parent of `--root`
 
   -h, --help
           Print help (see a summary with '-h')

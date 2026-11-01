@@ -745,9 +745,9 @@ workflows:
       Reads an example data instance of the ADL 2 template
       openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with Accept
       application/json. The answer is 200 in JSON, and its root carries the
-      template's root archetype id as archetype_node_id: the stringified
-      archetype_details.archetype_id (RM LOCATABLE), whose ARCHETYPE_ID
-      lexical form ends in the major version alone (BASE).
+      template's root archetype id as archetype_node_id, ending in either
+      .v1 or .v1.0.0: AM Identification reads a namespaceless .v1 as
+      .v1.0.0, and the BASE ARCHETYPE_ID form admits only the major version.
     dependsOn: [$sourceDescriptions.setup.upload_template-adl2_dv_count_range]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
@@ -768,11 +768,13 @@ workflows:
             x-veredictum-cite: *json_content_type
           - context: $response.body#/archetype_node_id
             type: regex
-            condition: '^openEHR-EHR-COMPOSITION\.cnf_adl2_dv_count_range\.v1$'
+            condition: '^openEHR-EHR-COMPOSITION\.cnf_adl2_dv_count_range\.v1(\.0\.0)?$'
             x-veredictum-cite:
-              source: specs/openehr/BASE/docs/UML/classes/archetype_id.adoc
-              section: ARCHETYPE_ID Class
-              quote: "Lexical form: `rm_originator  '-' rm_name  '-' rm_entity  '.' concept_name {  '-' specialisation }*  '.v' number`."
+              source: specs/openehr/AM/docs/Identification/master07-referencing.adoc
+              section: Reconstitutability
+              quote: "The lack of minor and patch level version numbers should also be legal for non-namespaced identifiers, and be interpreted as meaning `0` in both cases, i.e. `.v1` means `.v1.0.0`."
+              level: must
+              report: 984
 
   - workflowId: get_template_adl2_example-web_template_not_acceptable
     summary: An ADL 2 example asked for in the Web Template format is refused with 406
