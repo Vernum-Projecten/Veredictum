@@ -107,6 +107,8 @@ defects! {
         ("structure-unknown-section.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-structure"),
     structure_unused_section =>
         ("structure-unused-section.chapters.yaml", "chapters.yaml", "arazzo-structure"),
+    structure_development_option_without_section =>
+        ("structure-development-option-without-section.arazzo.yaml", "cases/content/adl2_dv_parsable.arazzo.yaml", "arazzo-structure"),
     structure_option_with_section =>
         ("structure-option-with-section.arazzo.yaml", "cases/security/version_signature.arazzo.yaml", "arazzo-structure"),
     structure_option_unplaced =>

@@ -8,8 +8,9 @@
 //! cited upstream report is in the committed snapshot.
 //!
 //! BASE and OPTION are derived from `capabilities.yaml`, so the gate reads
-//! the arms and never a second declaration. No openEHR spec governs the
-//! structure — our own design.
+//! the arms and never a second declaration, under the released profile the
+//! catalogue is gated against. No openEHR spec governs the structure — our
+//! own design.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
@@ -20,6 +21,7 @@ use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::folders::folder_of;
 use crate::arazzo::gates::{Gate, GateFinding};
 use crate::arazzo::maturity::{Maturities, MaturityError};
+use crate::arazzo::spec_profile::SpecProfile;
 use crate::arazzo::structure::{
     CHAPTERS_FILE, Chapters, Formalisms, REPORTS_FILE, Reports, SECTION_KEY, Tier, arms_of,
     section_of, workflow_citations,
@@ -50,7 +52,14 @@ pub fn check(
         }
     };
     check_folders(&path, &chapters, documents, &mut findings);
-    check_sections(&path, &chapters, documents, capabilities, &mut findings);
+    let released = capabilities.map(|c| c.in_profile(SpecProfile::Released));
+    check_sections(
+        &path,
+        &chapters,
+        documents,
+        released.as_ref(),
+        &mut findings,
+    );
     check_options(
         &path,
         &chapters,
@@ -136,6 +145,10 @@ fn check_folders(
 
 /// Every BASE document in one declared section of its folder, no OPTION or
 /// setup document in any, and every declared section in use.
+///
+/// `capabilities` is the released view ([`Capabilities::in_profile`]), so a
+/// document only an option of the development profile names is BASE here
+/// and keeps the section a released run places it by.
 fn check_sections(
     path: &Path,
     chapters: &Chapters,

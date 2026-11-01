@@ -2134,7 +2134,9 @@ vendor reads why a row is red without opening `results.json`.
   sections. A document no option arm names is BASE and names one declared
   section with `info.x-veredictum-section`; a document an arm names is
   OPTION and names none, so BASE and OPTION are derived from
-  `capabilities.yaml` and never declared twice. A section no document uses,
+  `capabilities.yaml` and never declared twice. The gate reads the options
+  of the released profile, so a document only an option with
+  `profile: development` names is BASE here and keeps its section. A section no document uses,
   an option with no theme and tier, a `spec-boundary` option whose citation
   names no `report`, a case of a formalism folder whose setups upload no
   template or templates of both formalisms, and a cited file in no vendored
@@ -2333,7 +2335,21 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   option in `capabilities.yaml`: its arms, each naming the documents that test
   it. The statement answers the option, and the documents of every other arm
   are skipped with `option-not-selected`. Surface coverage counts an element as
-  covered when every arm covers it.
+  covered when every arm covers it. An option carrying `profile: development`
+  is behaviour the development text alone leaves open: under the development
+  profile it is an option like any other, and a released run reads the
+  catalogue without it, so its documents are BASE there, each keeping the
+  `x-veredictum-section` it is placed by, and a statement's answer to it
+  selects nothing and is no error. `validate`, the listing and the console's
+  catalogue page read the released options, and the capabilities schema
+  refuses any `profile` value but `development`. `adl2-id-coded` is such an
+  option: development AM makes the at-code system the one an openEHR system
+  must support ("openEHR systems must support at least the at-coded ADL2
+  archetypes", `org.openehr.am.aom2.adl_code_definitions.adoc`), while the
+  release shows id-coded ADL 2 alone. A document may sit under arms of two
+  options, and runs only when the statement selects both: the ADL 2 template
+  examples sit under their format's option and under `adl2-id-coded`. No
+  openEHR spec governs the mechanism; it is our own design.
 - **Capabilities.** The folder of a document names the capability its rows
   count for. `capabilities.yaml` may list a document under further
   capabilities it exercises; those count for coverage, never for a verdict.

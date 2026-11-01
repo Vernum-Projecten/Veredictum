@@ -4010,12 +4010,12 @@ cases:
       - template_example_flat_not_acceptable/get_template_adl14_example-flat_not_acceptable
       - template_example_structured/get_template_adl14_example-structured
       - template_example_structured_not_acceptable/get_template_adl14_example-structured_not_acceptable
-      - template_example_xml/get_template_adl2_example-xml
-      - template_example_xml_not_acceptable/get_template_adl2_example-xml_not_acceptable
-      - template_example_flat/get_template_adl2_example-flat
-      - template_example_flat_not_acceptable/get_template_adl2_example-flat_not_acceptable
-      - template_example_structured/get_template_adl2_example-structured
-      - template_example_structured_not_acceptable/get_template_adl2_example-structured_not_acceptable
+      - template_example_xml_adl2/get_template_adl2_example-xml
+      - template_example_xml_not_acceptable_adl2/get_template_adl2_example-xml_not_acceptable
+      - template_example_flat_adl2/get_template_adl2_example-flat
+      - template_example_flat_not_acceptable_adl2/get_template_adl2_example-flat_not_acceptable
+      - template_example_structured_adl2/get_template_adl2_example-structured
+      - template_example_structured_not_acceptable_adl2/get_template_adl2_example-structured_not_acceptable
   SF-EXAMPLE-roundtrip:
     new: []
     open: >-

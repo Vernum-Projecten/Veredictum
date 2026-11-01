@@ -175,6 +175,17 @@ pub enum CatalogueError {
         #[source]
         error: CiteError,
     },
+    /// The declarations name another profile than the one the selection
+    /// read the options under.
+    #[error(
+        "the run reads the {declared} profile, and its documents were selected under the {selected} profile"
+    )]
+    ProfileMismatch {
+        /// The profile the selection read the options under.
+        selected: SpecProfile,
+        /// The profile the declarations name.
+        declared: SpecProfile,
+    },
 }
 
 /// What the party declares, which every document's plan reads.
@@ -684,6 +695,7 @@ pub struct Selection {
     chapters: Option<Chapters>,
     reports: Option<Reports>,
     folder_of: BTreeMap<String, String>,
+    profile: SpecProfile,
 }
 
 impl Selection {
@@ -741,7 +753,13 @@ impl Selection {
 
     /// Selects every document of the catalogue under `root`, or only the
     /// documents `only` names when it names any, the capability folders
-    /// `statement` claims and the arms it selects.
+    /// `statement` claims and the arms it selects, for a run under
+    /// `profile`.
+    ///
+    /// The statement's arms are checked against every option, and an arm of
+    /// an option that does not hold under `profile`
+    /// ([`OptionDecl::holds_under`](crate::arazzo::capabilities::OptionDecl::holds_under))
+    /// is dropped: the run reads the catalogue without that option.
     ///
     /// # Errors
     /// [`CatalogueError`] when a folder does not list, `only` names a
@@ -752,6 +770,7 @@ impl Selection {
         root: &Path,
         statement: Option<&Value>,
         only: &[String],
+        profile: SpecProfile,
     ) -> Result<Self, CatalogueError> {
         let mut paths = document_paths(root)?;
         let folder_of: BTreeMap<String, String> = paths
@@ -779,7 +798,14 @@ impl Selection {
         } else {
             None
         };
-        let selected = selected_arms(statement, capabilities.as_ref())?;
+        let mut selected = selected_arms(statement, capabilities.as_ref())?;
+        let capabilities = capabilities.map(|all| all.in_profile(profile));
+        selected.retain(|arm| {
+            capabilities
+                .iter()
+                .flat_map(|c| c.options.values())
+                .any(|option| option.arms.contains_key(arm))
+        });
         let ranged = capabilities
             .as_ref()
             .map(Capabilities::ranged_components)
@@ -808,6 +834,7 @@ impl Selection {
             chapters,
             reports,
             folder_of,
+            profile,
         })
     }
 
@@ -815,12 +842,20 @@ impl Selection {
     /// citations are relative to.
     ///
     /// # Errors
-    /// [`CatalogueError`] when a document or a rows file does not load.
+    /// [`CatalogueError`] when a document or a rows file does not load, and
+    /// [`CatalogueError::ProfileMismatch`] when `declarations` name another
+    /// profile than the selection was read under.
     pub fn load(
         &self,
         repo_root: &Path,
         declarations: &Declarations,
     ) -> Result<Vec<Planned>, CatalogueError> {
+        if declarations.profile != self.profile {
+            return Err(CatalogueError::ProfileMismatch {
+                selected: self.profile,
+                declared: declarations.profile,
+            });
+        }
         let mut planned = Vec::new();
         let mut structure = self.chapters.as_ref().map(|chapters| {
             Placer::in_profile(
@@ -1123,6 +1158,9 @@ fn run_controls(planned: &[Planned]) -> BTreeMap<String, control::Control> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::arazzo::reading::Tally;
+    use crate::arazzo::results::ResultRow;
+    use crate::arazzo::structure::{ArmRef, Standing};
     use assert_fs::prelude::*;
     use serde_json::json;
 
@@ -1456,8 +1494,13 @@ mod tests {
     /// The skip of every workflow of the System document under `statement`.
     fn system_skips(statement: &Value) -> Vec<Option<Skip>> {
         let world = needs_world();
-        let selection =
-            Selection::read(&world.path().join("catalogue"), Some(statement), &[]).unwrap();
+        let selection = Selection::read(
+            &world.path().join("catalogue"),
+            Some(statement),
+            &[],
+            SpecProfile::Released,
+        )
+        .unwrap();
         let planned = selection
             .load(world.path(), &Declarations::default())
             .unwrap();
@@ -1551,7 +1594,7 @@ mod tests {
         world: &assert_fs::TempDir,
         profile: SpecProfile,
     ) -> Result<Vec<Option<Skip>>, Box<dyn std::error::Error>> {
-        let selection = Selection::read(&world.path().join("catalogue"), None, &[])?;
+        let selection = Selection::read(&world.path().join("catalogue"), None, &[], profile)?;
         let declarations = Declarations {
             profile,
             ..Declarations::default()
@@ -1617,8 +1660,8 @@ mod tests {
     fn a_development_only_case_is_skipped_under_released_and_runs_under_development()
     -> Result<(), Box<dyn std::error::Error>> {
         let world = development_only_world()?;
-        let selection = Selection::read(&world.path().join("catalogue"), None, &[])?;
         let skips = |profile| -> Result<Vec<Option<Skip>>, CatalogueError> {
+            let selection = Selection::read(&world.path().join("catalogue"), None, &[], profile)?;
             let declarations = Declarations {
                 profile,
                 ..Declarations::default()
@@ -1696,5 +1739,227 @@ mod tests {
             [],
             "the release holds every text the catalogue cites"
         );
+    }
+
+    /// A catalogue root holding the committed System document under an
+    /// option scoped to the development profile, whose supported arm names
+    /// it, with a reading structure placing both.
+    fn scoped_world() -> assert_fs::TempDir {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dir = assert_fs::TempDir::new().unwrap();
+        std::os::unix::fs::symlink(repo.join("specs"), dir.path().join("specs")).unwrap();
+        dir.child("catalogue/cases/system/system_options.arazzo.yaml")
+            .write_str(
+                &std::fs::read_to_string(
+                    repo.join("catalogue/cases/system/system_options.arazzo.yaml"),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        dir.child("catalogue/capabilities.yaml")
+            .write_str(
+                "options:\n  scoped:\n    description: d\n    profile: development\n    arms:\n      scoped-supported: { documents: [system_options] }\n      scoped-unsupported: { documents: [] }\n    x-veredictum-cite: { source: specs/openehr-development/specifications-AM/docs/UML/classes/org.openehr.am.aom2.adl_code_definitions.adoc, section: ADL_CODE_DEFINITIONS Class, quote: \"openEHR systems must support at least the at-coded ADL2 archetypes.\" }\n",
+            )
+            .unwrap();
+        dir.child("catalogue/chapters.yaml")
+            .write_str(
+                "chapters:\n  - chapter: system\n    title: System\n    folders:\n      - folder: system\n        title: System\n        sections:\n          - { section: options, title: OPTIONS }\noptions:\n  scoped: { theme: left-open, tier: options }\n",
+            )
+            .unwrap();
+        dir
+    }
+
+    /// What a scoped run planned and how its rows read.
+    #[derive(Debug)]
+    struct ScopedRun {
+        /// Each workflow's skip.
+        skips: Vec<Option<Skip>>,
+        /// Each workflow's standing.
+        standings: Vec<Standing>,
+        /// The BASE tally of its rows read as passed.
+        base: Tally,
+        /// The tally of the selected arms.
+        options: Tally,
+        /// Whether the outline lists the scoped option.
+        listed: bool,
+    }
+
+    /// What a run under `profile` with a statement selecting `arm` plans for
+    /// the System document.
+    fn scoped_run(profile: SpecProfile, arm: &str) -> Result<ScopedRun, CatalogueError> {
+        let world = scoped_world();
+        let statement = json!({ "claims": { "capabilities": ["system"] }, "options": [arm] });
+        let selection = Selection::read(
+            &world.path().join("catalogue"),
+            Some(&statement),
+            &[],
+            profile,
+        )?;
+        let declarations = Declarations {
+            profile,
+            ..Declarations::default()
+        };
+        let planned = selection.load(world.path(), &declarations)?;
+        let system = planned
+            .first()
+            .ok_or(CatalogueError::Empty(world.path().to_owned()))?;
+        let workflows = &system.document.description().workflows;
+        let skips = workflows
+            .iter()
+            .map(|w| system.plan.skips.get(&w.workflow_id).cloned())
+            .collect();
+        let standings = workflows
+            .iter()
+            .filter_map(|w| system.places.get(&w.workflow_id))
+            .map(|place| place.standing.clone())
+            .collect();
+        let outline = selection.outline(&planned);
+        let listed = outline
+            .as_ref()
+            .is_some_and(|o| o.options.iter().any(|option| option.option == "scoped"));
+        let rows = workflows
+            .iter()
+            .map(|w| ResultRow {
+                case: format!("system_options/{}", w.workflow_id),
+                row: 0,
+                status: crate::arazzo::results::Status::Passed,
+                inputs: rows::Row::new(),
+                generated: Vec::new(),
+                skip: None,
+                explanation: None,
+            })
+            .collect();
+        let mut run = results("http://sut".to_owned(), ServerIdentity::NotRecorded, rows);
+        run.outline = outline;
+        let reading = crate::arazzo::reading::read(&run);
+        Ok(ScopedRun {
+            skips,
+            standings,
+            base: reading.base_total,
+            options: reading.options.selected_tally(),
+            listed,
+        })
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_development_option_is_ignored_under_released_and_its_answer_is_no_error()
+    -> Result<(), CatalogueError> {
+        for arm in ["scoped-supported", "scoped-unsupported"] {
+            let ScopedRun {
+                skips,
+                standings,
+                base,
+                options,
+                listed,
+            } = scoped_run(SpecProfile::Released, arm)?;
+            assert_eq!(skips, vec![None, None, None], "{arm}");
+            assert_eq!(
+                standings,
+                vec![
+                    Standing::Base {
+                        section: "options".to_owned()
+                    };
+                    3
+                ],
+                "{arm}"
+            );
+            assert_eq!(base.tests, 3, "{arm}");
+            assert_eq!(options.tests, 0, "{arm}");
+            assert!(
+                !listed,
+                "{arm}: the released outline holds no development option"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_development_option_selects_either_arm_under_development() -> Result<(), CatalogueError> {
+        let option = Standing::Option {
+            arms: vec![ArmRef {
+                option: "scoped".to_owned(),
+                arm: "scoped-supported".to_owned(),
+            }],
+        };
+        let ScopedRun {
+            skips,
+            standings,
+            base,
+            options,
+            listed,
+        } = scoped_run(SpecProfile::Development, "scoped-supported")?;
+        assert_eq!(skips, vec![None, None, None]);
+        assert_eq!(standings, vec![option.clone(); 3]);
+        assert_eq!(base.tests, 0);
+        assert_eq!(
+            options.tests, 3,
+            "the selected arm's rows tally with the OPTIONS"
+        );
+        assert!(listed);
+        let ScopedRun {
+            skips,
+            standings,
+            base,
+            options,
+            listed,
+        } = scoped_run(SpecProfile::Development, "scoped-unsupported")?;
+        assert_eq!(skips.len(), 3);
+        for skip in skips {
+            let skip = skip.unwrap();
+            assert_eq!(skip.reason, SkipReason::OptionNotSelected);
+            assert_eq!(skip.why.section, "ADL_CODE_DEFINITIONS Class");
+        }
+        assert_eq!(standings, vec![option; 3]);
+        assert_eq!(base.tests, 0);
+        assert_eq!(options.tests, 0, "an unselected arm's rows are left out");
+        assert!(listed);
+        Ok(())
+    }
+
+    #[test]
+    fn a_selection_loads_under_its_own_profile_only() {
+        let world = scoped_world();
+        let selection = Selection::read(
+            &world.path().join("catalogue"),
+            None,
+            &[],
+            SpecProfile::Released,
+        )
+        .unwrap();
+        let declarations = Declarations {
+            profile: SpecProfile::Development,
+            ..Declarations::default()
+        };
+        assert!(matches!(
+            selection.load(world.path(), &declarations),
+            Err(CatalogueError::ProfileMismatch {
+                selected: SpecProfile::Released,
+                declared: SpecProfile::Development,
+            })
+        ));
+    }
+
+    #[test]
+    fn an_unknown_arm_is_refused_under_both_profiles() {
+        let world = scoped_world();
+        let statement =
+            json!({ "claims": { "capabilities": ["system"] }, "options": ["scoped-typo"] });
+        for profile in SpecProfile::ALL {
+            assert!(
+                matches!(
+                    Selection::read(&world.path().join("catalogue"), Some(&statement), &[], *profile),
+                    Err(CatalogueError::UnknownArm(arm)) if arm == "scoped-typo"
+                ),
+                "{profile}"
+            );
+        }
     }
 }

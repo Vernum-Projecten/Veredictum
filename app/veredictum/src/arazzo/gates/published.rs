@@ -12,6 +12,7 @@
 
 use serde_json::{Value, json};
 
+use crate::arazzo::capabilities::OptionProfile;
 use crate::arazzo::cite::{
     CITE_KEY, DEVELOPMENT_ONLY_ROOT, EXCLUDED_DEVELOPMENT_ROOT, EXCLUDED_ROOT, ORACLE_ROOTS,
 };
@@ -482,7 +483,7 @@ pub fn capabilities_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-capabilities"),
         "title": "Options and their arm documents for the Arazzo catalogue",
-        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered when every arm of its option covers it, or when the option's `decides` lists it, one arm asserts it, and every arm calls its operation. `validate` refuses an arm naming a document the catalogue does not hold, a document under two arms of one option, and a `decides` status no arm asserts or whose operation an arm does not call. `documents` states what a document needs before it runs, `floors` the workflow count each capability folder keeps, and `extension-only` the capability folders verified only over Veredictum's own extension routes.",
+        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the specification text leaves to the implementation, citing the sentence that leaves it; an option with a `profile` exists under that run profile alone. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered when every arm of its option covers it, or when the option's `decides` lists it, one arm asserts it, and every arm calls its operation. `validate` refuses an arm naming a document the catalogue does not hold, a document under two arms of one option, and a `decides` status no arm asserts or whose operation an arm does not call. `documents` states what a document needs before it runs, `floors` the workflow count each capability folder keeps, and `extension-only` the capability folders verified only over Veredictum's own extension routes.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -523,6 +524,10 @@ pub fn capabilities_schema() -> Value {
                             }
                         },
                         CITE_KEY: capabilities_cite_def(),
+                        "profile": {
+                            "description": "The one specification profile the option exists under. A run under any other profile reads the catalogue without the option: its documents are BASE there, placed by their `x-veredictum-section`, which such a document therefore keeps, and a statement's answer to it selects nothing and is no error. Under its own profile it is an option like any other. Absent, the option exists under every profile. No openEHR spec governs this, our own design.",
+                            "enum": OptionProfile::ALL.iter().map(|p| p.token()).collect::<Vec<_>>()
+                        },
                         "decides": {
                             "description": "The response branches the arms are the mutually exclusive answers to: for each operation, the statuses a service answers with one arm or another, and the released sentence that makes them alternatives. A listed status counts as covered when one arm asserts it and every arm calls the operation; every other element needs every arm. No openEHR spec governs this, our own design.",
                             "type": "array",
