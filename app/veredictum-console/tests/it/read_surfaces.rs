@@ -462,6 +462,7 @@ fn a_chapter_page_groups_composition_into_base_and_options()
         "Read",
         "Update",
         "Delete",
+        "Committal headers",
         "Versioning and history",
         "Refusals",
     ];
