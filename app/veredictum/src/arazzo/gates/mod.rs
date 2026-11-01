@@ -77,6 +77,10 @@ pub enum Gate {
     DevelopmentSetup,
     /// A workflow whose `dependsOn` leads back to itself.
     DependsOnCycle,
+    /// An extension source naming no extension of the vocabulary, an
+    /// extension operation called outside a shared setup or by another name
+    /// than its key, or a verdict-bearing judgment on an extension step.
+    Extension,
 }
 
 impl Gate {
@@ -100,6 +104,7 @@ impl Gate {
             Self::Structure => "arazzo-structure",
             Self::DevelopmentSetup => "arazzo-development-setup",
             Self::DependsOnCycle => "arazzo-depends-on-cycle",
+            Self::Extension => "arazzo-extension",
         }
     }
 }
@@ -407,6 +412,14 @@ fn check_rows_file(
     }
     if let Some(workflow) = located.document.workflow(workflow_id) {
         out.extend(rows::check_rows(&file, workflow).into_iter().map(refuse));
+        if let Some(key) = crate::arazzo::extension::called_by(&located.document, workflow) {
+            out.push(GateFinding::new(
+                Gate::Extension,
+                path,
+                "#",
+                crate::arazzo::extension::ExtensionError::Rows(key).to_string(),
+            ));
+        }
     }
     for (index, aggregate) in file.aggregate.iter().enumerate() {
         let at = format!("#/aggregate/{index}");

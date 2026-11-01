@@ -65,7 +65,8 @@ pub enum SkipReason {
     VersionOutOfRange,
     /// The case needs a format outside the claimed tech profile.
     FormatNotClaimed,
-    /// The case drives an extension route the vendor does not declare.
+    /// A setup of the case calls an extension route the statement does not
+    /// declare.
     ExtensionNotOffered,
     /// A value the case needs from the party's IXIT or statement is not
     /// declared.

@@ -125,6 +125,35 @@
     "non_functional": {
       "type": "object"
     },
+    "extensions": {
+      "description": "The extension routes the party offers, each keyed by an extension the catalogue defines: the party's own OpenAPI document, a path relative to the statement, and the operationId in it that realises the extension. An extension route only prepares ground for a case in a shared setup, and no verdict ever judges its response. Every case whose setups call an extension the statement does not declare here is skipped extension-not-offered.",
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "ehr-import"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "document",
+          "operation_id"
+        ],
+        "properties": {
+          "document": {
+            "description": "The party's own OpenAPI document that declares the route, a path relative to the statement.",
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_id": {
+            "description": "The operationId in that document that realises the extension.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
     "evidence": {
       "type": "array",
       "items": {

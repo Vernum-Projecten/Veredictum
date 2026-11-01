@@ -23,6 +23,7 @@ pub mod document;
 pub mod evaluate;
 pub mod export;
 pub mod expr;
+pub mod extension;
 pub mod gates;
 pub mod har;
 pub mod maturity;

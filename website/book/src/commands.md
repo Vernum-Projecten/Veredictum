@@ -421,6 +421,14 @@ development-only case may depend on anything.
 document, or through `$sourceDescriptions` of other documents, can never
 start. Each workflow on the cycle is refused, and the finding names the chain.
 
+**Extension sources (`arazzo-extension`).** A source description carrying
+`x-veredictum-extension` stands for a route the party declares in its
+statement. Refused: an extension the catalogue does not define, an extension
+source that is not `type: openapi`, a call to one from any workflow outside
+`cases/_setup/`, a call by another operation name than the extension key, a
+citation on the extension step or its criteria, a judge on its criteria, and a
+rows file feeding its workflow.
+
 **`chapters.yaml` (`arazzo-structure`)** is the reading structure every view
 follows: it places each capability folder in one chapter and declares each
 folder's BASE sections. A document no option arm names is BASE and names its

@@ -137,6 +137,9 @@ impl ResponseSchemas {
         let base = document.path().parent().unwrap_or_else(|| Path::new("."));
         let mut sources = BTreeMap::new();
         for source in &document.description().source_descriptions {
+            if document.extension_source(&source.name).is_some() {
+                continue;
+            }
             let path = base.join(&source.url);
             sources.insert(source.name.clone(), Source::load(&path, repo_root)?);
         }

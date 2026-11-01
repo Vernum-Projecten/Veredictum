@@ -132,7 +132,7 @@ not apply.
 | `option-not-selected` | the statement picked the other arm of the option |
 | `format-not-claimed` | the case needs a wire format the statement does not list |
 | `version-out-of-range` | the case applies to specification versions the statement does not claim |
-| `extension-not-offered` | the case drives an extension route the vendor does not declare |
+| `extension-not-offered` | a setup of the case calls an extension route the statement does not declare |
 | `not-declared` | the vendor did not supply a value or login the case needs, such as an administrator account |
 | `cited-text-absent` | the cited text is absent from the profile the run used |
 | `development-only` | the case rests on text only the development snapshot holds, and the run used the released profile |

@@ -339,6 +339,23 @@ fn read_ixit(path: &Path) -> Result<(Value, Option<DeclaredEnvironment>), Error>
     Ok((value, ixit.environment))
 }
 
+/// The extension operations the statement read from `path` offers, its
+/// documents read relative to the statement.
+///
+/// # Errors
+/// [`Error::ArazzoCatalogue`] when the statement's `extensions` does not
+/// bind.
+fn offered_extensions(
+    path: Option<&Path>,
+    statement: Option<&Value>,
+) -> Result<crate::arazzo::extension::Offered, Error> {
+    let dir = path
+        .and_then(Path::parent)
+        .unwrap_or_else(|| Path::new("."));
+    crate::arazzo::extension::offered(statement, dir)
+        .map_err(|error| Error::ArazzoCatalogue(error.into()))
+}
+
 /// Runs the catalogue live, or re-judges a recording of it.
 ///
 /// Everything the party supplies is read and checked before the gate, so an
@@ -371,12 +388,15 @@ pub fn run_catalogue(
         }
         None => (None, None),
     };
+    let statement = read(request.statement, "the statement")?;
+    let extensions = offered_extensions(request.statement, statement.as_ref())?;
     let mut declarations = Declarations {
-        statement: read(request.statement, "the statement")?,
+        statement,
         ixit,
         environment,
         administrative: false,
         platform: false,
+        extensions,
         profile: request.profile,
     };
     let target = match drive {

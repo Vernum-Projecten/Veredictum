@@ -60,6 +60,7 @@ vocab_tokens!(
     crate::arazzo::results::Status,
     crate::arazzo::results::SkipReason,
     crate::arazzo::results::Whose,
+    crate::arazzo::extension::ExtensionKey,
     crate::arazzo::results::ReviewKind,
     crate::arazzo::structure::Theme,
     crate::arazzo::structure::Tier,
@@ -183,6 +184,28 @@ pub fn statement_schema() -> Value {
             },
             "options": string_array(Some(OPTION_TAG_PATTERN)),
             "non_functional": { "type": "object" },
+            "extensions": {
+                "description": crate::arazzo::extension::EXTENSIONS_DESCRIPTION,
+                "type": "object",
+                "propertyNames": { "enum": tokens(crate::arazzo::extension::ExtensionKey::ALL) },
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["document", "operation_id"],
+                    "properties": {
+                        "document": {
+                            "description": "The party's own OpenAPI document that declares the route, a path relative to the statement.",
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "operation_id": {
+                            "description": "The operationId in that document that realises the extension.",
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    }
+                }
+            },
             "evidence": {
                 "type": "array",
                 "items": {
@@ -1039,7 +1062,7 @@ pub fn arazzo_results_schema() -> Value {
                                 "detail": {
                                     "type": "string",
                                     "minLength": 1,
-                                    "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote); for `development-only`, the development citation the case rests on; for `contested-in-development`, the upstream report that records the contradiction and the contested citation."
+                                    "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote); for `development-only`, the development citation the case rests on; for `contested-in-development`, the upstream report that records the contradiction and the contested citation; for `extension-not-offered`, the setup that calls the extension and the extension it calls."
                                 }
                             }
                         },

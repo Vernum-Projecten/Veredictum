@@ -19,6 +19,7 @@ use crate::arazzo::cite::{
 use crate::arazzo::control::CONTROL_KEY;
 use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
+use crate::arazzo::extension::{EXTENSION_KEY, ExtensionKey};
 use crate::arazzo::gates::profile::ProfileHeader;
 use crate::arazzo::gates::rows::ServerOwnership;
 use crate::arazzo::gates::surface::NegotiationHeader;
@@ -193,9 +194,26 @@ fn capabilities_cite_def() -> Value {
     })
 }
 
+/// The `x-veredictum-section` value: a BASE section key.
+fn section_def() -> Value {
+    json!({
+        "description": "The BASE section of its capability folder a document belongs to, by the key `catalogue/chapters.yaml` declares.",
+        "type": "string",
+        "pattern": KEY_PATTERN
+    })
+}
+
+/// The `x-veredictum-extension` value: an extension of the closed list.
+fn extension_def() -> Value {
+    json!({
+        "description": "The extension a source description stands for: a route outside the released ITS-REST OAS that only prepares ground for a case, offered by the party's statement.",
+        "enum": tokens(ExtensionKey::ALL)
+    })
+}
+
 /// The `x-veredictum-cite`, `x-veredictum-check`, `x-veredictum-derive`,
-/// `x-veredictum-principal`, `x-veredictum-scope` and `x-veredictum-control`
-/// extension objects.
+/// `x-veredictum-principal`, `x-veredictum-scope`, `x-veredictum-control`
+/// and `x-veredictum-extension` extension objects.
 #[must_use]
 pub fn extensions_schema() -> Value {
     let roots: Vec<String> = ORACLE_ROOTS
@@ -209,8 +227,8 @@ pub fn extensions_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
-        "title": "The Arazzo catalogue's seven specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `{DEVELOPMENT_ONLY_ROOT}` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` member, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage. A citation whose `development` member is `{{ contested: <report> }}` cites text the development snapshot keeps unchanged and contests: its workflow is skipped with the reason `contested-in-development` under the development profile."),
+        "title": "The Arazzo catalogue's eight specification extensions",
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `{EXTENSION_KEY}` sits on a `type: openapi` source description only, and names the extension the source stands for; its `url` is a placeholder the party's declared document replaces. Only a step of a shared setup under `cases/_setup/` may call it, by the extension key as its operation, and `validate` refuses a citation on such a step or its criteria, a judge on its criteria, and a rows file for its workflow; a case whose setups call an extension the statement does not declare is skipped with the reason `extension-not-offered`. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `{DEVELOPMENT_ONLY_ROOT}` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` member, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage. A citation whose `development` member is `{{ contested: <report> }}` cites text the development snapshot keeps unchanged and contests: its workflow is skipped with the reason `contested-in-development` under the development profile."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -249,12 +267,9 @@ pub fn extensions_schema() -> Value {
                     "development": development_def()
                 }
             },
-            "section": {
-                "description": "The BASE section of its capability folder a document belongs to, by the key `catalogue/chapters.yaml` declares.",
-                "type": "string",
-                "pattern": KEY_PATTERN
-            },
+            "section": section_def(),
             "check": check_def(),
+            "extension": extension_def(),
             "control": {
                 "description": "The control of a refusal workflow: a `workflowId` of the same document, or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo` source, as Arazzo 1.1.0 `dependsOn` names a workflow; a list names one control per arm of an option the refusal runs under. A control is accepted when every row of it passed or failed only criteria that yield a warning, and a refusal row is judged when no listed control that ran was refused and at least one ran.",
                 "oneOf": [
