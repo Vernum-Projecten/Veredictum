@@ -846,6 +846,7 @@ documents:
   composition_create_refused: { formats: [canonical-json] }
   composition_delete: { formats: [canonical-json] }
   composition_direct_commit: { formats: [canonical-json] }
+  composition_lifecycle: { formats: [canonical-json] }
   composition_read: { formats: [canonical-json] }
   composition_read_container: { formats: [canonical-json] }
   composition_read_flat_not_acceptable: { formats: [canonical-json] }
@@ -906,6 +907,7 @@ documents:
   content_observation: { formats: [canonical-json] }
   contribution_create: { formats: [canonical-json] }
   contribution_create_refused: { formats: [canonical-json] }
+  contribution_lifecycle: { formats: [canonical-json] }
   contribution_read: { formats: [canonical-json] }
   contribution_read_flat_not_acceptable: { formats: [canonical-json] }
   contribution_read_structured_not_acceptable: { formats: [canonical-json] }
