@@ -1,0 +1,14 @@
+diff --git a/docs/UML/classes/org.openehr.rm.demographic.party.adoc b/docs/UML/classes/org.openehr.rm.demographic.party.adoc
+index ad68c37..d63c060 100644
+--- a/docs/UML/classes/org.openehr.rm.demographic.party.adoc
++++ b/docs/UML/classes/org.openehr.rm.demographic.party.adoc
+@@ -60,9 +60,6 @@ h|
+ h|
+ 2+a|__Relationships_validity__: `relationships /= Void implies (not relationships.is_empty and then relationships.for_all (r &#124; r.source = self)`
+ 
+-h|
+-2+a|__Reverse_relationships_validity__: `reverse_relationships /= Void implies (not reverse_relationships.empty and then reverse_relationships.for_all (item &#124; repository ("demographics").all_party_relationships.has_object (item) and then repository("demographics").all_party_relationships.object (item).target = self))`
+-
+ h|
+ 2+a|__Is_archetype_root__: `is_archetype_root`
+ 
