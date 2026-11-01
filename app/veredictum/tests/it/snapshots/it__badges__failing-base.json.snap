@@ -1,12 +1,11 @@
 ---
 source: app/veredictum/tests/it/badges.rs
-assertion_line: 227
 expression: badge.endpoint_json().unwrap()
 ---
 {
   "schemaVersion": 1,
   "label": "openEHR BASE",
-  "message": "2/4 passed",
+  "message": "2/4 passed, 1 failed, 1 errored",
   "color": "e05d44",
   "logoSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"><g fill=\"none\" stroke=\"#fff\"><circle cx=\"32\" cy=\"32\" r=\"29\" stroke-width=\"2.4\"/><path d=\"M18.5 27 L29 45.5 L46.5 17.5\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g></svg>"
 }

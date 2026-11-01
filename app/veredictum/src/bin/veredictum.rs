@@ -555,9 +555,9 @@ enum Command {
     /// resting on TRIAL text), `profile` (the specification profile) and
     /// `instrument` (`self-run` and the version). A counting badge reads
     /// passed out of the rows that bear on the verdict (passed, failed,
-    /// errored), then its warning count; its title adds the failed and errored
-    /// counts. A warning row, a SHOULD the server did not follow, is neither a
-    /// pass nor a failure and stays out of the ratio. A counting badge of a
+    /// errored), then the failed and errored counts. A warning row, a SHOULD
+    /// the server did not follow, changes no colour and shows on no badge;
+    /// the results carry it. A counting badge of a
     /// development result says `dev` in its label, so a development tally
     /// never reads as a released one. A counting badge is green only when no
     /// row failed or errored: red when a row counts against the server (it

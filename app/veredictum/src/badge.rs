@@ -42,7 +42,7 @@ use crate::perf_result::view::{format_rate, format_rate_ceil, format_rate_floor}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BadgeName {
     /// The BASE rows and every row the outline places nowhere: passed out of
-    /// the rows that bear on the verdict, then their warnings.
+    /// the rows that bear on the verdict, then the failed and errored counts.
     Base,
     /// The rows of the selected option arms, with the BASE cases resting on
     /// TRIAL text, which are read with the options, counted as on
@@ -365,32 +365,12 @@ fn tally_ratio(tally: Tally) -> String {
     }
 }
 
-/// The warning count of a tally, when there is one: `1 warning`, `N warnings`.
-fn tally_warnings(tally: Tally) -> Option<String> {
-    match tally.warning {
-        0 => None,
-        1 => Some(String::from("1 warning")),
-        n => Some(format!("{n} warnings")),
-    }
-}
-
-/// The message of a counting badge: the ratio, then the warning count when
-/// there is one.
+/// The message of a counting badge: the ratio, then the failed and errored
+/// counts when there are any, the counts that set its colour.
 ///
-/// A warning row is a SHOULD the server did not follow: it is neither a pass
-/// nor a failure, so it stays out of the ratio and is named after it. The
-/// failed and errored counts show in the colour and in [`tally_detail`].
+/// A warning row is a SHOULD the server did not follow: it changes no
+/// colour, so the badge leaves it out and the results carry it.
 fn tally_message(tally: Tally) -> String {
-    let ratio = tally_ratio(tally);
-    match tally_warnings(tally) {
-        Some(warnings) => format!("{ratio}, {warnings}"),
-        None => ratio,
-    }
-}
-
-/// The full text of a counting badge: the ratio, then the failed, errored
-/// and warning counts when there are any.
-fn tally_detail(tally: Tally) -> String {
     let mut parts = vec![tally_ratio(tally)];
     if tally.failed > 0 {
         parts.push(format!("{} failed", tally.failed));
@@ -398,7 +378,6 @@ fn tally_detail(tally: Tally) -> String {
     if tally.errored > 0 {
         parts.push(format!("{} errored", tally.errored));
     }
-    parts.extend(tally_warnings(tally));
     parts.join(", ")
 }
 
@@ -441,7 +420,7 @@ pub fn badges(results: &Results) -> Vec<Badge> {
                 name,
                 label,
                 message: tally_message(tally),
-                detail: tally_detail(tally),
+                detail: tally_message(tally),
                 colour: BadgeColour::of(tally),
             }
         } else {
@@ -631,42 +610,28 @@ mod tests {
     }
 
     #[test]
-    fn a_tally_detail_names_failed_and_errored_rows_and_the_message_keeps_the_ratio() {
+    fn a_tally_message_names_the_failed_and_errored_rows_that_set_its_colour() {
         assert_eq!(tally_message(tally(9, 0, 0, 1)), "9/9 passed");
-        assert_eq!(tally_detail(tally(9, 0, 0, 1)), "9/9 passed");
         assert_eq!(
-            tally_detail(tally(7, 2, 1, 0)),
+            tally_message(tally(7, 2, 1, 0)),
             "7/10 passed, 2 failed, 1 errored"
         );
-        assert_eq!(tally_message(tally(7, 2, 1, 0)), "7/10 passed");
         assert_eq!(tally_message(tally(0, 0, 0, 0)), "no rows");
-        assert_eq!(tally_detail(tally(0, 0, 0, 0)), "no rows");
         assert_eq!(tally_message(tally(0, 0, 0, 2)), "none judged");
-        assert_eq!(tally_detail(tally(0, 0, 0, 2)), "none judged");
     }
 
     #[test]
-    fn a_warning_is_named_after_the_ratio_and_never_inside_it() {
-        assert_eq!(
-            tally_message(warned(tally(3, 0, 0, 0), 1)),
-            "3/3 passed, 1 warning"
-        );
-        assert_eq!(
-            tally_detail(warned(tally(2, 1, 1, 0), 1)),
-            "2/4 passed, 1 failed, 1 errored, 1 warning"
-        );
+    fn a_warning_never_shows_on_a_badge() {
+        assert_eq!(tally_message(warned(tally(3, 0, 0, 0), 1)), "3/3 passed");
         assert_eq!(
             tally_message(warned(tally(2, 1, 1, 0), 1)),
-            "2/4 passed, 1 warning"
+            "2/4 passed, 1 failed, 1 errored"
         );
         assert_eq!(
-            tally_message(warned(tally(5, 0, 0, 1), 2)),
-            "5/5 passed, 2 warnings"
+            tally_message(warned(tally(2601, 8, 0, 0), 1)),
+            "2601/2609 passed, 8 failed"
         );
-        assert_eq!(
-            tally_message(warned(tally(0, 0, 0, 0), 1)),
-            "none judged, 1 warning"
-        );
+        assert_eq!(tally_message(warned(tally(0, 0, 0, 0), 1)), "none judged");
     }
 
     #[test]
@@ -725,10 +690,10 @@ mod tests {
             name: BadgeName::Base,
             label: String::from("openEHR BASE"),
             message: tally_message(warned(tally(2, 1, 1, 0), 1)),
-            detail: tally_detail(warned(tally(2, 1, 1, 0), 1)),
+            detail: tally_message(warned(tally(2, 1, 1, 0), 1)),
             colour: BadgeColour::Failing,
         };
-        let full = "openEHR BASE: 2/4 passed, 1 failed, 1 errored, 1 warning";
+        let full = "openEHR BASE: 2/4 passed, 1 failed, 1 errored";
         assert_eq!(badge.title(), full);
         let svg = badge.svg();
         assert!(svg.contains(&format!("aria-label=\"{full}\"")), "{svg}");
