@@ -94,7 +94,7 @@ spec:
       alias: docker
   variables:
     DOCKER_TLS_CERTDIR: /certs
-    VEREDICTUM_IMAGE: ghcr.io/vernum-projecten/veredictum:0.3.3
+    VEREDICTUM_IMAGE: ghcr.io/vernum-projecten/veredictum:0.4.0
     # Every input reaches the script as a variable GitLab does not expand,
     # never spliced into the script, so no input value is read as shell source.
     IN_BASE_URL:

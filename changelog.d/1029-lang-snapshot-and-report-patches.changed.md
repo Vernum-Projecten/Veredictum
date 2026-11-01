@@ -1,1 +1,0 @@
-- The development profile vendors openEHR LANG `master` (`specifications-LANG`), so a report on LANG text carries its patch. Three citations that named the duplicate report #661 name #240.

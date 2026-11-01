@@ -20,6 +20,189 @@ version on.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
+### Added
+
+- A statement may declare extension routes under `extensions`, each keyed by
+  an extension the catalogue defines (`ehr-import` today) and naming the
+  party's own OpenAPI document and the operation in it. The catalogue names
+  such a route with an `x-veredictum-extension` source description that only
+  a shared setup may call, and a case whose setups need an extension the
+  statement does not declare is skipped as `extension-not-offered`.
+  `validate` refuses an unknown extension key, an extension call outside
+  `cases/_setup/`, and any citation, judge or rows file on an extension step,
+  under the new `arazzo-extension` gate. (#664)
+- A case can rest on development text alone: a citation whose `source` sits
+  under `specs/openehr-development/` is checked against the pinned snapshot by
+  `validate` under both profiles, carries no `development` wording, and makes
+  its workflow a development-only case. A released run skips it with the new
+  skip reason `development-only`, whose detail names the citation, and no
+  released coverage, floor, claim or tally counts it; a development run judges
+  it. `validate --profile development` adds a line counting the
+  development-only workflows and the released cases whose cited text the
+  snapshot rewords or removes. Under the development profile the ITS-XML 2.0.0
+  schemas now read from the snapshot's `components/` tree. (#999)
+- Development-only cases for the committal defaults and refusals the
+  development ITS-REST adds to direct commits: a COMPOSITION, EHR_STATUS or
+  party create or update with no `openehr-version` header commits the
+  `lifecycle_state` 532, a party delete with no `openehr-audit-details` header
+  commits the change type 523, and a change type that contradicts the method
+  (249 on a PUT or a DELETE, 523 on a POST) is refused with 400 at the SHOULD
+  level, each refusal beside its accepted control. A released run skips them as
+  `development-only`. (#1000)
+- Development-only cases for the AQL version predicates: a query with no
+  `VERSION` class expression, `VERSION v` and `VERSION v[LATEST_VERSION]` each
+  read the latest version only, `VERSION v[ALL_VERSIONS]` reads every version,
+  and a version predicate on a `COMPOSITION` class expression is refused with (#1001)
+  400. A released run skips them as `development-only`.
+- Seven development-only cases cover the ITEM_TAG semantics of the
+  development RM on a COMPOSITION: a tag key with leading or trailing
+  whitespace, an empty key and an empty value are each refused with 422 (the
+  status rests on upstream report #750), against a control that stores the
+  tag `k`/`v`; tagging a version leaves the latest `version_uid` unchanged;
+  and deleting a tag on one COMPOSITION leaves the tag of the same key on
+  another. (#1002)
+- Nine development-only cases cover the version lifecycle states `inactive`
+  (800) and `abandoned` (801) of the development RM: a COMPOSITION deactivated
+  or abandoned through the `openehr-version` header of an update and through a
+  CONTRIBUTION member, reactivated, retrieved from either state, and logically
+  deleted from either state. Each transition must commit a new version, so
+  every case reads the latest VERSION back and checks its state and its
+  preceding version. (#1003)
+- A development-only case refuses a COMPOSITION carrying a DV_TEXT whose
+  value is empty with 422, the `Valid_value` invariant the development RM adds
+  to DV_TEXT, with the valid event COMPOSITION create as its control. (#1004)
+- Two COMPOSITION create cases for the category `451|episodic|`, which the
+  released RM `COMPOSITION.category` lists: an episodic COMPOSITION is
+  created, and a read of the committed version returns category 451. A new
+  setup template, `episodic_minimal.en.v1`, admits that category. (#1004)
+- Four development-only cases cover the at-coded ADL 2 archetypes that the
+  development AM requires every openEHR system to support: an at-coded ADL 2
+  operational template, rooted at `at0000`, is uploaded (201) and read back
+  (200), and a COMPOSITION whose `archetype_node_id` values are at-codes is
+  committed against it (201) and read back with those at-codes. (#1005)
+- A citation's `development` member may be `{ contested: <report> }`, naming
+  the upstream report that records a contradiction the development snapshot
+  holds against the unchanged cited text. Under the development profile its
+  workflow is skipped with the new reason `contested-in-development`; the
+  released profile judges it as before. `validate --profile development`
+  counts the contested cases, and the published extension and results schemas
+  carry the new form and reason. `composition_delete`
+  `delete_composition-lifecycle_deleted` is the first contested case (#1008). (#1006)
+- `veredictum validate` refuses a citation into a component's AsciiDoc
+  documents that no published document includes: the file must be reachable
+  through the active `include::` directives of the `master.adoc` of a current
+  document the component's manifest lists, under the released and the
+  development profile alike. A citation into the RM tags chapter, which the
+  released Common IM comments out, is a finding. (#1011)
+- ORGANISATION, GROUP and AGENT each gain a refusal case for an empty `roles`
+  list, answered 400 as the published ITS-JSON `minItems: 1` requires, with
+  the valid create as its control, as PERSON already had. (#1016)
+- An option in `catalogue/capabilities.yaml` may carry `profile: development`,
+  and the published capabilities schema accepts no other value. Under the
+  development profile it is an option like any other: its documents are
+  skipped as `option-not-selected` when the statement selects another arm,
+  and tally with the OPTIONS. Under the released profile the run reads the
+  catalogue without it, so its documents stay BASE, and a statement answering
+  it is accepted and selects nothing. The new option `adl2-id-coded` uses it:
+  development AM requires openEHR systems to "support at least the at-coded
+  ADL2 archetypes", so under the development profile the id-coded ADL 2
+  documents (the 26 `content/adl2_*` documents, `template_adl2`, `flat_adl2`
+  and the ADL 2 template examples) test the arm
+  `adl2-id-coded-supported`. The ADL 2 workflows of the six
+  `template_example_*` documents move to their own `template_example_*_adl2`
+  documents, so their case ids now carry the `_adl2` document name. The five
+  `template_adl2` workflows that touch no id-coded material (the listing, the
+  three reads of an unknown template_id and the upload declared as XML) move
+  to the BASE document `template_adl2_endpoint` and stay BASE under both
+  profiles (#1021).
+- `validate` refuses a workflow that rests on released text and depends,
+  through `dependsOn` directly or through other setups, in its own document
+  or another, on a development-only workflow, under the new
+  `arazzo-development-setup` gate. The finding names both workflows and the
+  development citation. A run refuses such a catalogue the same way, so a
+  released verdict never rests on a setup grounded in development text alone. (#1022)
+- Two development-only cases refuse an ADL 2 template upload with an empty
+  body and one whose body does not parse, each with 400, controlled by the
+  at-coded upload. A development run judges both whichever arm of the
+  `adl2-id-coded` option a statement selects; a released run skips them as
+  `development-only`, where the id-coded originals run as before. (#1031)
+- `validate` refuses a workflow whose `dependsOn` leads back to itself,
+  directly, within its document or through other documents, under the new
+  `arazzo-depends-on-cycle` gate. The finding names the chain, so a cycle is
+  caught before a run instead of when the run reaches it. (#1038)
+- Two development-only AQL cases select an earlier version of a COMPOSITION
+  through a standard predicate on `VERSION`, one on its `uid` and one on its
+  commit change type. Each asserts that the first version's row is returned
+  and asserts no row count, since the development text does not say whether
+  the predicate replaces the latest-only default or combines with it. (#1042)
+- Two development-only cases refuse with 400 an ADL 2 template upload whose
+  description holds an empty `original_author` or an empty `lifecycle_state`,
+  the two invariants the development BASE adds to `RESOURCE_DESCRIPTION`.
+  Each is controlled by the at-coded upload, so a development run judges it
+  whichever arm of the `adl2-id-coded` option a statement selects. (#1043)
+- A released-profile case for the target end of a party relationship: after
+  one PERSON is updated with a `PARTY_RELATIONSHIP` whose target is a second
+  PERSON, the second PERSON read back lists a reference to it in
+  `reverse_relationships` (RM demographic package, Party Relationships). A
+  development run skips it as `cited-text-absent`, because the development RM
+  turns `reverse_relationships` into a function and drops that clause. (#1045)
+
+### Changed
+
+- The `xml-namespace` option now asks only whether a service also accepts
+  canonical XML in the TRIAL Release-2.0.0 namespace
+  `http://schemas.openehr.org/v2`. Acceptance of the STABLE Release-1.0.2
+  namespace `http://schemas.openehr.org/v1` is BASE, citing upstream report
+  #759. The `xml-namespace-v2` arm gains its first document, development-only:
+  a v2 ADL 1.4 operational template with the AM 1.4 ordinal shape is accepted,
+  and one whose ordinal list entries keep `xsi:type="DV_ORDINAL"` is refused
+  with 400. The development citations that grounded v1 template uploads and
+  the XML COMPOSITION write responses on the v2 schemas are removed from
+  `template_adl14` and `composition_write_xml_accept`. (#1005)
+- The console in documentation capture mode (`VEREDICTUM_CAPTURE_MODE`) shows engine version 0.3.1 in its sidebar, so a release changes no screenshot in the book. An ordinary console still shows the engine version it links. (#1007)
+- A counting badge names the failed and errored rows that make it red or orange, `2601/2609 passed, 8 failed`, and no longer shows the warning count, which changes no colour and stays in the results. (#1012)
+- The development profile vendors openEHR LANG `master` (`specifications-LANG`), so a report on LANG text carries its patch. Three citations that named the duplicate report #661 name #240. (#1029)
+- The options badge reads `openEHR OPTIONS` (and `openEHR OPTIONS dev`), in the capitals the BASE badge and the OPTIONS tally use. Its file name stays `options.svg`. (#1033)
+- `composition_versioned` `get_versioned_composition_version-by_id-deleted`
+  is skipped as `contested-in-development` under the development profile,
+  naming report #1008, where it was skipped as `cited-text-absent`. The
+  development snapshot keeps the RM logical deletion requirement, and its
+  ITS-REST default for a header-less DELETE contradicts it. (#1046)
+
+### Fixed
+
+- The `cnf.tpl.ordinal_list` setup template no longer types its two
+  `C_DV_ORDINAL.list` members with `xsi:type="DV_ORDINAL"`, so one document
+  is valid under both the released and the development `Template.xsd`. (#1005)
+- The development profile reads the ITS-XML Release-1.0.2 schemas
+  (`specs/its-xml-schemas/its-xml-1.0.2-nsv1/`) in place, since the
+  snapshot's ITS-XML manifest names that release as its STABLE `ITS-XML-v1`
+  document. Citations of the v1 schemas now resolve under the development
+  profile, where they were skipped as cited-text-absent, and the development
+  wordings that read v1 XML responses against the v2 schemas are removed from
+  `composition_read_xml`, `composition_versioned_read_xml` and
+  `directory_read_xml`. (#1005)
+- The seven ITEM_TAG target-shape criteria in `demographic_tags`,
+  `person_tags`, `ehr_status_tags` and `composition_tags` cite the released
+  ITS-REST tag operations, which state that a `version_uid` addresses the
+  tags of that version and a `versioned_object_uid` those of the container.
+  They cited the RM `item_tag.adoc` class, which no released RM document
+  publishes. No assertion changes. (#1011)
+- Every place that follows a workflow's `dependsOn` resolves it the same way,
+  by the canonical path of the setup document. The `canonical-json` needs gate
+  follows a setup that lives outside `catalogue/cases/` and no longer mistakes
+  one setup for another file of the same name. A run resolves a setup
+  document's own `$sourceDescriptions` entries against that document, reads the
+  scopes of a setup in another document that shares a workflow id with a local
+  one, and refuses a `dependsOn` cycle through a `type: arazzo` source as a
+  cycle. The committed catalogue validates and judges exactly as before. (#1027)
+- Every ADL 2 template the catalogue uploads carries a `build_uid` in its
+  header, which the AOM2 class table makes mandatory, so a server that is
+  right to refuse a template without one no longer fails a case for it. The
+  two refusal payloads that break off inside the header are unchanged. (#1044)
+
 ## [0.3.3] - 2026-11-01
 
 ### Added
@@ -6087,7 +6270,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.3...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.0...v0.3.1
