@@ -9,8 +9,8 @@
 //! `docs/<id>/manifest_vars.adoc` states it as `:spec_status:`. A document
 //! whose status is DEVELOPMENT inside a release is released text. A TRIAL
 //! document is released for trial use, so behaviour grounded on it is read
-//! with the options; a RETIRED one is no longer part of the release, so no
-//! citation may name it. No openEHR spec governs how the instrument reads
+//! with the options; a RETIRED or SUPERSEDED one is no longer current text,
+//! so no citation may name it. No openEHR spec governs how the instrument reads
 //! the statuses — our own design.
 
 use std::collections::BTreeMap;
@@ -32,6 +32,8 @@ pub enum SpecStatus {
     Trial,
     /// `RETIRED`: no longer part of the release.
     Retired,
+    /// `SUPERSEDED`: replaced by another document of the same text.
+    Superseded,
 }
 
 impl SpecStatus {
@@ -43,6 +45,7 @@ impl SpecStatus {
             "DEVELOPMENT" => Some(Self::Development),
             "TRIAL" => Some(Self::Trial),
             "RETIRED" => Some(Self::Retired),
+            "SUPERSEDED" => Some(Self::Superseded),
             _ => None,
         }
     }
@@ -55,6 +58,7 @@ impl fmt::Display for SpecStatus {
             Self::Development => "DEVELOPMENT",
             Self::Trial => "TRIAL",
             Self::Retired => "RETIRED",
+            Self::Superseded => "SUPERSEDED",
         })
     }
 }
@@ -360,6 +364,23 @@ mod tests {
     }
 
     #[test]
+    fn a_document_the_snapshot_supersedes_is_read_as_superseded_and_never_trial() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let found = Maturities::in_profile(&root, SpecProfile::Development)
+            .of("specs/openehr/AM/docs/Identification/master07-referencing.adoc")
+            .unwrap();
+        assert_eq!(
+            found,
+            Maturity::Document {
+                component: "AM".to_owned(),
+                document: "Identification".to_owned(),
+                status: SpecStatus::Superseded,
+            }
+        );
+        assert!(!found.is_trial());
+    }
+
+    #[test]
     fn a_file_of_no_single_document_is_component_text_and_never_trial() {
         let found = maturities()
             .of("specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml")
@@ -390,5 +411,9 @@ mod tests {
             Err(MaturityError::NoManifest(_))
         ));
         assert_eq!(SpecStatus::of_token("OBSOLETE"), None);
+        assert_eq!(
+            SpecStatus::of_token("SUPERSEDED"),
+            Some(SpecStatus::Superseded)
+        );
     }
 }
