@@ -1,0 +1,396 @@
+# The committal defaults and refusals the development ITS-REST adds for a
+# direct ROLE commit: the lifecycle_state a create or an update with no
+# openehr-version header commits, the change type a delete with no
+# openehr-audit-details header commits, and a change type that contradicts
+# the method, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Every workflow rests on text only the pinned development
+# snapshot holds, so a released run skips it as development-only. Every
+# criterion resolves to an `x-veredictum-cite` (its own, else its step's, else
+# its workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: Role direct commit defaults
+  version: 0.1.0
+  x-veredictum-section: parties
+  description: >-
+    The lifecycle_state 532 a ROLE create or update commits when the client
+    sends no openehr-version header, the change type 523 a delete with no
+    committal header commits, a change type that contradicts the method
+    refused with 400 on a create, an update and a delete, and a change type
+    consistent with the method accepted on a create and an update.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_role-lifecycle_complete_default
+    summary: A ROLE created with no openehr-version header is committed in the lifecycle_state complete
+    description: >-
+      Creates a PERSON and a ROLE with no committal header, then reads the latest
+      VERSION of its container. The server sets the lifecycle_state the
+      client did not send to 532|complete|.
+    x-veredictum-cite: &lifecycle_default
+      source: specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "When `lifecycle_state` is not provided by the client, the server MUST set it to `complete` (code `532`)."
+    steps:
+      - &performer
+        stepId: performer
+        description: Create the PERSON that plays the ROLE and keep the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &performer_person
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Performer }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &performer_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &create
+        stepId: create
+        description: "Create the ROLE asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role One }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+              section: description
+              quote: "`201 Created` is returned when the ROLE is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: latest
+        description: Read the latest VERSION of the container and its lifecycle_state.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters: &latest_parameters
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &latest_version
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - &lifecycle_complete
+            context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^532$'
+
+  - workflowId: update_role-lifecycle_complete_default
+    summary: A ROLE updated with no openehr-version header is committed in the lifecycle_state complete
+    description: >-
+      Creates a PERSON and a ROLE, updates it under an If-Match naming the created
+      version with no committal header, then reads the latest VERSION of its
+      container. The server sets the lifecycle_state the client did not send
+      to 532|complete|.
+    x-veredictum-cite: *lifecycle_default
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE to its second content under the created version, with no committal header.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody: &v2_body
+          contentType: application/json
+          payload: &party_v2
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Two }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - &updated
+            context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: latest
+        description: Read the latest VERSION of the container, the one the update committed, and its lifecycle_state.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `ORIGINAL_VERSION` whose data contains the updated form of the item content is added to an existing `VERSIONED_OBJECT`;"
+          - *lifecycle_complete
+
+  - workflowId: update_role-change_type_amendment
+    summary: A ROLE update whose openehr-audit-details names the change type amendment is accepted and records it
+    description: >-
+      Creates a PERSON and a ROLE, then updates it with an openehr-audit-details
+      header naming the change type 250 (amendment), which is consistent with
+      a PUT. The update is accepted, and the VERSION it commits records the
+      change type 250.
+    x-veredictum-cite: &consistent
+      source: specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "A client MAY override the default `change_type` only with a value that is consistent with the operation, for instance `amendment` (code `250`) instead of `modification` on a `PUT`"
+      level: may
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE with the change type 250 in openehr-audit-details.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="250"' }
+        requestBody: *v2_body
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+      - stepId: latest
+        description: Read the latest VERSION of the container and its commit audit.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^250$'
+            x-veredictum-cite: &merged
+              source: specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-version and openehr-audit-details
+              quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+
+  - workflowId: update_role-change_type_creation_refused
+    x-veredictum-control: update_role-change_type_amendment
+    summary: A ROLE update whose openehr-audit-details names the change type creation is refused with 400
+    description: >-
+      Creates a PERSON and a ROLE, then updates it with an openehr-audit-details
+      header naming the change type 249 (creation), which contradicts a PUT.
+      The update is refused with 400 Bad Request, and the latest VERSION is
+      still the created one.
+    x-veredictum-cite: &contradicting
+      source: specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "a server SHOULD reject a `change_type` that contradicts the method (e.g. `creation` on a `PUT`, or `deleted` on a `POST`) with `400 Bad Request`."
+      level: should
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE with the change type 249 in openehr-audit-details.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="249"' }
+        requestBody: *v2_body
+        successCriteria:
+          - &bad_request
+            condition: $statusCode == 400
+      - &unchanged
+        stepId: latest
+        description: Read the latest VERSION of the container; the refused request committed nothing.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+
+  - workflowId: create_role-change_type_creation_supplied
+    summary: A ROLE create whose openehr-audit-details names the change type creation is accepted and records it
+    description: >-
+      Creates a PERSON and a ROLE with an openehr-audit-details header naming the
+      change type 249 (creation), which is consistent with a POST. The create
+      is answered 201, and the VERSION it commits records the change type 249.
+    x-veredictum-cite: *consistent
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE with the change type 249 in openehr-audit-details, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="249"' }
+        requestBody: *v1_body
+        successCriteria:
+          - condition: $statusCode == 201
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: latest
+        description: Read the latest VERSION of the container and its commit audit.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^249$'
+            x-veredictum-cite: *merged
+
+  - workflowId: create_role-change_type_deleted_refused
+    x-veredictum-control: create_role-change_type_creation_supplied
+    summary: A ROLE create whose openehr-audit-details names the change type deleted is refused with 400
+    description: >-
+      Creates a PERSON and a ROLE with an openehr-audit-details header naming the
+      change type 523 (deleted), which contradicts a POST. The create is
+      refused with 400 Bad Request.
+    x-veredictum-cite: *contradicting
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE with the change type 523 in openehr-audit-details.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="523"' }
+        requestBody: *v1_body
+        successCriteria:
+          - *bad_request
+
+  - workflowId: delete_role-change_type_deleted_default
+    summary: A ROLE deleted with no openehr-audit-details header is committed with the change type deleted
+    description: >-
+      Creates a PERSON and a ROLE, deletes it with no committal header, then reads
+      the latest VERSION of its container. The server sets the change type
+      the client did not send to 523|deleted|. The lifecycle_state of the
+      deleted version is not asserted: the development text assigns it two
+      contradictory values (upstream report #1008).
+    x-veredictum-cite:
+      source: specs/openehr-development/specifications-ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "When `change_type` is not provided by the client, the server MUST set it according to the HTTP method of the operation: `creation` (code `249`) for `POST`, `modification` (code `251`) for `PUT`, and `deleted` (code `523`) for `DELETE`."
+    steps:
+      - *performer
+      - *create
+      - stepId: delete
+        description: Delete the ROLE with no committal header.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned for a successful delete operation."
+      - stepId: latest
+        description: Read the latest VERSION of the container, the one the delete committed, and its commit audit.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^523$'
+
+  - workflowId: delete_role-change_type_creation_refused
+    x-veredictum-control: delete_role-change_type_deleted_default
+    summary: A ROLE delete whose openehr-audit-details names the change type creation is refused with 400
+    description: >-
+      Creates a PERSON and a ROLE, then deletes it with an openehr-audit-details
+      header naming the change type 249 (creation), which contradicts a
+      DELETE. The delete is refused with 400 Bad Request, and the latest
+      VERSION is still the created one.
+    x-veredictum-cite: *contradicting
+    steps:
+      - *performer
+      - *create
+      - stepId: delete
+        description: Delete the ROLE with the change type 249 in openehr-audit-details.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="249"' }
+        successCriteria:
+          - *bad_request
+      - *unchanged

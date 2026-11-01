@@ -33,6 +33,7 @@ chapters:
           - { section: read, title: Read }
           - { section: update, title: Update }
           - { section: delete, title: Delete }
+          - { section: committal-headers, title: Committal headers }
           - { section: versioning-and-history, title: Versioning and history }
           - { section: refusals, title: Refusals }
       - folder: directory
