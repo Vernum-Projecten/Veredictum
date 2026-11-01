@@ -30,6 +30,7 @@ use crate::arazzo::control::{CONTROL_KEY, Control, ControlError, control_of, is_
 use crate::arazzo::depends::{Library, Unresolvable};
 use crate::arazzo::derive::{DERIVE_KEY, DeriveError, derivations_of};
 use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
+use crate::arazzo::extension::{EXTENSION_KEY, ExtensionError, ExtensionKey, extension_of};
 use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
 use crate::arazzo::principal::{PRINCIPAL_KEY, PrincipalError, principal_of};
@@ -68,6 +69,14 @@ pub enum DocumentError {
     /// A source description's parameters do not resolve.
     #[error(transparent)]
     Parameters(#[from] ParameterError),
+    /// A source description's `x-veredictum-extension` does not hold.
+    #[error("source `{name}`: {error}")]
+    Extension {
+        /// The source description's name.
+        name: String,
+        /// Why the extension does not hold.
+        error: ExtensionError,
+    },
 }
 
 /// A loaded Arazzo document with its sources indexed.
@@ -79,6 +88,11 @@ pub struct ArazzoDocument {
     sources: BTreeMap<String, OperationIndex>,
     parameters: BTreeMap<String, ParameterIndex>,
     workflow_sources: BTreeMap<String, PathBuf>,
+    #[expect(
+        clippy::zero_sized_map_values,
+        reason = "the closed extension list holds one key today, so the value is zero-sized until a second key is defined, which fulfils no longer and fails loud"
+    )]
+    extensions: BTreeMap<String, ExtensionKey>,
 }
 
 impl ArazzoDocument {
@@ -115,8 +129,35 @@ impl ArazzoDocument {
         let mut sources = BTreeMap::new();
         let mut parameters = BTreeMap::new();
         let mut workflow_sources = BTreeMap::new();
+        #[expect(
+            clippy::zero_sized_map_values,
+            reason = "the closed extension list holds one key today, so the value is zero-sized until a second key is defined, which fulfils no longer and fails loud"
+        )]
+        let mut extensions = BTreeMap::new();
         let mut problems = Vec::new();
         for source in &description.source_descriptions {
+            // NOTE: no openEHR spec governs this — our own design; an extension source's `url`
+            // is a placeholder the party's declared document replaces, so it is never read.
+            match extension_of(source.extensions.as_ref()) {
+                Ok(None) => {}
+                Ok(Some(key)) => {
+                    if source.type_ != Some(SourceType::Openapi) {
+                        problems.push(DocumentError::Extension {
+                            name: source.name.clone(),
+                            error: ExtensionError::NotOpenapi,
+                        });
+                    }
+                    extensions.insert(source.name.clone(), key);
+                    continue;
+                }
+                Err(error) => {
+                    problems.push(DocumentError::Extension {
+                        name: source.name.clone(),
+                        error,
+                    });
+                    continue;
+                }
+            }
             let arazzo = match source.type_ {
                 Some(SourceType::Openapi) => false,
                 Some(SourceType::Arazzo) => true,
@@ -157,6 +198,7 @@ impl ArazzoDocument {
             sources,
             parameters,
             workflow_sources,
+            extensions,
         };
         Ok((document, problems))
     }
@@ -192,6 +234,23 @@ impl ArazzoDocument {
     #[must_use]
     pub fn workflow_sources(&self) -> &BTreeMap<String, PathBuf> {
         &self.workflow_sources
+    }
+
+    /// The extension the source description `name` stands for; `None` for a
+    /// source that names none.
+    #[must_use]
+    pub fn extension_source(&self, name: &str) -> Option<ExtensionKey> {
+        self.extensions.get(name).copied()
+    }
+
+    /// Whether the document is a shared setup: one in a `_setup` folder,
+    /// whose workflows run only where a case names them in `dependsOn`.
+    #[must_use]
+    pub fn is_setup(&self) -> bool {
+        self.path
+            .parent()
+            .and_then(Path::file_name)
+            .is_some_and(|folder| folder == crate::arazzo::catalogue::SETUP_DIR)
     }
 
     /// The indexed OpenAPI source named `name`; `None` for a source that is
@@ -301,6 +360,13 @@ impl ArazzoDocument {
                 findings,
             );
             self.check_step(step, &at, findings);
+            let extension = crate::arazzo::extension::called(self, step).is_some();
+            if extension && step_cite.is_some() {
+                findings.push(Finding::new(
+                    &at,
+                    FindingKind::Extension(ExtensionError::CitedStep),
+                ));
+            }
             for (index, criterion) in step.success_criteria.iter().enumerate() {
                 let at = format!("{at}/successCriteria[{index}]");
                 let own = cite_at(
@@ -309,7 +375,24 @@ impl ArazzoDocument {
                     quotes.as_deref_mut(),
                     findings,
                 );
-                if own
+                if extension {
+                    if own.is_some() {
+                        findings.push(Finding::new(
+                            &at,
+                            FindingKind::Extension(ExtensionError::CitedCriterion),
+                        ));
+                    }
+                    if criterion
+                        .extensions
+                        .as_ref()
+                        .is_some_and(|e| e.contains_key(CHECK_KEY))
+                    {
+                        findings.push(Finding::new(
+                            &at,
+                            FindingKind::Extension(ExtensionError::CheckedCriterion),
+                        ));
+                    }
+                } else if own
                     .or(step_cite.clone())
                     .or(workflow_cite.clone())
                     .is_none()
@@ -385,9 +468,15 @@ impl ArazzoDocument {
             ));
             return;
         };
-        let Some(operation) = self.operation(qualified) else {
-            push(FindingKind::UnresolvedOperation(qualified.clone()));
-            return;
+        let operation = if let Some(kinds) = self.extension_call(qualified) {
+            kinds.into_iter().for_each(&mut push);
+            None
+        } else {
+            let Some(operation) = self.operation(qualified) else {
+                push(FindingKind::UnresolvedOperation(qualified.clone()));
+                return;
+            };
+            Some(operation)
         };
         let declared = self.declared_parameters(qualified).unwrap_or_default();
         let mut path_parameters = Vec::new();
@@ -411,7 +500,9 @@ impl ArazzoDocument {
                     None
                 }
             };
-            if let Some(location) = location {
+            // NOTE: no openEHR spec governs this — our own design; an extension step's
+            // parameters resolve against the party's document at drive time only.
+            if let Some(location) = location.filter(|_| operation.is_some()) {
                 let resolves = declared
                     .iter()
                     .any(|declared| declared.matches(location, &parameter.name));
@@ -428,43 +519,88 @@ impl ArazzoDocument {
                 push(kind);
             }
         }
-        for placeholder in placeholders(&operation.path) {
-            if !path_parameters.contains(&placeholder) {
-                push(FindingKind::UnresolvedParameter(placeholder));
-            }
-        }
-        for name in path_parameters {
-            if !placeholders(&operation.path).contains(&name) {
-                push(FindingKind::UnresolvedParameter(name));
-            }
+        if let Some(operation) = operation {
+            path_findings(&operation.path, path_parameters)
+                .into_iter()
+                .for_each(&mut push);
         }
         if let Some(body) = &step.request_body {
             body_findings(body, &mut push);
         }
-        if let Err(error) = derivations_of(step.extensions.as_ref(), |name| {
-            step.outputs.contains_key(name)
-        }) {
-            push(FindingKind::Derive(error));
+        step_extension_findings(step).into_iter().for_each(push);
+    }
+
+    /// The findings of a step calling the qualified `qualified`, when it
+    /// names an extension source: a call from outside a shared setup, and a
+    /// call by another name than the source's key; `None` for any other
+    /// operation.
+    fn extension_call(&self, qualified: &str) -> Option<Vec<FindingKind>> {
+        let (source, operation_id) = split_qualified(qualified)?;
+        let key = self.extension_source(source)?;
+        let mut kinds = Vec::new();
+        if !self.is_setup() {
+            kinds.push(FindingKind::Extension(ExtensionError::OutsideSetup {
+                operation: qualified.to_owned(),
+            }));
         }
-        if let Err(error) = principal_of(step.extensions.as_ref()) {
-            push(FindingKind::Principal(error));
+        if operation_id != key.token() {
+            kinds.push(FindingKind::Extension(ExtensionError::NotTheKey {
+                operation: qualified.to_owned(),
+                key,
+            }));
         }
-        if let Err(error) = scope_of(step.extensions.as_ref()) {
-            push(FindingKind::Scope(error));
-        }
-        for value in step.outputs.values() {
-            match value {
-                ValueOrSelector::Literal(Value::String(text)) => {
-                    if let Err(error) = Expr::parse(text) {
-                        push(FindingKind::Profile(error));
-                    }
+        Some(kinds)
+    }
+}
+
+/// The path parameters `named` that do not match the placeholders of
+/// `template`, in either direction.
+fn path_findings(template: &str, named: Vec<String>) -> Vec<FindingKind> {
+    let declared = placeholders(template);
+    let mut out: Vec<FindingKind> = declared
+        .iter()
+        .filter(|placeholder| !named.contains(placeholder))
+        .cloned()
+        .map(FindingKind::UnresolvedParameter)
+        .collect();
+    out.extend(
+        named
+            .into_iter()
+            .filter(|name| !declared.contains(name))
+            .map(FindingKind::UnresolvedParameter),
+    );
+    out
+}
+
+/// The findings of a step's own extensions and outputs: its derivations,
+/// principal and scope, and every output that is not a runtime expression
+/// inside the profile.
+fn step_extension_findings(step: &Step) -> Vec<FindingKind> {
+    let mut out = Vec::new();
+    if let Err(error) = derivations_of(step.extensions.as_ref(), |name| {
+        step.outputs.contains_key(name)
+    }) {
+        out.push(FindingKind::Derive(error));
+    }
+    if let Err(error) = principal_of(step.extensions.as_ref()) {
+        out.push(FindingKind::Principal(error));
+    }
+    if let Err(error) = scope_of(step.extensions.as_ref()) {
+        out.push(FindingKind::Scope(error));
+    }
+    for value in step.outputs.values() {
+        match value {
+            ValueOrSelector::Literal(Value::String(text)) => {
+                if let Err(error) = Expr::parse(text) {
+                    out.push(FindingKind::Profile(error));
                 }
-                _ => push(FindingKind::Unsupported(
-                    "an output that is not a runtime expression".to_owned(),
-                )),
             }
+            _ => out.push(FindingKind::Unsupported(
+                "an output that is not a runtime expression".to_owned(),
+            )),
         }
     }
+    out
 }
 
 /// Whether `id` matches `[A-Za-z0-9_\-]+`, the form Arazzo 1.1.0 §Workflow
@@ -802,6 +938,9 @@ pub enum FindingKind {
     /// not name a control, or a control on any other workflow.
     #[error(transparent)]
     Control(ControlError),
+    /// An extension source or an extension step that does not hold.
+    #[error(transparent)]
+    Extension(ExtensionError),
 }
 
 impl FindingKind {
@@ -824,6 +963,7 @@ impl FindingKind {
             | Self::UnresolvedParameter(_)
             | Self::UndeclaredParameter { .. } => Gate::Source,
             Self::Control(_) => Gate::Identity,
+            Self::Extension(_) => Gate::Extension,
         }
     }
 }
@@ -853,6 +993,12 @@ fn dependency_problem(id: &str, reason: &Unresolvable) -> String {
 /// The finding a source description that did not index becomes.
 #[must_use]
 pub fn source_finding(problem: &DocumentError) -> Finding {
+    if let DocumentError::Extension { name, error } = problem {
+        return Finding::new(
+            format!("#/sourceDescriptions/{name}"),
+            FindingKind::Extension(error.clone()),
+        );
+    }
     Finding::new(
         "#/sourceDescriptions",
         FindingKind::Source(problem.to_string()),
@@ -896,6 +1042,9 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                         CHECK_KEY => is_criterion(at),
                         DERIVE_KEY | PRINCIPAL_KEY | SCOPE_KEY => is_step(at),
                         SECTION_KEY => matches!(at.as_slice(), [i] if i == "info"),
+                        EXTENSION_KEY => {
+                            matches!(at.as_slice(), [s, _] if s == "sourceDescriptions")
+                        }
                         _ => false,
                     };
                     if !allowed {

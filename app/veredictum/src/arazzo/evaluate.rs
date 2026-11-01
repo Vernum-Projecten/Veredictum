@@ -55,6 +55,7 @@ use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
     EvalError, Expr, Judgement, RequestView, ResponseView, Scope, value_text,
 };
+use crate::arazzo::extension::Offered;
 use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile, ServerOwnership};
 use crate::arazzo::har::{self, Har, HarTransport, PageContext, Recorded, RunRole};
 use crate::arazzo::oas::{OasError, ResponseSchemas};
@@ -147,6 +148,9 @@ pub struct Plan {
     pub environment: Option<DeclaredEnvironment>,
     /// The party's statement, which a rows file's `declared` inputs read.
     pub statement: Option<Value>,
+    /// The operation the party offers for each extension its statement
+    /// declares, which a setup step on an extension source is sent to.
+    pub extensions: Offered,
 }
 
 impl Plan {
@@ -255,6 +259,7 @@ pub struct Evaluator<'d> {
     har: Har,
     replay: Option<VecDeque<Row>>,
     library: Rc<Library<'d>>,
+    extensions: Offered,
 }
 
 /// The document a workflow is run from: its case-id prefix and the document.
@@ -284,6 +289,7 @@ impl<'d> Evaluator<'d> {
             config,
             repo_root: repo_root.to_owned(),
             replay: None,
+            extensions: Offered::new(),
         })
     }
 
@@ -315,6 +321,7 @@ impl<'d> Evaluator<'d> {
         transport: &mut dyn Transport,
         select: impl Fn(&Workflow) -> bool,
     ) -> Result<Results, RunError> {
+        self.extensions.clone_from(&plan.extensions);
         let mut rows = Vec::new();
         for workflow in &self.document.description().workflows {
             if select(workflow) {
@@ -849,13 +856,17 @@ impl<'d> Evaluator<'d> {
             workflows: context.workflows,
             exchange: None,
         };
-        let composed =
-            compose(context.document, step, &self.config, &scope).map_err(|r| match r {
-                Unsent::Eval(error) => {
-                    Red::unevaluated(cite.cloned(), "the step to be driven", &error)
-                }
-                Unsent::Other(reason) => errored(&reason),
-            })?;
+        let composed = compose(
+            context.document,
+            step,
+            &self.config,
+            &self.extensions,
+            &scope,
+        )
+        .map_err(|r| match r {
+            Unsent::Eval(error) => Red::unevaluated(cite.cloned(), "the step to be driven", &error),
+            Unsent::Other(reason) => errored(&reason),
+        })?;
         let body_text = composed
             .body
             .as_ref()
@@ -1167,13 +1178,14 @@ fn compose(
     document: &ArazzoDocument,
     step: &Step,
     config: &RunConfig,
+    extensions: &Offered,
     scope: &Scope<'_>,
 ) -> Result<Composed, Unsent> {
-    let Some(operation) = step
-        .operation_id
-        .as_deref()
-        .and_then(|qualified| document.operation(qualified))
-    else {
+    let Some(operation) = step.operation_id.as_deref().and_then(|qualified| {
+        document.operation(qualified).or_else(|| {
+            crate::arazzo::extension::called(document, step).and_then(|key| extensions.get(&key))
+        })
+    }) else {
         return Err("its operationId does not resolve".to_owned().into());
     };
     let mut request = RequestView {

@@ -22,6 +22,7 @@ mod arazzo_catalogue;
 mod arazzo_cli;
 mod arazzo_derive;
 mod arazzo_exclusive;
+mod arazzo_extension;
 mod arazzo_pack;
 mod arazzo_smart;
 mod badges;

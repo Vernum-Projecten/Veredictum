@@ -39,6 +39,7 @@ use crate::arazzo::document::{ArazzoDocument, DocumentError};
 use crate::arazzo::evaluate::{
     Evaluator, Plan, RunConfig, RunError, recorded_inputs, rejudge_config, replayed_whole,
 };
+use crate::arazzo::extension::{self, BindError, Offered};
 use crate::arazzo::gates::{CASES_DIR, DOCUMENT_SUFFIX};
 use crate::arazzo::har::{Har, HarTransport};
 use crate::arazzo::platform;
@@ -162,6 +163,9 @@ pub enum CatalogueError {
     /// The statement's `tech_profiles` is not a list of technology profiles.
     #[error("the statement's `tech_profiles` is not a list of technology profiles: {0}")]
     TechProfilesShape(String),
+    /// The statement's `extensions` does not bind to the party's operations.
+    #[error(transparent)]
+    Extension(#[from] BindError),
     /// The reading structure does not load, or does not place a document.
     #[error(transparent)]
     Structure(#[from] StructureError),
@@ -202,6 +206,10 @@ pub struct Declarations {
     pub administrative: bool,
     /// Whether the party supplies the SMART Platform base URL.
     pub platform: bool,
+    /// The extension operations the party's statement offers; a workflow
+    /// whose setups call another extension is skipped as
+    /// `extension-not-offered`.
+    pub extensions: Offered,
     /// The specification profile whose text the run's citations are read
     /// against; a workflow citing text the profile lacks is skipped as
     /// `cited-text-absent`, under the released profile a workflow
@@ -534,6 +542,7 @@ pub fn plan(
         ixit: declarations.ixit.clone(),
         environment: declarations.environment.clone(),
         statement: declarations.statement.clone(),
+        extensions: declarations.extensions.clone(),
         ..Plan::default()
     };
     if let Some(skip) = choice.skip(name, repo_root) {
@@ -553,6 +562,9 @@ pub fn plan(
         for (workflow, skip) in platform::undeclared_skips(document, repo_root) {
             plan.skips.entry(workflow).or_insert(skip);
         }
+    }
+    for (workflow, skip) in extension::not_offered_skips(document, &declarations.extensions) {
+        plan.skips.entry(workflow).or_insert(skip);
     }
     for workflow in &document.description().workflows {
         let path = rows_path(document.path(), &workflow.workflow_id);

@@ -1390,6 +1390,7 @@ pub mod read {
             tech_profiles: Vec::new(),
             options: Vec::new(),
             non_functional: std::collections::BTreeMap::new(),
+            extensions: std::collections::BTreeMap::new(),
             evidence: Vec::new(),
             attestation: None,
         };

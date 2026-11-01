@@ -1623,12 +1623,13 @@ today, beside `id-map.yaml` (every former case-core id mapped to its workflows,
 
 Arazzo has no citation object, no judges for openEHR result semantics, no way
 to take part of a string, no way to name the credential or token a request is
-sent with, and no way to tie a refusal to the request it refuses, so six
-specification extensions are defined, with a published JSON Schema
+sent with, no way to tie a refusal to the request it refuses, and no way to
+name a route only the party under test can declare, so seven specification
+extensions are defined, with a published JSON Schema
 (`schemas/arazzo-extensions.schema.json`): `x-veredictum-cite`,
 `x-veredictum-check`, `x-veredictum-derive`, `x-veredictum-principal`,
-`x-veredictum-scope` and `x-veredictum-control`. Any further extension needs a
-recorded reason on #590 first.
+`x-veredictum-scope`, `x-veredictum-control` and `x-veredictum-extension`
+(#664). Any further extension needs a recorded reason on #590 first.
 
 **`x-veredictum-cite`**, on workflows, steps and criteria:
 
@@ -1787,6 +1788,56 @@ workflow without a control, a control on any other workflow, a `pending` that
 is not a positive integer, and a control that names no workflow, the workflow
 itself or another refusal workflow. No openEHR spec governs the extension — our own
 design.
+
+**`x-veredictum-extension`**, on a `type: openapi` source description, names
+a party-declared extension source (#664). Some preconditions can only be
+established through a route no released ITS-REST OAS declares: a case that
+reads an imported version needs an EHR import first. Every `operationId`
+resolves in a source description, and the catalogue's sources are the
+released OAS, so such a route has no address there. It may still prepare
+ground for a case when the party offers it.
+
+```yaml
+sourceDescriptions:
+  - name: import
+    url: extension:ehr-import
+    type: openapi
+    x-veredictum-extension: ehr-import
+```
+
+The value is an extension key from the closed list the catalogue defines;
+`ehr-import` is the one key today. The `url` is a placeholder the runner
+never reads. A step calls the source by its key,
+`$sourceDescriptions.import.ehr-import`, and the run sends it to the
+operation the party's statement declares for that key:
+
+```json
+"extensions": {
+  "ehr-import": { "document": "party/routes.yaml", "operation_id": "import_ehr" }
+}
+```
+
+`document` is the party's own OpenAPI document, a path relative to the
+statement, and `operation_id` is the operation in it that realises the
+extension. The run reads both from the submission and sweeps nothing from the
+tree: an extension the statement does not declare is not offered. A
+statement key outside the list, a document that does not load and an
+operation the document does not declare each stop the run before any request.
+
+An extension route never carries a verdict. Only a step of a shared setup
+under `cases/_setup/` may call one, so it runs only where a case names its
+workflow in `dependsOn`. Its criteria decide whether the setup proceeds and
+its outputs feed the case; they carry no citation and no judge, and no rows
+file feeds its workflow. A case whose setups, at any depth, call an extension
+the statement does not declare is skipped as `extension-not-offered`, citing
+the statement schema's `extensions` clause. A declared extension step that
+does not pass errors its dependants exactly as any failed setup does, and
+never counts against the server. `validate` refuses an extension key outside
+the list, an extension source that is not `type: openapi`, a call from any
+workflow outside `cases/_setup/`, a call by another name than the key, a
+citation on an extension step or its criteria, a judge on its criteria, and a
+rows file for its workflow (§15.9). No openEHR spec governs this; it is our
+own design.
 
 ### 15.5 A case, worked: re-creating an existing EHR
 
@@ -2021,7 +2072,7 @@ run, and always carries one reason from a closed list, with its citation:
 | `option-not-selected` | the statement selects the other branch of an option in `capabilities.yaml` |
 | `version-out-of-range` | the case applies to spec versions the statement does not declare |
 | `format-not-claimed` | the case needs a format outside the claimed tech profile |
-| `extension-not-offered` | the case drives an extension route the vendor does not declare |
+| `extension-not-offered` | a setup of the case calls an extension route the statement does not declare |
 | `not-declared` | a value the case needs from the party's IXIT or statement is not declared |
 | `cited-text-absent` | the cited text is absent from the profile the run used |
 | `development-only` | the case rests on development text alone and the run reads the released profile |
@@ -2089,7 +2140,7 @@ vendor reads why a row is red without opening `results.json`.
   the default `must`. A `may` criterion is then judged like a `must` one,
   while an option citation is judged by no row: it grounds the option whose
   arm a statement selects.
-- **Unknown keys**: a key that is neither an Arazzo field nor one of the six
+- **Unknown keys**: a key that is neither an Arazzo field nor one of the seven
   extensions, in the place §15.4 allows it, is refused. A parser that captures extensions through a catch-all
   map drops a misspelled key such as `succesCriteria` without an error, so the
   gate compares the parsed document with the raw one.
@@ -2161,6 +2212,16 @@ vendor reads why a row is red without opening `results.json`.
   reached it. A setup document outside the catalogue that a `dependsOn`
   reaches is checked the same way. No openEHR spec governs this; it is our
   own design.
+- **Extension sources** (`arazzo-extension`): a source description whose
+  `x-veredictum-extension` names no extension of the catalogue's list, or
+  that is not `type: openapi`, is refused. So are a step outside
+  `cases/_setup/` that calls an extension operation, a step that calls an
+  extension source by another operation than its key, a `x-veredictum-cite`
+  on an extension step or on one of its criteria, a `x-veredictum-check` on
+  one of its criteria, and a rows file feeding a workflow that calls one
+  (§15.4). An extension step's parameters resolve against the party's
+  document at drive time, so the source gate does not check them. No openEHR
+  spec governs this; it is our own design.
 - **Maturity** (`arazzo-citation`): every cited file's release status is
   read from the vendored manifests; a citation into a document the release
   marks RETIRED is refused, as is one whose document states no known status.

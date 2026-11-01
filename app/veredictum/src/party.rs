@@ -28,6 +28,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::arazzo::extension::ExtensionKey;
 use crate::ids::{CapabilityName, OptionTag};
 use crate::vocab::{FormatName, ItsName};
 
@@ -129,6 +130,20 @@ pub struct Attestation {
     pub statement: String,
 }
 
+/// One extension route the party offers: its own OpenAPI document and the
+/// operation in it that realises the extension.
+///
+/// No openEHR spec governs this — our own design: the route only prepares
+/// ground for a case in a shared setup, and no verdict judges its response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeclaredExtension {
+    /// The party's OpenAPI document, a path relative to the statement.
+    pub document: String,
+    /// The `operationId` in that document that realises the extension.
+    pub operation_id: String,
+}
+
 /// The CNF schedule release this catalogue models, which every run stamps into
 /// its results and every claim targets.
 ///
@@ -159,6 +174,10 @@ pub struct Statement {
     /// Free-form non-functional declarations — never a verdict input.
     #[serde(default)]
     pub non_functional: BTreeMap<String, serde_json::Value>,
+    /// The extension routes the party offers, by the extension each
+    /// realises; an extension the statement does not declare is not offered.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extensions: BTreeMap<ExtensionKey, DeclaredExtension>,
     /// Evidence pointers (results artifacts + digests).
     #[serde(default)]
     pub evidence: Vec<Evidence>,
@@ -419,5 +438,51 @@ mod tests {
         let back = serde_json::to_value(&s).unwrap();
         let s2: Statement = serde_json::from_value(back).unwrap();
         assert_eq!(s2.product.name, "FerroEHR");
+    }
+
+    #[test]
+    fn a_statement_declares_extension_routes_by_a_closed_key() {
+        let mut json = serde_json::json!({
+            "product": { "name": "p", "version": "1", "vendor": "v", "identifier": "i" },
+            "schedule_release": "cnf-2.0-w2",
+            "claims": { "capabilities": ["ehr"] },
+            "extensions": {
+                "ehr-import": { "document": "party/import.yaml", "operation_id": "import_ehr" }
+            }
+        });
+        let s: Statement = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(
+            s.extensions.get(&ExtensionKey::EhrImport),
+            Some(&DeclaredExtension {
+                document: "party/import.yaml".to_owned(),
+                operation_id: "import_ehr".to_owned(),
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(&s).unwrap()["extensions"],
+            json["extensions"]
+        );
+        json["extensions"] = serde_json::json!({
+            "ehr-export": { "document": "party/import.yaml", "operation_id": "import_ehr" }
+        });
+        let unknown = serde_json::from_value::<Statement>(json.clone()).unwrap_err();
+        assert!(unknown.to_string().contains("ehr-export"), "{unknown}");
+        json["extensions"] = serde_json::json!({
+            "ehr-import": { "document": "party/import.yaml", "operation": "import_ehr" }
+        });
+        assert!(serde_json::from_value::<Statement>(json).is_err());
+        let without: Statement = serde_json::from_value(serde_json::json!({
+            "product": { "name": "p", "version": "1", "vendor": "v", "identifier": "i" },
+            "schedule_release": "cnf-2.0-w2",
+            "claims": { "capabilities": ["ehr"] }
+        }))
+        .unwrap();
+        assert!(without.extensions.is_empty());
+        assert!(
+            serde_json::to_value(&without)
+                .unwrap()
+                .get("extensions")
+                .is_none()
+        );
     }
 }
