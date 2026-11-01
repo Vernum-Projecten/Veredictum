@@ -762,7 +762,7 @@ workflows:
       Learns the uid of an EHR's VERSIONED_EHR_STATUS, tags the container by
       that uid, then reads the container's tags back. The tag's target
       carries the container's uid, as a bare UID_BASED_ID or as the id of an
-      OBJECT_REF, the two shapes the release gives (upstream report #750), and
+      OBJECT_REF, the release's shape and the development RM's (upstream report #750), and
       its owner_id names the EHR the route addresses.
     x-veredictum-cite: &tag_target_container
       source: specs/openehr/ITS-REST/specifications/operations/ehr_status_tags_get.yaml

@@ -604,10 +604,10 @@ workflows:
     summary: A tag of a PERSON version names the version as its target
     description: >-
       Tags a PERSON version, then reads the tags back. A tag's target names
-      the version_uid the version was addressed by, as the RM ITEM_TAG class
-      types it (a UID_BASED_ID) or as the released ITEM_TAG schema wraps it (an
-      OBJECT_REF whose id is that UID_BASED_ID): upstream report #750 records
-      that the release gives both shapes, so either one is read.
+      the version_uid the version was addressed by, as the development RM
+      ITEM_TAG class types it (a UID_BASED_ID) or as the released ITEM_TAG
+      schema wraps it (an OBJECT_REF whose id is that UID_BASED_ID): upstream
+      report #750 records the two shapes, so either one is read.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml
       section: description
@@ -636,7 +636,7 @@ workflows:
       Creates a PERSON, tags its container by the versioned_object_uid derived
       from the create's version_uid, then reads the container's tags back. The
       tag's target carries the container's uid, as a bare UID_BASED_ID or as
-      the id of an OBJECT_REF, the two shapes the release gives (upstream
+      the id of an OBJECT_REF, the release's shape and the development RM's (upstream
       report #750).
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml

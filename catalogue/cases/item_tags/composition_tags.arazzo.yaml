@@ -817,7 +817,7 @@ workflows:
       container from the version_uid the commit answers with, tags the
       container by that uid, then reads the container's tags back. The tag's
       target carries the container's uid, as a bare UID_BASED_ID or as the id
-      of an OBJECT_REF, the two shapes the release gives (upstream report
+      of an OBJECT_REF, the release's shape and the development RM's (upstream report
       #750), and its owner_id names the EHR the route addresses.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: &tag_target_container
