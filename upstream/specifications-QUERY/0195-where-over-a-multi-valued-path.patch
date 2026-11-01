@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..3ca31c7 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -1026,6 +1026,8 @@ WHERE
+    o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/value >= 140
+ --------
+ 
++Where the path of an identified expression passes through a multi-valued attribute and so reaches several values, the expression is satisfied when at least one of those values satisfies it.
++
+ === SELECT
+ 
+ A `SELECT` clause specifies what data is to be retrieved by the AQL query. The data can be any types from RM or any built-in data types (see <<_built_in_types>>).

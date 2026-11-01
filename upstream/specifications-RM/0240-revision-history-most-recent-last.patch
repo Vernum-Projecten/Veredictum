@@ -1,0 +1,26 @@
+diff --git a/computable/BMM/openehr_rm_1.2.0.bmm.json b/computable/BMM/openehr_rm_1.2.0.bmm.json
+index c147a0f..f77ec9f 100644
+--- a/computable/BMM/openehr_rm_1.2.0.bmm.json
++++ b/computable/BMM/openehr_rm_1.2.0.bmm.json
+@@ -1562,7 +1562,7 @@
+         },
+         "REVISION_HISTORY": {
+             "name": "REVISION_HISTORY",
+-            "documentation": "Purpose Defines the notion of a revision history of audit items, each associated with the version for which that audit was committed. The list is in most-recent-first order. ",
++            "documentation": "Purpose Defines the notion of a revision history of audit items, each associated with the version for which that audit was committed. The list is in most-recent-last order. ",
+             "properties": {
+                 "items": {
+                     "_type": "P_BMM_CONTAINER_PROPERTY",
+diff --git a/docs/UML/classes/org.openehr.rm.common.revision_history.adoc b/docs/UML/classes/org.openehr.rm.common.revision_history.adoc
+index db7a536..1f6ff85 100644
+--- a/docs/UML/classes/org.openehr.rm.common.revision_history.adoc
++++ b/docs/UML/classes/org.openehr.rm.common.revision_history.adoc
+@@ -6,7 +6,7 @@ h|*Class*
+ 2+^h|*REVISION_HISTORY*
+ 
+ h|*Description*
+-2+a|Purpose Defines the notion of a revision history of audit items, each associated with the version for which that audit was committed. The list is in most-recent-first order.
++2+a|Purpose Defines the notion of a revision history of audit items, each associated with the version for which that audit was committed. The list is in most-recent-last order.
+ 
+ h|*Attributes*
+ ^h|*Signature*

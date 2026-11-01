@@ -1,0 +1,26 @@
+diff --git a/specifications/operations/ehr_create.yaml b/specifications/operations/ehr_create.yaml
+index c4438aa..89a0ef9 100644
+--- a/specifications/operations/ehr_create.yaml
++++ b/specifications/operations/ehr_create.yaml
+@@ -9,6 +9,8 @@ description: |
+     - `is_queryable`: true
+     - `is_modifiable`: true
+     - `subject`: a PARTY_SELF object
++    - `name`: a DV_TEXT with the value `EHR Status`
++    - `archetype_node_id`: `openEHR-EHR-EHR_STATUS.generic.v1`, with `archetype_details` naming the same archetype
+ 
+   All other required EHR attributes and resources will be automatically created as needed by the [EHR creation semantics](https://specifications.openehr.org/releases/RM/latest/ehr.html#_ehr_creation_semantics).
+ tags:
+diff --git a/specifications/operations/ehr_create_with_id.yaml b/specifications/operations/ehr_create_with_id.yaml
+index be8f84a..10e6f25 100644
+--- a/specifications/operations/ehr_create_with_id.yaml
++++ b/specifications/operations/ehr_create_with_id.yaml
+@@ -12,6 +12,8 @@ description: |
+     - `is_queryable`: true
+     - `is_modifiable`: true
+     - `subject`: a PARTY_SELF object
++    - `name`: a DV_TEXT with the value `EHR Status`
++    - `archetype_node_id`: `openEHR-EHR-EHR_STATUS.generic.v1`, with `archetype_details` naming the same archetype
+ 
+   All other required EHR attributes and resources will be automatically created as needed by the [EHR creation semantics](https://specifications.openehr.org/releases/RM/latest/ehr.html#_ehr_creation_semantics).
+ tags:

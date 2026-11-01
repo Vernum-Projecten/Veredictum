@@ -1,0 +1,39 @@
+diff --git a/specifications/operations/composition_create.yaml b/specifications/operations/composition_create.yaml
+index 2d37dc1..480a96f 100644
+--- a/specifications/operations/composition_create.yaml
++++ b/specifications/operations/composition_create.yaml
+@@ -2,6 +2,8 @@ operationId: composition_create
+ summary: Create COMPOSITION
+ description: |
+   Creates the first version of a new COMPOSITION in the EHR identified by `ehr_id`.
++
++  A `uid` supplied in the request body does not identify the new version: the service ignores it and assigns the version identifier itself.
+   
+   A list of ITEM_TAGs can be associated with the COMPOSITION, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+   The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+diff --git a/specifications/operations/directory_create.yaml b/specifications/operations/directory_create.yaml
+index 880dc17..125687d 100644
+--- a/specifications/operations/directory_create.yaml
++++ b/specifications/operations/directory_create.yaml
+@@ -2,6 +2,8 @@ operationId: directory_create
+ summary: Create directory
+ description: |
+   Creates a new directory FOLDER associated with the EHR identified by `ehr_id`.
++
++  A `uid` supplied in the request body does not identify the new version: the service ignores it and assigns the version identifier itself.
+ tags:
+   - DIRECTORY
+ parameters:
+diff --git a/specifications/operations/ehr_status_update.yaml b/specifications/operations/ehr_status_update.yaml
+index 3c3c0ea..85fb714 100644
+--- a/specifications/operations/ehr_status_update.yaml
++++ b/specifications/operations/ehr_status_update.yaml
+@@ -4,6 +4,8 @@ description: |
+   Updates EHR_STATUS associated with the EHR identified by `ehr_id`.
+ 
+   The existing latest `version_uid` of EHR_STATUS resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
++
++  A `uid` supplied in the request body does not identify the new version: the service ignores it and assigns the version identifier itself.
+   
+   A list of ITEM_TAGs can be associated with the updated EHR_STATUS, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+   The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.

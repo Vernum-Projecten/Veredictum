@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..c4c4da7 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -986,6 +986,8 @@ The syntax of containment constraint expression is very simple: using `CONTAINS`
+ EHR e CONTAINS COMPOSITION c [openEHR-EHR-COMPOSITION.referral.v1]
+ --------
+ 
++Containment follows the references from an object to the versioned objects it holds: an `EHR` contains the Compositions referred to by its `_compositions_` attribute and the Folders referred to by its `_directory_` and `_folders_` attributes, and a `FOLDER` contains its sub-folders and the versioned objects referred to by its `_items_` attribute. Since a `FOLDER` holds references, one Composition can be contained by several Folders.
++
+ Logical operators `AND` and `OR` and parentheses `()` are used when multiple containment constrains are required, e.g.
+ 
+ --------

@@ -1,0 +1,144 @@
+diff --git a/specifications/operations/versioned_composition_get.yaml b/specifications/operations/versioned_composition_get.yaml
+index 0350924..57c0316 100644
+--- a/specifications/operations/versioned_composition_get.yaml
++++ b/specifications/operations/versioned_composition_get.yaml
+@@ -8,7 +8,6 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/path/versioned_object_uid_COMPOSITION.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSIONED_COMPOSITION.yaml
+diff --git a/specifications/operations/versioned_composition_revision_history.yaml b/specifications/operations/versioned_composition_revision_history.yaml
+index 0063423..d55e5e5 100644
+--- a/specifications/operations/versioned_composition_revision_history.yaml
++++ b/specifications/operations/versioned_composition_revision_history.yaml
+@@ -8,7 +8,6 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/path/versioned_object_uid_COMPOSITION.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_REVISION_HISTORY.yaml
+diff --git a/specifications/operations/versioned_composition_version_get_at_time.yaml b/specifications/operations/versioned_composition_version_get_at_time.yaml
+index af96a6e..2d53780 100644
+--- a/specifications/operations/versioned_composition_version_get_at_time.yaml
++++ b/specifications/operations/versioned_composition_version_get_at_time.yaml
+@@ -11,7 +11,6 @@ parameters:
+   - $ref: ../parameters/path/versioned_object_uid_COMPOSITION.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSION_of_COMPOSITION_at_time.yaml
+diff --git a/specifications/operations/versioned_composition_version_get_by_id.yaml b/specifications/operations/versioned_composition_version_get_by_id.yaml
+index 9872686..e0450df 100644
+--- a/specifications/operations/versioned_composition_version_get_by_id.yaml
++++ b/specifications/operations/versioned_composition_version_get_by_id.yaml
+@@ -9,7 +9,6 @@ parameters:
+   - $ref: ../parameters/path/versioned_object_uid_COMPOSITION.yaml
+   - $ref: ../parameters/path/version_uid_COMPOSITION.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSION_of_COMPOSITION_by_id.yaml
+diff --git a/specifications/operations/versioned_ehr_status_get.yaml b/specifications/operations/versioned_ehr_status_get.yaml
+index be94a84..e35b626 100644
+--- a/specifications/operations/versioned_ehr_status_get.yaml
++++ b/specifications/operations/versioned_ehr_status_get.yaml
+@@ -7,7 +7,6 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSIONED_EHR_STATUS.yaml
+diff --git a/specifications/operations/versioned_ehr_status_revision_history.yaml b/specifications/operations/versioned_ehr_status_revision_history.yaml
+index 7cb084f..4b8957a 100644
+--- a/specifications/operations/versioned_ehr_status_revision_history.yaml
++++ b/specifications/operations/versioned_ehr_status_revision_history.yaml
+@@ -7,7 +7,6 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_REVISION_HISTORY.yaml
+diff --git a/specifications/operations/versioned_ehr_status_version_get_at_time.yaml b/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+index fe97775..08eacbd 100644
+--- a/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
++++ b/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+@@ -10,7 +10,6 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSION_of_EHR_STATUS_at_time.yaml
+diff --git a/specifications/operations/versioned_ehr_status_version_get_by_id.yaml b/specifications/operations/versioned_ehr_status_version_get_by_id.yaml
+index 3a1baa0..a71e164 100644
+--- a/specifications/operations/versioned_ehr_status_version_get_by_id.yaml
++++ b/specifications/operations/versioned_ehr_status_version_get_by_id.yaml
+@@ -8,7 +8,6 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/path/version_uid.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSION_of_EHR_STATUS_by_id.yaml
+diff --git a/specifications/operations/versioned_party_get.yaml b/specifications/operations/versioned_party_get.yaml
+index 61d3528..4927240 100644
+--- a/specifications/operations/versioned_party_get.yaml
++++ b/specifications/operations/versioned_party_get.yaml
+@@ -7,7 +7,6 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/versioned_object_uid_PARTY.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSIONED_PARTY.yaml
+diff --git a/specifications/operations/versioned_party_revision_history.yaml b/specifications/operations/versioned_party_revision_history.yaml
+index 5aa9ed1..16954bf 100644
+--- a/specifications/operations/versioned_party_revision_history.yaml
++++ b/specifications/operations/versioned_party_revision_history.yaml
+@@ -7,7 +7,6 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/versioned_object_uid_PARTY.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_REVISION_HISTORY.yaml
+diff --git a/specifications/operations/versioned_party_version_get_at_time.yaml b/specifications/operations/versioned_party_version_get_at_time.yaml
+index e9b3b09..cfbfbe3 100644
+--- a/specifications/operations/versioned_party_version_get_at_time.yaml
++++ b/specifications/operations/versioned_party_version_get_at_time.yaml
+@@ -10,7 +10,6 @@ parameters:
+   - $ref: ../parameters/path/versioned_object_uid_PARTY.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSION_of_PARTY_at_time.yaml
+diff --git a/specifications/operations/versioned_party_version_get_by_id.yaml b/specifications/operations/versioned_party_version_get_by_id.yaml
+index 578ff64..34aa213 100644
+--- a/specifications/operations/versioned_party_version_get_by_id.yaml
++++ b/specifications/operations/versioned_party_version_get_by_id.yaml
+@@ -8,7 +8,6 @@ parameters:
+   - $ref: ../parameters/path/versioned_object_uid_PARTY.yaml
+   - $ref: ../parameters/path/version_uid.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_VERSION_of_PARTY_by_id.yaml

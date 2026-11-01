@@ -1,0 +1,19 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..027ed2b 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -938,6 +938,14 @@ AQL structure was briefly introduced in <<_aql_example>>. This section describes
+ 
+ An AQL statement must at least contain the `SELECT` and `FROM` clauses.
+ 
++A query that follows the grammar is still invalid, and is rejected, when it:
++
++* names a class the RM does not define, or a path no RM class defines;
++* has a node predicate on a node that has no `_archetype_node_id_`, or an archetype predicate outside the `FROM` clause;
++* gives two column expressions the same name alias;
++* sorts by data that is not comparable, such as a whole object or a collection;
++* compares values of incompatible types, such as a `String` and an `Integer`.
++
+ === FROM
+ 
+ The `FROM` clause is used to specify the subset of all the data available in a repository,

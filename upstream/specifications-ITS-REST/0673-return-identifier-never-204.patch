@@ -1,0 +1,13 @@
+diff --git a/specifications/docs/overview/Requests_and_responses.md b/specifications/docs/overview/Requests_and_responses.md
+index e3957a6..f994a10 100644
+--- a/specifications/docs/overview/Requests_and_responses.md
++++ b/specifications/docs/overview/Requests_and_responses.md
+@@ -310,7 +310,7 @@ Prefer: return=identifier
+ Accept: application/json
+ ```
+ 
+-This is a variant of preference that implies minimal response semantics, but with a non-empty response body (i.e., the status will be `201 Created` or `200 OK`, never `204 No Content`).
++This is a variant of preference that implies minimal response semantics, but with a non-empty response body: a service that honours the preference MUST respond with `201 Created` or `200 OK`, and MUST NOT respond with `204 No Content`. As RFC 7240 allows, a service MAY decline the preference.
+ The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header.
+ For example, when `application/json` is requested as above, the response body will be a single JSON object with a single `uid` attribute.
+ 

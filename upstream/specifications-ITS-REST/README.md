@@ -10,13 +10,21 @@ commit `9d25ea783f790512e05f908ef743626b4f7e8d2c`, the snapshot vendored under
 
 | Patch | Report |
 |---|---|
+| `0221-client-supplied-body-uid-on-content-commits.patch` | #221 |
+| `0351-405-declares-allow.patch` | #351 |
 | `0352-canonical-only-operations.patch` | #352 |
+| `0355-directory-commits-declare-422.patch` | #355 |
 | `0618-ehr-status-body-operations-declare-422.patch` | #618 |
 | `0619-ehr-id-parameter-is-a-hier-object-id.patch` | #619 |
 | `0620-etag-descriptions-name-the-weak-tag.patch` | #620 |
 | `0621-ehr-status-example-carries-archetype-details.patch` | #621 |
 | `0639-ehr-references-the-versioned-objects.patch` | #639 |
+| `0649-ehr-create-with-id-subject-conflict.patch` | #649 |
+| `0650-type-required-on-polymorphic-values.patch` | #650 |
+| `0673-return-identifier-never-204.patch` | #673 |
+| `0687-body-less-reads-declare-no-content-type.patch` | #687 |
 | `0699-error-bodies-are-problem-details.patch` | #699 |
+| `0709-default-ehr-status-name-and-archetype.patch` | #709 |
 | `0715-adl14-template-id-version.patch` | #715 |
 | `0721-simplified-formats-mapping-tables.patch` | #721 |
 | `0732-party-creates-declare-no-404.patch` | #732 |

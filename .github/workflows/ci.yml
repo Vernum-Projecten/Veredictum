@@ -287,6 +287,16 @@ jobs:
       - name: Upstream patches — seeded-case proof
         run: bash scripts/checks/upstream-patches-apply.sh --self-test
 
+      # Every open upstream report carries its patch, or records the `master`
+      # commit that already fixes the defect (#1029).
+      - name: Every open upstream report has a patch or a fixing commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/checks/upstream-report-patches.sh
+
+      - name: Upstream report patches — seeded-case proof
+        run: bash scripts/checks/upstream-report-patches.sh --self-test
+
       # JUnit XML has no single owner, so the export is held to the schemas
       # the tools that read it publish: Jenkins xUnit junit-10 for the
       # document and Apache Maven Surefire for each testsuite. xmllint

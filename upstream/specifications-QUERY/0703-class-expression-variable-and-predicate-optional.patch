@@ -1,0 +1,13 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..3033d31 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -810,7 +810,7 @@ WHERE
+    c/archetype_details/template_id/value = $templateId
+ --------
+ 
+-Class expressions syntax include three parts. A class expression must have part one and at least one of part two or part three.
++Class expressions syntax include three parts. A class expression must have part one; parts two and three are optional. A class expression with neither a variable nor a predicate only constrains the containment structure: it matches any instance of its class at that position.
+ 
+ . part one (mandatory): RM class name, such as `EHR`, `COMPOSITION`, `OBSERVATION` etc.
+ . part two (optional): AQL variable name

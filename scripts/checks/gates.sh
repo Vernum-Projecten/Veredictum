@@ -64,6 +64,8 @@ gate guard "tags after smoke self-test" "bash scripts/checks/release-tags-after-
 
 gate guard "upstream patches apply"   "bash scripts/checks/upstream-patches-apply.sh"
 gate guard "upstream patches self-test" "bash scripts/checks/upstream-patches-apply.sh --self-test"
+gate guard "upstream report patches"  "bash scripts/checks/upstream-report-patches.sh" "gh jq"
+gate guard "upstream report patches self-test" "bash scripts/checks/upstream-report-patches.sh --self-test" jq
 gate guard "JUnit schemas"            "bash scripts/checks/junit-schema.sh" xmllint
 gate guard "JUnit schemas self-test"  "bash scripts/checks/junit-schema.sh --self-test" xmllint
 gate guard "XML write bodies"         "bash scripts/checks/xml-write-bodies.sh" xmllint

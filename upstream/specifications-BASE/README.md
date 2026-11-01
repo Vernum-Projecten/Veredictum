@@ -10,6 +10,7 @@ commit `93abaf9f656b7bc87019458303c9d88f3f688ef8`, the snapshot vendored under
 
 | Patch | Report |
 |---|---|
+| `0249-utc-timezone-representable.patch` | #249 |
 | `0716-interval-limit-matches-its-flag.patch` | #716 |
 | `0762-timezone-form-matches-value.patch` | #762 |
 
