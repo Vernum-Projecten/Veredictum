@@ -16,8 +16,10 @@
 //! own design.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::convert::Infallible;
 use std::fmt;
 use std::num::NonZeroU64;
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -26,6 +28,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::arazzo::capabilities::Capabilities;
 use crate::arazzo::cite::{Citation, citation_of};
+use crate::arazzo::depends::{Library, Seen};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::published::{chapters_schema, reports_schema};
 use crate::arazzo::maturity::{Maturities, MaturityError};
@@ -577,60 +580,27 @@ pub fn arms_of(capabilities: Option<&Capabilities>, document: &str) -> Vec<ArmRe
 /// loading each setup document once.
 #[derive(Debug, Default)]
 pub struct Formalisms {
-    loaded: BTreeMap<PathBuf, Option<ArazzoDocument>>,
+    library: Library<'static>,
 }
 
 impl Formalisms {
     /// The formalisms of the templates `workflow` of `document` uploads,
     /// itself or through the setups it names in `dependsOn`, transitively.
     pub fn of(&mut self, document: &ArazzoDocument, workflow: &Workflow) -> BTreeSet<Formalism> {
+        self.library.follow(document);
         let mut found = BTreeSet::new();
-        let mut seen = BTreeSet::new();
-        self.walk(document.path(), document, workflow, &mut seen, &mut found);
+        self.library
+            .walk::<Infallible>(&mut Seen::default(), document, workflow, &mut |visit| {
+                for step in &visit.workflow.steps {
+                    let operation = step.operation_id.as_deref().and_then(split_qualified);
+                    if let Some(formalism) = operation.and_then(|(_, id)| Formalism::of_upload(id))
+                    {
+                        found.insert(formalism);
+                    }
+                }
+                ControlFlow::Continue(())
+            });
         found
-    }
-
-    fn walk(
-        &mut self,
-        path: &Path,
-        document: &ArazzoDocument,
-        workflow: &Workflow,
-        seen: &mut BTreeSet<(PathBuf, String)>,
-        found: &mut BTreeSet<Formalism>,
-    ) {
-        if !seen.insert((path.to_owned(), workflow.workflow_id.clone())) {
-            return;
-        }
-        for step in &workflow.steps {
-            let operation = step.operation_id.as_deref().and_then(split_qualified);
-            if let Some(formalism) = operation.and_then(|(_, id)| Formalism::of_upload(id)) {
-                found.insert(formalism);
-            }
-        }
-        for id in &workflow.depends_on {
-            let Some((source, workflow_id)) = split_qualified(id) else {
-                if let Some(local) = document.workflow(id) {
-                    self.walk(path, document, local, seen, found);
-                }
-                continue;
-            };
-            let Some(source_path) = document.workflow_sources().get(source).cloned() else {
-                continue;
-            };
-            // NOTE: no openEHR spec governs this — our own design; a setup that does not load is
-            // the load gate's finding, and it uploads nothing to read here.
-            let setup = self
-                .loaded
-                .entry(source_path.clone())
-                .or_insert_with(|| ArazzoDocument::load(&source_path).ok())
-                .take();
-            if let Some(setup) = setup {
-                if let Some(next) = setup.workflow(workflow_id) {
-                    self.walk(&source_path, &setup, next, seen, found);
-                }
-                self.loaded.insert(source_path, Some(setup));
-            }
-        }
     }
 }
 

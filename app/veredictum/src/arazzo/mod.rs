@@ -17,6 +17,7 @@ pub mod check;
 pub mod cite;
 pub mod control;
 pub mod credential;
+pub mod depends;
 pub mod derive;
 pub mod document;
 pub mod evaluate;
