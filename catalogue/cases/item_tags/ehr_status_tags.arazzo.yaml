@@ -723,10 +723,10 @@ workflows:
       UID_BASED_ID or as the id of an OBJECT_REF, the two shapes the release
       gives (upstream report #750). Its owner_id names the EHR the route
       addresses.
-    x-veredictum-cite: &tag_target
-      source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
-      section: ITEM_TAG Class
-      quote: "Identifier of target, which may be a `VERSIONED_OBJECT<T>` or a `VERSION<T>`."
+    x-veredictum-cite: &tag_target_version
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_status_tags_get.yaml
+      section: description
+      quote: "The former is used to get the tags of a particular (target) version of the EHR_STATUS version (e.g. one identified by `8849182c-82ad-4088-a07f-48ead4180515::openEHRSys.example.com::1`)"
       level: must
       report: 750
     inputs: *ehr_input
@@ -764,7 +764,12 @@ workflows:
       carries the container's uid, as a bare UID_BASED_ID or as the id of an
       OBJECT_REF, the two shapes the release gives (upstream report #750), and
       its owner_id names the EHR the route addresses.
-    x-veredictum-cite: *tag_target
+    x-veredictum-cite: &tag_target_container
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_status_tags_get.yaml
+      section: description
+      quote: "whereas the latter (e.g. an identifier like `8849182c-82ad-4088-a07f-48ead4180515`) is be used to get the tags of the target VERSIONED_EHR_STATUS container."
+      level: must
+      report: 750
     inputs: *ehr_input
     steps:
       - *create
