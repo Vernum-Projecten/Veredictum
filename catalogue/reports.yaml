@@ -25,3 +25,4 @@ reports:
   945: { title: "AM: the ADL2 operational template example binds its category at-code without the operational binding namespace", state: open }
   946: { title: "AM: ADL2 examples constrain the DV_QUANTITY property the RM removed, with external codes AOM2 cannot hold", state: open }
   984: { title: "BASE: ARCHETYPE_ID admits only a major version, while AM Identification and ADL 2 require the three-part version", state: open }
+  1053: { title: "RM: PARTY_RELATIONSHIP Target_valid negates what the package text and PARTY require of reverse_relationships", state: open }
