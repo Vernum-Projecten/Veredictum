@@ -2001,6 +2001,7 @@ run, and always carries one reason from a closed list, with its citation:
 | `format-not-claimed` | the case needs a format outside the claimed tech profile |
 | `extension-not-offered` | the case drives an extension route the vendor does not declare |
 | `not-declared` | a value the case needs from the party's IXIT or statement is not declared |
+| `cited-text-absent` | the cited text is absent from the profile the run used |
 | `development-only` | the case rests on development text alone and the run reads the released profile |
 
 Every red row in `results.json` and in the rendered report carries four parts,
