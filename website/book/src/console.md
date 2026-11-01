@@ -1,211 +1,138 @@
 # The web console
 
-The console is the instrument with a browser in front of it. It ships as its
-own container image, reads the catalogue and the vendored specification text
-from paths you mount, and reaches the engine only through the published
-`veredictum` crate: every number it shows is one the command line prints too.
+The console is the instrument in a browser, shipped as its own container
+image. It reads the catalogue and the vendored specification text from mounted
+paths and reaches the engine only through the published `veredictum` crate, so
+every number it shows the command line prints too. It runs functional
+conformance; `perf` and `perf-compare` stay on the command line.
 
-The console runs functional conformance. Measured performance (`perf` and
-`perf-compare`) is run with the command line, and the console exposes none of
-it.
-
-Every screenshot below is captured by the console's own browser journeys
-(`scripts/ui-e2e.sh` with `UI_E2E_DOCS_SHOTS=1`), in one 1440×900 browser
-window, light and dark. They are refreshed in the pull request that changes the
-interface, so what you see here is the interface that shipped.
-
-A capture pass serves the console in capture mode, where the facts one run
-stamps show fixed stand-ins: the run clock reads `00:00`, and the run's own id
-and the address the fixture server bound are fixed too. Your own runs show the
-real values, and what a run writes always carries them: the mode changes what
-the screen displays, never what is written. It exists so a capture pass over
-an unchanged interface produces identical images, which is what makes a
-screenshot diff mean something.
-
-For the same reason a capture pass reads a frozen excerpt of the catalogue
-(`fixtures/console/catalogue/`: four capability folders, 166 cases), not the
-catalogue itself. The counts and case lists in the screenshots are that
-excerpt's. A console you run reads the full catalogue and shows its counts.
+**The screenshots** come from the console's browser journeys
+(`scripts/ui-e2e.sh` with `UI_E2E_DOCS_SHOTS=1`), 1440×900, light and dark,
+refreshed in the pull request that changes the interface. Capture mode fixes
+the per-run facts on screen (clock `00:00`, run id, fixture server address) so
+an unchanged interface gives identical images; what a run writes is
+unaffected. Captures read a frozen excerpt (`fixtures/console/catalogue/`:
+four capability folders, 166 cases), so their counts are the excerpt's.
 
 ## The landing
 
-The four counts are the catalogue's own: cases (one per Arazzo workflow), Arazzo
-documents, capability folders, and gate findings. A findings count above zero
-means the catalogue itself needs attention before any server is graded.
+Four counts: cases (one per Arazzo workflow), Arazzo documents, capability
+folders and gate findings. Findings above zero mean the catalogue needs work
+before any server is graded.
 
 ![The console landing in light mode](console/img/landing-light.png)
 ![The console landing in dark mode](console/img/landing-dark.png)
 
 ## The catalogue explorer
 
-Capability folders first, each with the number of cases it carries. The search
-and page state live in the URL, so a view is shareable and survives a refresh.
+Capability folders with their case counts. Search and page state live in the
+URL, so a view can be shared and survives a refresh.
 
 ![The capability list in light mode](console/img/catalogue-light.png)
 ![The capability list in dark mode](console/img/catalogue-dark.png)
 
-One capability lists its cases, one section per Arazzo document: the case id
-and the workflow's summary. One behaviour per case, so a red row names one
-defect.
+A capability lists its cases by Arazzo document, each with its id and summary.
 
 ![A capability's case listing in light mode](console/img/chapter-light.png)
 ![A capability's case listing in dark mode](console/img/chapter-dark.png)
 
 ## One case in full
 
-The case detail carries the workflow's description, the specification citation
-the workflow stands on, the option arm its document tests when an option names
-it, and every step with the operation it calls. The citation is the point: an
-expectation is refuted by a better reading of the cited text, and by nothing
-else.
+The description, the specification citation, the option arm its document
+tests (if any), and every step with its operation. Only a better reading of
+the cited text can refute the expectation.
 
 ![A case detail in light mode](console/img/case-light.png)
 ![A case detail in dark mode](console/img/case-dark.png)
 
 ## The run wizard
 
-Grading starts at Connect: the CDR base URL, the display identity, the
-authentication choice from the ixit's own vocabulary, and a probe whose
-answer renders verbatim before anything continues.
-
-An administrative credential is optional and separate from the server's. The
-run receives it through `--admin-auth` and the `VEREDICTUM_CDR_ADMIN_*`
-variables ([Logging in to the CDR](authentication.md)); without one, every
-workflow with an administrative step is skipped as `not-declared`, and the
-IXIT the run writes names no administrative principal.
-
-The display name and version label stay editable after the probe, and Continue
-carries what the screen shows to the run. The address and the credentials are
-what the probe tested, so editing one of them after the probe withholds
-Continue until you probe again, and the screen says so.
+**Connect:** the CDR base URL, the display identity, the authentication
+choice from the ixit's vocabulary, and a probe whose answer renders verbatim.
+An administrative credential is optional; the run gets it through
+`--admin-auth` and `VEREDICTUM_CDR_ADMIN_*`
+([Logging in to the CDR](authentication.md)). Without it, workflows with an
+administrative step skip as `not-declared` and the IXIT names no
+administrative principal. Display name and version stay editable after the
+probe; editing the address or a credential withholds Continue until you probe
+again.
 
 ![The connect step in light mode](console/img/connect-light.png)
 ![The connect step in dark mode](console/img/connect-dark.png)
 
-Scope takes the claim the run grades: the vendor's own statement.json (the
-ICS, the document that says which capabilities are claimed and which option
-arms are selected), pasted into the box. The console offers no declaration of
-its own to load, because the claim belongs to whoever makes it: ISO/IEC 9646-7
-assigns an ICS proforma's support and supported-values columns to the supplier
-of the implementation.
+**Scope:** paste the vendor's own statement.json (the ICS: claimed
+capabilities and selected option arms). The console ships no declaration,
+since ISO/IEC 9646-7 assigns an ICS proforma's support and supported-values
+columns to the implementation's supplier.
 
-The claim can also be built on the screen. The capability row offers every
-capability folder of the catalogue with the documents and cases it holds.
-Composing writes the claim into the same box, product identity taken from the
-Connect step, so the operator reads the exact document the run selects by.
-Options stay undeclared there: only the party running the server knows which
-arm it realizes.
-
-The document is held to the published statement schema before anything is
-stored, and saving answers with the claim overview (product and capability
-count) beside the selection preview, so the screen says what will run before
-anything starts. An empty box is an honest no-claim run: every capability runs
-and no option arm is selected. The document-id filter narrows the run to the
-documents whose id contains it.
+- **Compose on screen:** pick capability folders (each shows its documents and
+  cases); the claim is written into the same box with product identity from
+  Connect. Options stay undeclared, since only the server's party knows its arm.
+- **Save:** checks the published statement schema, then shows the claim
+  overview (product, capability count) beside the selection preview.
+- **Empty box:** an honest no-claim run; every capability runs, no arm is
+  selected.
+- **Document-id filter:** runs only documents whose id contains it.
 
 ![The scope step in light mode](console/img/scope-light.png)
 
-The run is the engine's own `veredictum test`, with the credentials in the
-spawned process's environment only. The live screen names the server and
-version the run records, and shows the elapsed clock and the tail of the
-engine's output, and when the run finishes the outcome
-links straight to the results.
+**Run:** the engine's own `veredictum test`, credentials only in the spawned
+process's environment. The live screen shows server and version, the elapsed
+clock and the engine's output tail, then links to the results.
 
 ![A finished run on the live screen](console/img/live-light.png)
 
 ## The results
 
-Results reads the finished run's own `results.json`, red rows first: failed
-rows, then errored rows under their own status. An errored row is the
-instrument saying it could not judge, and its detail names what stopped the
-judgement. A row
-links to its detail: the four-part explanation the engine wrote (what was
-checked, why it is required with the cited sentence, what was expected and
-what was received, and whose problem the row is), which is what
-[the attribution](methodology.md#when-a-run-goes-red) of that row turns on.
-[Reading a result](reading-results.md) explains what each kind of row means
-for a buyer.
-
-The detail ends with the wire: the exchange the row was judged on, read from
-the run's `recording.har`, as its request and response panes, verbatim. The
-recording holds a server's response bodies, so it can carry real patient data
-from the deployment being graded, and it lands in the operator's own output
-directory.
+Failed rows first, then errored rows (the instrument could not judge; the
+detail names why). A row's detail is the four-part explanation (what was
+checked, why with the cited sentence, expected against received, whose
+problem), which [the attribution](methodology.md#when-a-run-goes-red) turns
+on; [Reading a result](reading-results.md) explains each kind for a buyer. It
+ends with the exchange, verbatim from `recording.har`. That recording can hold
+real patient data and stays in the operator's output directory.
 
 ![The results surface with a detail open](console/img/results-light.png)
 
 ## Certificates, and trial mode
 
-A console issues certificates only when `VEREDICTUM_CERTIFICATES=issue` is
-set; unset, `trial` or any other value is trial mode, which is the default.
-In trial mode every page's status banner says so, the results page says no
-certificate is issued, and the console reads no signing key at all.
+| `VEREDICTUM_CERTIFICATES` | Behaviour |
+|---|---|
+| `issue` | reads the Ed25519 key in `VEREDICTUM_SIGNING_KEY_FILE` with key id `VEREDICTUM_SIGNING_KID`; refuses to start unless the JWK Set at `/.well-known/jwks.json` publishes it unrevoked and unexpired; writes `certificate.jws` beside each finished run's results, offered as a download |
+| unset, `trial` or anything else | trial mode (default): every page's banner says so, results say no certificate is issued, no signing key is read |
 
-With issuance on, the console also reads the Ed25519 key that
-`VEREDICTUM_SIGNING_KEY_FILE` names and the key id `VEREDICTUM_SIGNING_KID`
-gives it, and refuses to start unless the JWK Set it serves at
-`/.well-known/jwks.json` publishes that key, unrevoked and unexpired. Each
-finished run then gets `certificate.jws` beside its results, and the results
-page offers it as a download. [Verifying a certificate](trust.md#verifying-a-certificate)
-is the reader's side.
+[Verifying a certificate](trust.md#verifying-a-certificate) is the reader's
+side.
 
 ## Running it in public
 
-The hosted instrument at
 [console.veredictum.eu](https://console.veredictum.eu) is this console served
-publicly, and a public console has three problems a local one does not.
+publicly. Its settings are documented in `deploy/hosted/`.
 
-**It drives whatever endpoint a visitor names.** `VEREDICTUM_POSTURE=hosted`
-turns on the target guard: loopback, private, link-local, unique-local,
-unspecified, multicast, carrier-shared and broadcast addresses are refused in
-both families before any socket opens, and the name is resolved first, because
-a name under a visitor's control resolving to a private address is the whole
-problem. The variable's default is `local`, which refuses nothing — driving a
-CDR at `localhost` is the normal local case. A value that is neither refuses
-to start, rather than falling back to the permissive one on a typo.
+| Variable | Effect |
+|---|---|
+| `VEREDICTUM_POSTURE` | `hosted` resolves the name first, then refuses loopback, private, link-local, unique-local, unspecified, multicast, carrier-shared and broadcast addresses in both families before any socket opens. `local` (default) refuses nothing, for a CDR at `localhost`. Any other value refuses to start |
+| `VEREDICTUM_CLIENT_IP_HEADER` | the header carrying the real client address behind a proxy, which the per-visitor caps key on. Only the named header is read, never an unconditional `X-Forwarded-For`. Unset: the socket peer |
+| `VEREDICTUM_METRICS_TOKEN` | `/metrics` serves Prometheus text to a bearer of this token: runs by outcome, refusals by guard and reason, server-function answers by status class, the queue, container memory and CPU. Labels are fixed words, never visitor input. Unset: `404`. An unusable token refuses to start |
 
-**It has to tell its visitors apart.** With no login, that is the peer address.
-Behind a proxy the peer is the proxy, so `VEREDICTUM_CLIENT_IP_HEADER` names
-the header carrying the real client address — and only a header the operator
-names is read, because an unconditionally trusted `X-Forwarded-For` would let
-any visitor claim any identity and defeat the per-visitor caps. Unset, the
-socket peer is the whole answer.
-
-**Its operator needs a signal that names nobody.** With
-`VEREDICTUM_METRICS_TOKEN` set, `/metrics` serves counters in the Prometheus
-text format to a request presenting that token as a bearer credential: runs by
-outcome, refusals by the guard and reason that refused, server-function answers
-by status class, the queue, and the container's memory and CPU. Every label is
-a fixed word the console spells itself, so no URL, name or result a visitor
-supplied appears there. Unset, the route answers `404`; a value that is not a
-usable token refuses to start. Each run also writes one JSON line to standard
-error when its engine starts and when it ends, with its id, outcome, durations
-and case counts.
-
-All three are documented with the rest of the hosted posture in the
-repository's `deploy/hosted/` directory.
+Each run also writes a JSON line to standard error at engine start and end:
+id, outcome, durations and case counts.
 
 ## An address the console does not serve
 
-A path outside the route tree answers `404` and renders it: the same chrome,
-the path that missed named back to you, and two ways on. Nothing was run and
-nothing was judged, which is what the page says.
+A path outside the route tree answers `404` in the same chrome, names the
+missed path and offers two ways on. Nothing was run or judged.
 
 ![The 404 page in light mode](console/img/not-found-light.png)
 ![The 404 page in dark mode](console/img/not-found-dark.png)
 
 ## Two real servers, side by side
 
-The same catalogue, the same wizard and the same judgement, driven against two
-live CDRs pulled at their latest published images: FerroEHR's quickstart and
-EHRbase's official pairing. The run behind each column is the EHR documents of
-the catalogue, and every difference below traces to a case id and its
-citation.
+The catalogue's EHR documents, through the same wizard, against FerroEHR's
+quickstart and EHRbase's official pairing at their latest images. Every
+difference traces to a case id and its citation. Captured by the harness that
+gates the console (`UI_E2E_REAL_SUTS=1 scripts/ui-e2e.sh`).
 
 | FerroEHR (latest) | EHRbase (latest) |
 |---|---|
 | ![FerroEHR results](console/img/results-ferroehr-light.png) | ![EHRbase results](console/img/results-ehrbase-light.png) |
-
-These captures come from the same E2E harness that gates the console
-(`UI_E2E_REAL_SUTS=1 scripts/ui-e2e.sh`): the browser drives the real wizard
-against the real servers, and the book shows what it photographed.

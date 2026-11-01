@@ -112,11 +112,11 @@
       <img class="seal" src="./assets/veredictum-seal.svg" alt="The Veredictum conformance seal, reading VEREDICTUM around a checkmark, openEHR CONFORMANCE below it, and the motto vere dictum">
       <h1>An independent verdict on what an openEHR server implements</h1>
       <p class="lede">
-        Point Veredictum at a running clinical data repository and it tells you,
+        Point Veredictum at a running clinical data repository and it reports,
         with citations, which parts of the openEHR specification that server
-        actually implements. It executes a machine-readable catalogue against
-        the server's own wire, records every exchange, and computes verdicts as
-        pure functions over what it recorded.
+        implements. It drives a machine-readable catalogue over the server's
+        own wire, records every exchange, and computes verdicts as pure
+        functions over the recording.
       </p>
       <p class="status">
         Veredictum is on 0.x and is not yet approved by the openEHR SEC.
@@ -142,9 +142,8 @@
         <em>Veredictum</em> is medieval Latin for “truly spoken”, <em>vere
         dictum</em>, and it is the word that became the English
         <em>verdict</em>.
-        <cite>That is what the instrument produces: it runs the catalogue
-        against a running CDR and speaks a verdict about what it observed. The
-        seal above is the mark of that verdict.</cite>
+        <cite>The instrument runs the catalogue against a CDR and speaks a
+        verdict on what it observed. The seal above is its mark.</cite>
       </blockquote>
     </div>
   </section>
@@ -155,34 +154,31 @@
       <div class="head center">
         <span class="eyebrow">What it does</span>
         <h2>Catalogue, run, verdict</h2>
-        <p>Three stages, each one a separate command, each one auditable on its
-          own. Nothing is computed at a stage that could hide what an earlier
-          stage recorded.</p>
+        <p>Each stage is its own command and can be audited on its own. No
+          stage hides what an earlier one recorded.</p>
       </div>
       <div class="stages">
         <div class="stage">
           <h3>The catalogue</h3>
-          <p>1820 test cases, one small isolated case per behaviour, so a red
-            row names one defect. Every case is an Arazzo workflow over the
-            released openEHR REST API, and every expectation carries the
-            specification sentence it comes from, quoted.</p>
-          <p><code>veredictum validate</code> checks the catalogue itself. Zero
-            findings is the only passing result.</p>
+          <p>1820 test cases, one per behaviour, so a red row names one
+            defect. Each is an Arazzo workflow over the released openEHR REST
+            API, and each expectation quotes the sentence it comes from.</p>
+          <p><code>veredictum validate</code> checks the catalogue. Zero
+            findings is the only pass.</p>
         </div>
         <div class="stage">
           <h3>The run</h3>
-          <p>Your statement names the capabilities you claim and the option
-            arms your server sits on. The instrument drives the cases it
-            selects against your server and records every request and
-            response as HAR.</p>
+          <p>Your statement names the capabilities you claim and your option
+            arms. The instrument drives the selected cases and records every
+            exchange as HAR.</p>
           <p><code>veredictum test</code> writes the recording and
             <code>results.json</code>, judged row by row.</p>
         </div>
         <div class="stage">
           <h3>The verdict</h3>
-          <p>A verdict is a pure function of your statement of claims, the
-            recording and the catalogue. Judge the recording again and you get
-            the same bytes, on any machine, with no server involved.</p>
+          <p>A verdict is a pure function of your statement, the recording
+            and the catalogue: re-judging gives the same bytes on any machine,
+            with no server.</p>
           <p><code>veredictum test --rejudge</code> reproduces the results
             from the recording alone.</p>
         </div>
@@ -196,8 +192,7 @@
       <div class="head">
         <span class="eyebrow">One tool, two kinds of evidence</span>
         <h2>Functional conformance and measured performance</h2>
-        <p>The same recorded-then-computed discipline carries both, so
-          every number about a deployment comes from one instrument.</p>
+        <p>Both are recorded first and computed after, by one instrument.</p>
       </div>
       <div class="table-scroll">
         <table>
@@ -224,9 +219,10 @@
         </table>
       </div>
       <p class="after-code">Latency is measured from the instant a request was
-        due under open-loop Poisson arrivals, which stops coordinated omission
-        from hiding a stall. The workloads a run can offer are listed in the
-        <a href="./docs/perf-workloads.html">workload manifest</a>.</p>
+        due under open-loop Poisson arrivals, so coordinated omission cannot
+        hide a stall. The
+        <a href="./docs/perf-workloads.html">workload manifest</a> lists the
+        workloads.</p>
     </div>
   </section>
 
@@ -238,19 +234,16 @@
         <h2>No server grades its own homework</h2>
       </div>
       <div class="prose">
-        <p>A server vendor's own test suite cannot answer the question a
-          hospital is asking. The suite and the server are written by the same
-          people against the same reading of the specification, and when the two
-          disagree it is usually the suite that gets adjusted.</p>
-        <p>The released openEHR specifications are the only authority this
-          instrument accepts. The vendored specification text is the oracle and
-          is never a suspect. Every expectation in the catalogue names the
-          section it comes from, so it can be refuted by a better reading of the
-          specification and by nothing else.</p>
-        <p>When a run goes red the failure is attributed before anything is
-          changed, to exactly one of three suspects, by comparing what the
-          specification requires against what the catalogue expects against what
-          the server did.</p>
+        <p>A vendor's own test suite is written by the same people, against
+          the same reading of the specification, as the server it tests. When
+          the two disagree, the suite usually gets adjusted.</p>
+        <p>Here the released openEHR specifications are the only authority,
+          and the vendored text is never a suspect. Every expectation names its
+          section, so only a better reading of the specification can refute
+          it.</p>
+        <p>A red run is attributed before anything changes, to exactly one of
+          three suspects, by comparing what the specification requires, what
+          the catalogue expects and what the server did.</p>
       </div>
       <div class="table-scroll">
         <table>
@@ -260,7 +253,7 @@
           <tbody>
             <tr>
               <td><strong>The server under test</strong> violates the specification</td>
-              <td>A defect report to that CDR, carrying the reproduced exchange and the citation</td>
+              <td>The attribution is recorded with the reproduced exchange and the citation</td>
             </tr>
             <tr>
               <td><strong>The instrument</strong> misdrove the case or misjudged the response</td>
@@ -273,11 +266,9 @@
           </tbody>
         </table>
       </div>
-      <p class="after-code">The instrument is a first-class suspect on every red
-        row, ahead of the server. The first live triage attributed 7 of 7
-        diagnosed defects to the runner and none to the server under test. An
-        instrument that presumes itself correct is worth nothing to the people
-        who are supposed to rely on its verdicts.
+      <p class="after-code">The instrument is a suspect on every red row,
+        ahead of the server. The first live triage attributed 7 of 7 diagnosed
+        defects to the runner and none to the server under test.
         <a href="./docs/methodology.html">How the method works →</a></p>
     </div>
   </section>
@@ -289,16 +280,13 @@
         <span class="eyebrow">Quick start</span>
         <h2>Two products, one engine</h2>
         <p>The <code>veredictum</code> CLI installs from crates.io or a signed
-          release binary; the container image is the web console, a browser
-          frontend over the same pinned CLI. The catalogue and the vendored
-          specification oracle are over 300&nbsp;MB of data that no registry
-          accepts, so both products read them as paths into a clone of the
-          repository.</p>
+          release binary; the container image is the web console over the same
+          pinned CLI. The catalogue and specification oracle (over
+          300&nbsp;MB) are read as paths into a clone of the repository.</p>
       </div>
       <figure class="code">
         <figcaption>The CLI, with cargo</figcaption>
-        <pre><code><span class="cmt"># The first stable release installs by name alone.</span>
-<span class="p">$</span> cargo install veredictum --locked
+        <pre><code><span class="p">$</span> cargo install veredictum --locked
 <span class="p">$</span> veredictum validate --root catalogue --specs specs/openehr</code></pre>
       </figure>
       <figure class="code">
@@ -308,9 +296,8 @@
 <span class="p">$</span> curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
 <span class="p">$</span> docker compose up</code></pre>
       </figure>
-      <p class="after-code">Prebuilt binaries for x86_64 and aarch64 Linux are
-        attached to each release, every one with a checksum, a CycloneDX
-        dependency SBOM and a Sigstore bundle.
+      <p class="after-code">Each release attaches x86_64 and aarch64 Linux
+        binaries with a checksum, a CycloneDX SBOM and a Sigstore bundle.
         <a href="./docs/installation.html">Installation, in full →</a></p>
     </div>
   </section>
@@ -326,7 +313,7 @@
         <a class="link-card" href="./docs/"><b>Documentation</b><span>Installation, the command surface, the method, catalogue authoring</span></a>
         <a class="link-card" href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener"><b>GitHub</b><span>The source, the catalogue and the vendored specification oracle</span></a>
         <a class="link-card" href="https://crates.io/crates/veredictum" rel="noopener"><b>crates.io</b><span>The binary and the library, published as one crate</span></a>
-        <a class="link-card" href="https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum" rel="noopener"><b>The web console image</b><span>ghcr.io/vernum-projecten/veredictum — the browser frontend, multi-architecture</span></a>
+        <a class="link-card" href="https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum" rel="noopener"><b>The web console image</b><span>ghcr.io/vernum-projecten/veredictum: the browser frontend, multi-architecture</span></a>
         <a class="link-card" href="https://github.com/Vernum-Projecten/Veredictum/releases" rel="noopener"><b>Releases</b><span>Binaries, checksums, SBOMs and Sigstore bundles</span></a>
         <a class="link-card" href="https://doi.org/10.5281/zenodo.22113258" rel="noopener"><b>Archived record</b><span>The Zenodo concept DOI, 10.5281/zenodo.22113258</span></a>
       </div>
@@ -343,21 +330,17 @@
     </a>
     <p>The independent conformance instrument for openEHR clinical data
       repositories. Licensed under
-      <a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE" rel="noopener">Apache-2.0</a>;
-      attribution travels with every copy and derivative through the license and
-      the <code>NOTICE</code> file. The vendored specification text and clinical
-      models keep their upstream terms, recorded per tree in the repository.</p>
-    <p>If you maintain a CDR and want it graded,
-      <a href="https://github.com/Vernum-Projecten/Veredictum/issues" rel="noopener">open an issue</a>.
-      A defect this instrument finds in your server arrives with the exchange and
-      the citation, and a defect you find in this instrument is a first-class bug
-      here.</p>
+      <a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE" rel="noopener">Apache-2.0</a>,
+      with the <code>NOTICE</code> file. Vendored specification text and
+      clinical models keep their upstream terms, recorded per tree.</p>
+    <p>To have a CDR graded, or to report a defect in this instrument,
+      <a href="https://github.com/Vernum-Projecten/Veredictum/issues" rel="noopener">open an issue</a>.</p>
     <div class="fine">
       <p>openEHR® is the registered trademark of the openEHR Foundation.
-        Veredictum is an independent, community-driven conformance instrument:
-        it names openEHR descriptively, to say what is being tested, and it is
-        not an official openEHR Foundation product, not the Foundation's CNF
-        program, and not endorsed by or affiliated with the Foundation.</p>
+        Veredictum is an independent, community-driven instrument that names
+        openEHR to say what it tests. It is not an official openEHR Foundation
+        product, not the Foundation's CNF program, and not endorsed by or
+        affiliated with the Foundation.</p>
       <p>© Veredictum contributors.</p>
     </div>
   </div>
