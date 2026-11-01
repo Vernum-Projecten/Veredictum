@@ -12,7 +12,9 @@
 
 use serde_json::{Value, json};
 
-use crate::arazzo::cite::{CITE_KEY, EXCLUDED_ROOT, ORACLE_ROOTS};
+use crate::arazzo::cite::{
+    CITE_KEY, DEVELOPMENT_ONLY_ROOT, EXCLUDED_DEVELOPMENT_ROOT, EXCLUDED_ROOT, ORACLE_ROOTS,
+};
 use crate::arazzo::control::CONTROL_KEY;
 use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
@@ -179,24 +181,35 @@ fn capabilities_cite_def() -> Value {
 pub fn extensions_schema() -> Value {
     let roots: Vec<String> = ORACLE_ROOTS
         .iter()
+        .chain(std::iter::once(&DEVELOPMENT_ONLY_ROOT))
         .map(|root| regex_escape_prefix(root))
         .collect();
+    let excluded = [EXCLUDED_ROOT, EXCLUDED_DEVELOPMENT_ROOT]
+        .map(regex_escape_prefix)
+        .join("|");
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
         "title": "The Arazzo catalogue's seven specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state."),
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `{DEVELOPMENT_ONLY_ROOT}` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` wording, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage."),
         "$defs": {
             "cite": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["source", "section", "quote"],
+                "if": {
+                    "required": ["source"],
+                    "properties": {
+                        "source": { "pattern": format!("^{}", regex_escape_prefix(DEVELOPMENT_ONLY_ROOT)) }
+                    }
+                },
+                "then": { "not": { "required": ["development"] } },
                 "properties": {
                     "source": {
-                        "description": "The vendored released file, relative to the repository root.",
+                        "description": format!("The vendored file, relative to the repository root: released text, or, under `{DEVELOPMENT_ONLY_ROOT}`, text only the pinned development snapshot holds."),
                         "type": "string",
                         "pattern": format!("^({})", roots.join("|")),
-                        "not": { "pattern": format!("^{}", regex_escape_prefix(EXCLUDED_ROOT)) }
+                        "not": { "pattern": format!("^({excluded})") }
                     },
                     "section": {
                         "description": "A top-level key or a JSON Pointer in a YAML or JSON source; when the element is a number, a boolean or `null`, the quote is that value as JSON text and is matched by value. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused. In an XML Schema (`.xsd`) source, the `name` of one top-level `xs:element`, `xs:complexType` or `xs:simpleType`, optionally after its kind and a space (`complexType COMPOSITION`); the quote is matched in that definition's source text.",

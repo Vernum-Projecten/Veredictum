@@ -193,7 +193,8 @@ pub struct Declarations {
     pub platform: bool,
     /// The specification profile whose text the run's citations are read
     /// against; a workflow citing text the profile lacks is skipped as
-    /// `cited-text-absent`.
+    /// `cited-text-absent`, and under the released profile a workflow
+    /// resting on development text alone is skipped as `development-only`.
     pub profile: SpecProfile,
 }
 
@@ -600,6 +601,39 @@ pub fn absent_text_skips(
     Ok(skips)
 }
 
+/// The `development-only` skips of the workflows of `document` that rest on
+/// text only the development snapshot holds, which a released run never
+/// runs.
+///
+/// Each skip carries the workflow's first development-only citation, and its
+/// detail names it. No openEHR spec governs this — our own design: a
+/// development result never counts toward a released one.
+#[must_use]
+pub fn development_only_skips(document: &ArazzoDocument, repo_root: &Path) -> Vec<(String, Skip)> {
+    document
+        .description()
+        .workflows
+        .iter()
+        .filter_map(|workflow| {
+            let citation = structure::development_citation(workflow)?;
+            Some((
+                workflow.workflow_id.clone(),
+                Skip {
+                    reason: SkipReason::DevelopmentOnly,
+                    why: Why::of(&citation, repo_root),
+                    detail: Some(format!(
+                        "{} profile: the case rests on development text alone, `{}` ({}), and runs under the {} profile only",
+                        SpecProfile::Released,
+                        citation.source,
+                        citation.section,
+                        SpecProfile::Development
+                    )),
+                },
+            ))
+        })
+        .collect()
+}
+
 /// The documents a run drives, the capability folders the statement claims
 /// and the option arms it selects, read before any document is loaded.
 #[derive(Debug)]
@@ -773,6 +807,10 @@ impl Selection {
             if let Some(quotes) = quotes.as_mut() {
                 for (workflow, skip) in absent_text_skips(&document, &found.id, quotes, repo_root)?
                 {
+                    plan.skips.entry(workflow).or_insert(skip);
+                }
+            } else {
+                for (workflow, skip) in development_only_skips(&document, repo_root) {
                     plan.skips.entry(workflow).or_insert(skip);
                 }
             }
@@ -1422,6 +1460,89 @@ mod tests {
         assert_eq!(defaulted, vec![None, None, None]);
         let unclaimed = system_skips(&profile(json!(["canonical-xml"])));
         assert_eq!(unclaimed, vec![Some(format_not_claimed()); 3]);
+    }
+
+    /// A development-only citation the vendored snapshot holds.
+    pub(crate) fn development_cite() -> Value {
+        json!({
+            "source": "specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd",
+            "section": "complexType OPERATIONAL_TEMPLATE",
+            "quote": "Element 'annotations' added 3 May 2010"
+        })
+    }
+
+    /// A catalogue root holding the committed System document with its
+    /// first workflow resting on development text, the vendored specs
+    /// linked beside it.
+    fn development_only_world() -> Result<assert_fs::TempDir, Box<dyn std::error::Error>> {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dir = assert_fs::TempDir::new()?;
+        std::os::unix::fs::symlink(repo.join("specs"), dir.path().join("specs"))?;
+        let path = repo.join("catalogue/cases/system/system_options.arazzo.yaml");
+        let mut document = crate::load::yaml_str_to_value(&std::fs::read_to_string(&path)?, &path)?;
+        let workflow = document
+            .pointer_mut("/workflows/0")
+            .and_then(Value::as_object_mut)
+            .ok_or("the System document has a workflow")?;
+        workflow.insert("x-veredictum-cite".to_owned(), development_cite());
+        dir.child("catalogue/cases/system/system_options.arazzo.yaml")
+            .write_str(&serde_json::to_string_pretty(&document)?)?;
+        Ok(dir)
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn a_development_only_case_is_skipped_under_released_and_runs_under_development()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let world = development_only_world()?;
+        let selection = Selection::read(&world.path().join("catalogue"), None, &[])?;
+        let skips = |profile| -> Result<Vec<Option<Skip>>, CatalogueError> {
+            let declarations = Declarations {
+                profile,
+                ..Declarations::default()
+            };
+            let planned = selection.load(world.path(), &declarations)?;
+            Ok(planned
+                .iter()
+                .flat_map(|document| {
+                    document
+                        .document
+                        .description()
+                        .workflows
+                        .iter()
+                        .map(|w| document.plan.skips.get(&w.workflow_id).cloned())
+                })
+                .collect())
+        };
+        let released = skips(SpecProfile::Released)?;
+        assert_eq!(released.len(), 3);
+        let skip = released
+            .first()
+            .cloned()
+            .flatten()
+            .ok_or("the development-only case is skipped")?;
+        assert_eq!(skip.reason, SkipReason::DevelopmentOnly);
+        assert_eq!(skip.reason.to_string(), "development-only");
+        assert!(skip.why.source.starts_with("specs/openehr-development/"));
+        let detail = skip
+            .detail
+            .as_deref()
+            .ok_or("the skip names its citation")?;
+        assert!(
+            detail.contains("specifications-ITS-XML/components/AM/Release-1.4/Template.xsd")
+                && detail.contains("complexType OPERATIONAL_TEMPLATE"),
+            "{detail}"
+        );
+        assert_eq!(released.get(1..), Some(&[None, None][..]));
+        assert_eq!(
+            skips(SpecProfile::Development)?,
+            vec![None, None, None],
+            "the development profile runs and judges it"
+        );
+        Ok(())
     }
 
     #[test]

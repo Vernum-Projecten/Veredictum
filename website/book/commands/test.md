@@ -26,7 +26,10 @@ stops with exit status 2 naming file and violation (a misspelled member, say).
 pinned `master` snapshot under `specs/openehr-development/`; `--profile
 released` reads the frozen release under `specs/openehr/`. A case whose cited
 file, section or sentence the snapshot lacks is skipped as
-`cited-text-absent`, naming the profile and what is missing. `results.json` records the profile under `specification`
+`cited-text-absent`, naming the profile and what is missing. A case resting
+on development text alone (a citation under `specs/openehr-development/`) runs
+under `development` only; `released` skips it as `development-only`.
+`results.json` records the profile under `specification`
 with the repository, branch and commit of every snapshot directory, and every
 view names them. A development result never builds a certificate and is never
 compared with or counted toward a released result. The catalogue is gated

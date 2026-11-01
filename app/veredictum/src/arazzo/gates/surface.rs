@@ -39,6 +39,7 @@ use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::expr::{CmpOp, Expr, Operand, SimpleCondition};
 use crate::arazzo::gates::published::surface_schema;
 use crate::arazzo::source::split_qualified;
+use crate::arazzo::structure;
 
 /// Where the surface file sits, relative to the cases directory.
 pub const SURFACE_FILE: &str = "surface.yaml";
@@ -474,6 +475,10 @@ fn status_alternation(pattern: &str) -> Option<Vec<String>> {
 }
 
 /// Every element the documents' steps cover.
+///
+/// A development-only workflow ([`structure::development_citation`]) covers
+/// nothing: the surface is the released one, and a released claim never rests
+/// on a case the released profile skips.
 #[must_use]
 pub fn covered<'a>(documents: impl IntoIterator<Item = &'a ArazzoDocument>) -> BTreeSet<Element> {
     let mut out = BTreeSet::new();
@@ -488,6 +493,7 @@ pub fn covered<'a>(documents: impl IntoIterator<Item = &'a ArazzoDocument>) -> B
             .description()
             .workflows
             .iter()
+            .filter(|workflow| structure::development_citation(workflow).is_none())
             .flat_map(|workflow| &workflow.steps)
         {
             let Some((source, operation)) = step.operation_id.as_deref().and_then(split_qualified)

@@ -54,6 +54,10 @@ or sentence the snapshot lacks prints as an `[info]` line naming the case,
 followed by per-component counts; neither is a finding, and the exit status
 stays `0`. A `profile-citation` finding is a citation the snapshot refuses for
 any other reason, a `development` wording the snapshot does not hold, or one
-whose released quote still occurs there unchanged. The repository's own gate
+whose released quote still occurs there unchanged. A last line counts the
+development-only workflows and the released cases whose cited text the
+snapshot rewords or removes. A citation under `specs/openehr-development/`
+names development text alone; both profiles check it against the snapshot, and
+a bad one is a finding. The repository's own gate
 runs `--profile released`, where zero findings is the only pass, and a second
 `--profile development` pass that reports the absences.

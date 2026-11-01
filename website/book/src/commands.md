@@ -106,7 +106,7 @@ Options:
           
           `development` (the default): the pinned `master` of each openEHR specification repository under `specs/openehr-development/`, the line that carries the newest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
           
-          `released`: the frozen release under `specs/openehr/`. Only a released result backs a released claim or a certificate.
+          `released`: the frozen release under `specs/openehr/`. Only a released result backs a released claim or a certificate. A case resting on development text alone, a citation under `specs/openehr-development/`, is skipped as `development-only`.
           
           The catalogue is gated against the release under either profile. A re-judgement takes the profile the recorded run was given.
 
@@ -151,7 +151,10 @@ stops with exit status 2 naming file and violation (a misspelled member, say).
 pinned `master` snapshot under `specs/openehr-development/`; `--profile
 released` reads the frozen release under `specs/openehr/`. A case whose cited
 file, section or sentence the snapshot lacks is skipped as
-`cited-text-absent`, naming the profile and what is missing. `results.json` records the profile under `specification`
+`cited-text-absent`, naming the profile and what is missing. A case resting
+on development text alone (a citation under `specs/openehr-development/`) runs
+under `development` only; `released` skips it as `development-only`.
+`results.json` records the profile under `specification`
 with the repository, branch and commit of every snapshot directory, and every
 view names them. A development result never builds a certificate and is never
 compared with or counted toward a released result. The catalogue is gated
@@ -365,7 +368,9 @@ Options:
           
           `released` (the default): the gates alone, against the frozen release. Zero findings is the only passing result.
           
-          `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. Needs `--specs`.
+          `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. One more line counts the development-only workflows and the released cases whose cited text the snapshot rewords or removes. Needs `--specs`.
+          
+          A development-only citation, one under `specs/openehr-development/`, is checked against the snapshot under both profiles, and a bad one is a finding.
 
           Possible values:
           - development: The pinned `master` of each openEHR repository: the newest text
@@ -438,7 +443,11 @@ or sentence the snapshot lacks prints as an `[info]` line naming the case,
 followed by per-component counts; neither is a finding, and the exit status
 stays `0`. A `profile-citation` finding is a citation the snapshot refuses for
 any other reason, a `development` wording the snapshot does not hold, or one
-whose released quote still occurs there unchanged. The repository's own gate
+whose released quote still occurs there unchanged. A last line counts the
+development-only workflows and the released cases whose cited text the
+snapshot rewords or removes. A citation under `specs/openehr-development/`
+names development text alone; both profiles check it against the snapshot, and
+a bad one is a finding. The repository's own gate
 runs `--profile released`, where zero findings is the only pass, and a second
 `--profile development` pass that reports the absences.
 

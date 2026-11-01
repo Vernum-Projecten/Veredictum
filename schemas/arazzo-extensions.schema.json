@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:arazzo-extensions:0.1.0",
   "title": "The Arazzo catalogue's seven specification extensions",
-  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `x-veredictum-scope` sits on a step only, never beside `x-veredictum-principal`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `x-veredictum-control` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `x-veredictum-section` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state.",
+  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `x-veredictum-scope` sits on a step only, never beside `x-veredictum-principal`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `x-veredictum-control` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `x-veredictum-section` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state. A citation whose source sits under `specs/openehr-development/` rests on development text alone: it is checked against the pinned development snapshot under every profile, carries no `development` wording, and its workflow is skipped with the reason `development-only` under the released profile and counts toward no released coverage.",
   "$defs": {
     "cite": {
       "type": "object",
@@ -12,13 +12,30 @@
         "section",
         "quote"
       ],
+      "if": {
+        "required": [
+          "source"
+        ],
+        "properties": {
+          "source": {
+            "pattern": "^specs/openehr\\-development/"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "development"
+          ]
+        }
+      },
       "properties": {
         "source": {
-          "description": "The vendored released file, relative to the repository root.",
+          "description": "The vendored file, relative to the repository root: released text, or, under `specs/openehr-development/`, text only the pinned development snapshot holds.",
           "type": "string",
-          "pattern": "^(specs/openehr/|specs/rest\\-oas/|specs/its\\-json\\-schemas/|specs/its\\-xml\\-schemas/)",
+          "pattern": "^(specs/openehr/|specs/rest\\-oas/|specs/its\\-json\\-schemas/|specs/its\\-xml\\-schemas/|specs/openehr\\-development/)",
           "not": {
-            "pattern": "^specs/openehr/SM/"
+            "pattern": "^(specs/openehr/SM/|specs/openehr\\-development/specifications\\-SM/)"
           }
         },
         "section": {

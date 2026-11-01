@@ -529,6 +529,20 @@ pub fn workflow_citations(workflow: &Workflow) -> Vec<Citation> {
     out
 }
 
+/// The first development-only citation `workflow` carries
+/// ([`Citation::is_development_only`]); `None` for a workflow that rests on
+/// released text alone.
+///
+/// A workflow carrying one is a development-only case: a released run skips
+/// it as `development-only`, and no released coverage, floor or tally counts
+/// it. No openEHR spec governs this — our own design.
+#[must_use]
+pub fn development_citation(workflow: &Workflow) -> Option<Citation> {
+    workflow_citations(workflow)
+        .into_iter()
+        .find(Citation::is_development_only)
+}
+
 /// The arms of `capabilities` that name `document`, in option order.
 #[must_use]
 pub fn arms_of(capabilities: Option<&Capabilities>, document: &str) -> Vec<ArmRef> {

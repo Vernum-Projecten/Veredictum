@@ -1039,7 +1039,7 @@ pub fn arazzo_results_schema() -> Value {
                                 "detail": {
                                     "type": "string",
                                     "minLength": 1,
-                                    "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote)."
+                                    "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote); for `development-only`, the development citation the case rests on."
                                 }
                             }
                         },

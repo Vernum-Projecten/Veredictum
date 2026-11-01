@@ -1662,6 +1662,14 @@ normalization) in the named file. A citation names a file under
 `specs/its-xml-schemas/`, never the SM. A file under
 `specs/openehr/ITS-REST/specifications/` or `specs/rest-oas/` is an OAS
 citation and ranks below the docs text (hard rule 1).
+A citation may instead name a file of the pinned development snapshot under
+`specs/openehr-development/`: development text alone, which no release holds
+(#999). `validate` checks it against the snapshot under both profiles, and it
+carries no `development` wording. A workflow carrying one is a
+development-only case: the released profile skips it as `development-only`,
+the development profile runs and judges it, and no surface, floor, claim or
+released tally counts it, since a development result never counts toward a
+released one (hard rule 1). No openEHR spec governs this; it is our own design.
 
 **`x-veredictum-check`**, on a criterion, for the three judgements no standard
 criterion type can express. Arazzo requires every criterion to carry a
@@ -1993,6 +2001,8 @@ run, and always carries one reason from a closed list, with its citation:
 | `format-not-claimed` | the case needs a format outside the claimed tech profile |
 | `extension-not-offered` | the case drives an extension route the vendor does not declare |
 | `not-declared` | a value the case needs from the party's IXIT or statement is not declared |
+| `cited-text-absent` | the cited text is absent from the profile the run used |
+| `development-only` | the case rests on development text alone and the run reads the released profile |
 
 Every red row in `results.json` and in the rendered report carries four parts,
 derived from the case and the recording with nothing extra to author:

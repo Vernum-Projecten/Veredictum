@@ -135,6 +135,7 @@ not apply.
 | `extension-not-offered` | the case drives an extension route the vendor does not declare |
 | `not-declared` | the vendor did not supply a value or login the case needs, such as an administrator account |
 | `cited-text-absent` | the cited text is absent from the profile the run used |
+| `development-only` | the case rests on text only the development snapshot holds, and the run used the released profile |
 
 **For a purchase:** a fact about the claim, not the server. Read the skipped
 count and the `not-claimed` capabilities beside the passed count: everything

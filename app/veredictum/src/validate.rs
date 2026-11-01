@@ -22,11 +22,12 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use crate::arazzo::catalogue::{Selection, document_paths};
-use crate::arazzo::cite::QuoteChecker;
+use crate::arazzo::cite::{CiteError, QuoteChecker};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::{CASES_DIR, Gate};
-use crate::arazzo::spec_profile::SpecProfile;
-use crate::arazzo::structure::workflow_citations;
+use crate::arazzo::results::SkipReason;
+use crate::arazzo::spec_profile::{SpecProfile, snapshot_source};
+use crate::arazzo::structure::{development_citation, workflow_citations};
 use crate::pipeline::Error;
 use crate::pipeline::arazzo_run::repo_root_with;
 use crate::pipeline::listing::{self, Listing};
@@ -195,6 +196,13 @@ pub struct ProfileReport {
     pub absent: Vec<AbsentCitation>,
     /// Every citation refused for another reason.
     pub findings: Vec<Finding>,
+    /// The development-only workflows, by case id in path order: each rests
+    /// on text only the development snapshot holds.
+    pub development_only: Vec<String>,
+    /// The released workflows whose cited text the profile rewords or
+    /// removes, by case id in path order: each is skipped there as
+    /// `cited-text-absent`.
+    pub reworded: Vec<String>,
 }
 
 impl ProfileReport {
@@ -218,13 +226,36 @@ impl ProfileReport {
             self.absent.len(),
             self.findings.len()
         ));
+        lines.push(format!(
+            "{} profile: {} development-only workflow(s), skipped as development-only under the released profile; {} released case(s) whose cited text this profile rewords or removes",
+            self.profile,
+            self.development_only.len(),
+            self.reworded.len()
+        ));
         lines
     }
 }
 
+/// Whether `error` says the text read rewords or removes the cited text: a
+/// file, section or quote it no longer holds, or a document it retires.
+fn is_reworded(error: &CiteError) -> bool {
+    matches!(
+        error,
+        CiteError::AbsentFromProfile { .. }
+            | CiteError::SectionNotFound { .. }
+            | CiteError::AmbiguousSection { .. }
+            | CiteError::QuoteNotFound { .. }
+            | CiteError::Retired { .. }
+    )
+}
+
 /// The component a cited source belongs to: its folder under
-/// `specs/openehr/`, or the vendored root it sits under.
+/// `specs/openehr/`, or the vendored root it sits under; a development-only
+/// source belongs where the release would hold it.
 fn component_of(source: &str) -> String {
+    if let Some(shaped) = snapshot_source(source) {
+        return component_of(&shaped);
+    }
     if let Some(rest) = source.strip_prefix("specs/openehr/") {
         return rest.split('/').next().unwrap_or(rest).to_owned();
     }
@@ -237,6 +268,10 @@ fn component_of(source: &str) -> String {
 
 /// Reads every case citation of the catalogue under `root` against the text
 /// `profile` reads under `repo_root`.
+///
+/// A development-only citation is read from the snapshot under every
+/// profile, and any refusal of one is a finding, absence included: no
+/// profile skips a development-only case for want of its own text.
 ///
 /// # Errors
 /// [`Error::ArazzoCatalogue`] when a folder does not list or a document does
@@ -252,12 +287,16 @@ pub fn profile_report(
         components: BTreeMap::new(),
         absent: Vec::new(),
         findings: Vec::new(),
+        development_only: Vec::new(),
+        reworded: Vec::new(),
     };
     for found in document_paths(root)? {
         let document = ArazzoDocument::load(&found.path)
             .map_err(crate::arazzo::catalogue::CatalogueError::from)?;
         for workflow in &document.description().workflows {
             let case = format!("{}/{}", found.id, workflow.workflow_id);
+            let development_only = development_citation(workflow).is_some();
+            let mut reworded = false;
             for citation in workflow_citations(workflow) {
                 let count = report
                     .components
@@ -265,8 +304,9 @@ pub fn profile_report(
                     .or_default();
                 match quotes.check(&citation) {
                     Ok(()) => count.resolved += 1,
-                    Err(error) if error.is_absence() => {
+                    Err(error) if error.is_absence() && !citation.is_development_only() => {
                         count.absent += 1;
+                        reworded |= !development_only && is_reworded(&error);
                         report.absent.push(AbsentCitation {
                             case: case.clone(),
                             reason: format!("{profile} profile: {error}"),
@@ -278,6 +318,12 @@ pub fn profile_report(
                         message: format!("{case}: {profile} profile: {error}"),
                     }),
                 }
+            }
+            if development_only {
+                report.development_only.push(case.clone());
+            }
+            if reworded {
+                report.reworded.push(case);
             }
         }
     }
@@ -352,9 +398,9 @@ fn unclaimed_arm_formats(path: &Path, selection: &Selection) -> Vec<Finding> {
 
 /// The claim-completeness gate: every capability folder the statement
 /// claims holds a document that the statement's own declarations (its
-/// option arms, its versions and its formats) let run. A claim no workflow
-/// can be run for would verify nothing. No openEHR spec governs this — our
-/// own design.
+/// option arms, its versions and its formats) let run, with a workflow that
+/// rests on released text. A claim no workflow can be run for would verify
+/// nothing. No openEHR spec governs this — our own design.
 fn incomplete_claims(repo_root: &Path, path: &Path, selection: &Selection) -> Vec<Finding> {
     let Some(claimed) = selection.claimed() else {
         return Vec::new();
@@ -365,6 +411,9 @@ fn incomplete_claims(repo_root: &Path, path: &Path, selection: &Selection) -> Ve
         let mut runs = false;
         for found in selection.paths().iter().filter(|f| &f.capability == folder) {
             match selection.choice(found).skip(&found.id, repo_root) {
+                None if development_only_document(&found.path) => {
+                    reasons.insert(SkipReason::DevelopmentOnly.to_string());
+                }
                 None => runs = true,
                 Some(skip) => {
                     reasons.insert(skip.reason.to_string());
@@ -385,6 +434,20 @@ fn incomplete_claims(repo_root: &Path, path: &Path, selection: &Selection) -> Ve
         }
     }
     findings
+}
+
+/// Whether every workflow of the document at `path` rests on development
+/// text alone, so a released run skips all of them.
+fn development_only_document(path: &Path) -> bool {
+    // NOTE: no openEHR spec governs this — our own design; a document that does not load is
+    // the load gate's finding, so it is read here as one that runs.
+    ArazzoDocument::load(path).is_ok_and(|document| {
+        let workflows = &document.description().workflows;
+        !workflows.is_empty()
+            && workflows
+                .iter()
+                .all(|workflow| development_citation(workflow).is_some())
+    })
 }
 
 /// The rows files under `dir`, counted recursively; a directory that does
@@ -426,6 +489,167 @@ mod tests {
 
     fn repo_root() -> PathBuf {
         Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).to_path_buf()
+    }
+
+    const PROBE_RELEASED: &str = "specs/openehr/RM/docs/probe.adoc";
+    const PROBE_DEVELOPMENT: &str = "specs/openehr-development/specifications-RM/docs/probe.adoc";
+
+    /// A repository whose catalogue holds one System document of three
+    /// workflows: one resting on development text with `development_quote`,
+    /// one citing a released sentence the snapshot rewords, and one citing a
+    /// sentence both texts hold.
+    fn probe_world(
+        development_quote: &str,
+    ) -> Result<assert_fs::TempDir, Box<dyn std::error::Error>> {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new()?;
+        dir.child("specs").create_dir_all()?;
+        std::os::unix::fs::symlink(
+            repo_root().join("specs/rest-oas"),
+            dir.path().join("specs/rest-oas"),
+        )?;
+        dir.child(PROBE_RELEASED)
+            .write_str("== Probe\n\nThe values are A and B. Held.\n")?;
+        dir.child(PROBE_DEVELOPMENT)
+            .write_str("== Probe\n\nThe values are A, B and C. Held. Also D.\n")?;
+        let cite = |source: &str, quote: &str| serde_json::json!({ "source": source, "section": "Probe", "quote": quote });
+        let workflow = |id: &str, cite: serde_json::Value| {
+            serde_json::json!({
+                "workflowId": id,
+                "x-veredictum-cite": cite,
+                "steps": [{
+                    "stepId": "options",
+                    "operationId": "$sourceDescriptions.system.options",
+                    "successCriteria": [{ "condition": "$statusCode == 200" }]
+                }]
+            })
+        };
+        let document = serde_json::json!({
+            "arazzo": "1.1.0",
+            "info": { "title": "probe", "version": "1" },
+            "sourceDescriptions": [{
+                "name": "system",
+                "url": "../../../specs/rest-oas/system-validation.openapi.yaml",
+                "type": "openapi"
+            }],
+            "workflows": [
+                workflow("development", cite(PROBE_DEVELOPMENT, development_quote)),
+                workflow("reworded", cite(PROBE_RELEASED, "The values are A and B.")),
+                workflow("held", cite(PROBE_RELEASED, "Held.")),
+            ]
+        });
+        dir.child("catalogue/cases/system/probe.arazzo.yaml")
+            .write_str(&serde_json::to_string_pretty(&document)?)?;
+        Ok(dir)
+    }
+
+    #[test]
+    fn the_profile_report_counts_development_only_and_reworded_cases()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::{SpecProfile, profile_report};
+        let world = probe_world("Also D.")?;
+        let catalogue = world.path().join("catalogue");
+        let development = profile_report(&catalogue, world.path(), SpecProfile::Development)?;
+        assert_eq!(development.findings, []);
+        assert_eq!(development.development_only, ["probe/development"]);
+        assert_eq!(development.reworded, ["probe/reworded"]);
+        assert_eq!(development.absent.len(), 1);
+        let summary = development.summary();
+        assert_eq!(
+            summary.last().map(String::as_str),
+            Some(
+                "development profile: 1 development-only workflow(s), skipped as development-only under the released profile; 1 released case(s) whose cited text this profile rewords or removes"
+            ),
+            "{summary:?}"
+        );
+        let released = profile_report(&catalogue, world.path(), SpecProfile::Released)?;
+        assert_eq!(released.findings, []);
+        assert_eq!(released.development_only, ["probe/development"]);
+        assert_eq!(released.reworded, Vec::<String>::new());
+        Ok(())
+    }
+
+    #[test]
+    fn a_claim_whose_every_workflow_rests_on_development_text_is_incomplete()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let world = probe_world("Also D.")?;
+        let document = world
+            .path()
+            .join("catalogue/cases/system/probe.arazzo.yaml");
+        let mut raw: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&document)?)?;
+        if let Some(workflows) = raw
+            .get_mut("workflows")
+            .and_then(serde_json::Value::as_array_mut)
+        {
+            workflows.truncate(1);
+        }
+        std::fs::write(&document, serde_json::to_string_pretty(&raw)?)?;
+        let statement = world.path().join("statement.json");
+        std::fs::write(
+            &statement,
+            r#"{"product":{"name":"x","version":"1","vendor":"v","identifier":"urn:x"},"schedule_release":"cnf-2.0-w2","claims":{"capabilities":["system"]}}"#,
+        )?;
+        let findings = review_statement(&world.path().join("catalogue"), None, &statement);
+        assert_eq!(findings.len(), 1, "{findings:?}");
+        let finding = findings.first().ok_or("one finding")?;
+        assert_eq!(finding.check, CheckId::ClaimCompleteness);
+        assert!(finding.message.contains("(development-only)"), "{finding}");
+        Ok(())
+    }
+
+    #[test]
+    fn a_seeded_development_only_quote_the_snapshot_lacks_is_a_finding_under_both_profiles()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::{SpecProfile, profile_report};
+        use crate::arazzo::gates::Gate;
+        let world = probe_world("Also E.")?;
+        let catalogue = world.path().join("catalogue");
+        let specs = world.path().join("specs/openehr");
+        let lacking = |message: &str| {
+            message.contains("the quote does not occur in `specs/openehr-development/")
+        };
+        let validation = validate(&catalogue, Some(&specs), None)?;
+        assert!(
+            validation.findings.iter().any(|finding| {
+                finding.check == CheckId::Arazzo(Gate::Citation) && lacking(&finding.message)
+            }),
+            "{:?}",
+            validation.findings
+        );
+        for profile in SpecProfile::ALL {
+            let report = profile_report(&catalogue, world.path(), *profile)?;
+            assert!(
+                report
+                    .findings
+                    .iter()
+                    .any(|finding| finding.check == CheckId::ProfileCitation
+                        && lacking(&finding.message)),
+                "{profile}: {:?}",
+                report.findings
+            );
+            assert!(
+                report
+                    .absent
+                    .iter()
+                    .all(|absent| absent.case != "probe/development")
+            );
+        }
+        let held = probe_world("Also D.")?;
+        let validation = validate(
+            &held.path().join("catalogue"),
+            Some(&held.path().join("specs/openehr")),
+            None,
+        )?;
+        assert!(
+            !validation
+                .findings
+                .iter()
+                .any(|finding| finding.message.contains("openehr-development")),
+            "{:?}",
+            validation.findings
+        );
+        Ok(())
     }
 
     #[test]
