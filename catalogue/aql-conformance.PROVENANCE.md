@@ -4,25 +4,28 @@
 request bodies, fixtures of the AQL conformance corpus, and the query documents
 `catalogue/cases/query/aqlc_*.arazzo.yaml` carry its queries and expected
 answers. `catalogue/id-map.yaml` (`corpora: aql-conformance`) maps each of the
-corpus's 495 case ids to the workflows that carry it, or says why it is not
+corpus's 555 case ids to the workflows that carry it, or says why it is not
 carried.
 
 - **Source:** <https://github.com/Cadasto/aql-conformance>
-- **Commit:** `28749a482a2335ca29813911f797bf87fb82d08e`. The first import read
-  `d5b8c554fecef73fbeab0620dfd28d4a1149bd63`; none of its 236 case files
-  changed between the two commits.
+- **Commit:** `3ecd2508e6b81be9f105ca02a11fbfe46b890859`. The first import read
+  `d5b8c554fecef73fbeab0620dfd28d4a1149bd63`, and the second
+  `28749a482a2335ca29813911f797bf87fb82d08e`. Between the second and this
+  commit the corpus added 60 SELECT cases and changed no query, arrangement or
+  expectation of an existing case, and no fixture carried here.
 - **Licence of the corpus:** MIT, Copyright (c) 2026 Cadasto B.V.
   (`LICENSES/MIT.txt`).
-- **Licence of the cases generated from EHRbase:** the 234 cases under the
+- **Licence of the cases generated from EHRbase:** the 327 cases under the
   corpus's `corpus/cases/*/ehrbase/` are rebuilt from the AQL Robot suites and
-  CSV rows of `ehrbase/integration-tests` at commit
-  `27b63a59c6efe9ade662e970f24af9f705dedda8`: Apache-2.0, Copyright (c) 2019
+  CSV rows of `ehrbase/integration-tests`, which the corpus's
+  `corpus/sources/ehrbase/SOURCE.yaml` pins at commit
+  `7aa9ed987b2f4e676e37394e2c7ecbde506298e6`: Apache-2.0, Copyright (c) 2019
   Vitasystems GmbH and Hannover Medical School (`LICENSES/Apache-2.0.txt`).
   Confirmed from the upstream `LICENSE` the corpus vendors at
   `corpus/sources/ehrbase/upstream/LICENSE` and from each case's own `source:`
   block; the corpus records that upstream ships no `NOTICE` file at that
   commit. The carried queries and expectations of those cases sit in
-  `aqlc_order_by`, `aqlc_paging` and `aqlc_where`.
+  `aqlc_order_by`, `aqlc_paging`, `aqlc_select` and `aqlc_where`.
 
 Nothing was imported blind. Every carried expectation was re-derived from the
 released QUERY and ITS-REST text and quotes the sentence that assigns it; the

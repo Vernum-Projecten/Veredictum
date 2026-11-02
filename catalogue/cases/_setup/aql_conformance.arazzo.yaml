@@ -1,6 +1,6 @@
 # The fixtures of the AQL conformance corpus
 # (github.com/Cadasto/aql-conformance at
-# 28749a482a2335ca29813911f797bf87fb82d08e): its operational templates, and
+# 3ecd2508e6b81be9f105ca02a11fbfe46b890859): its operational templates, and
 # one set-up per arrangement a carried case makes, each an EHR with the case's
 # COMPOSITIONs committed in order. Third-party bytes:
 # catalogue/aql-conformance.PROVENANCE.md and REUSE.toml name their source and

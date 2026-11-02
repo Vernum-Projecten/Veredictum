@@ -4590,7 +4590,7 @@ cases:
 corpora:
   aql-conformance:
     source: https://github.com/Cadasto/aql-conformance
-    commit: 28749a482a2335ca29813911f797bf87fb82d08e
+    commit: 3ecd2508e6b81be9f105ca02a11fbfe46b890859
     cases:
       FROM.abstract_type.abstract_entry_class_as_root:
         new: []
@@ -5661,6 +5661,14 @@ corpora:
           #701.
       SELECT.alias.named_column:
         new: [aql_semantics/column-alias_name]
+      SELECT.array_valued_path.a_collection_in_each_element_of_another_opens_a_row_per_inner_element:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
       SELECT.array_valued_path.a_collection_nested_in_an_empty_one_keeps_its_row:
         new: []
         open: >-
@@ -5669,6 +5677,26 @@ corpora:
           not assigned, upstream report #701. Whether a class that is not
           LOCATABLE can be a FROM or CONTAINS operand is not assigned, upstream
           report #706.
+      SELECT.array_valued_path.a_path_below_an_entrys_links_reads_each_link:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.array_valued_path.a_path_below_an_entrys_other_participations_reads_each_participation:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.array_valued_path.an_absent_links_collection_keeps_its_row:
         new: []
         open: >-
@@ -5699,6 +5727,26 @@ corpora:
           Not carried (level sensible). The rows a projection through a
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
+      SELECT.array_valued_path.an_entrys_links_path_opens_a_row_per_link:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.array_valued_path.an_entrys_other_participations_path_opens_a_row_per_participation:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.array_valued_path.an_explicit_null_collection_keeps_its_row:
         new: []
         open: >-
@@ -5738,6 +5786,68 @@ corpora:
           Not carried (level sensible). The rows a projection through a
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
+      SELECT.array_valued_path.feeder_item_id_values_of_each_contained_cluster_keep_a_null_row_for_a_cluster_with_none:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          answer needs CONTAINS to reach below a direct child; AQL never says
+          whether containment is direct or at any depth, upstream report #160.
+          The rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.array_valued_path.feeder_item_id_values_of_each_events_cluster_keep_a_null_row_for_a_cluster_with_none:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.array_valued_path.feeder_item_ids_of_each_contained_cluster_open_a_row_each_and_a_cluster_with_none_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          answer needs CONTAINS to reach below a direct child; AQL never says
+          whether containment is direct or at any depth, upstream report #160.
+          The rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.array_valued_path.feeder_item_ids_of_each_events_cluster_open_a_row_each_and_a_cluster_with_none_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.array_valued_path.feeder_system_item_ids_open_a_row_each_beside_a_single_valued_path:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
+      SELECT.array_valued_path.mapping_targets_open_a_row_each_and_an_event_with_none_keeps_a_null_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.array_valued_path.mappings_elements_open_a_row_scope:
         new: []
         open: >-
@@ -5764,6 +5874,16 @@ corpora:
           not assigned, upstream report #701. Whether a class that is not
           LOCATABLE can be a FROM or CONTAINS operand is not assigned, upstream
           report #706.
+      SELECT.array_valued_path.term_mappings_open_a_row_each_and_an_event_with_none_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.array_valued_path.the_collection_node_stays_an_object_on_the_content_tier:
         new: []
         open: >-
@@ -5776,10 +5896,34 @@ corpora:
           Not carried (level sensible). The rows a projection through a
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
+      SELECT.array_valued_path.the_identifiers_of_an_entrys_subject_open_a_row_each:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
       SELECT.array_valued_path.the_mappings_collection_node_unnests:
         new: []
         open: >-
           Not carried (level sensible). The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
+      SELECT.array_valued_path.the_reference_ranges_of_a_dv_count_pair_bounds_and_meaning_by_range:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
+      SELECT.array_valued_path.the_term_mappings_of_an_element_value_pair_match_and_target_by_mapping:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
       SELECT.array_valued_path.two_empty_independent_collections_keep_their_row:
@@ -5788,10 +5932,136 @@ corpora:
           Not carried (level sensible). The rows a projection through a
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
+      SELECT.array_valued_path.two_paths_below_each_context_participation_pair_by_participation:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
+      SELECT.array_valued_path.two_paths_below_each_entry_participation_pair_by_participation:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a
+          multi-valued attribute, an empty collection or no variable yields are
+          not assigned, upstream report #701.
       SELECT.distinct.statement_distinct_removes_duplicate_rows:
         new: [aql_semantics/distinct]
       SELECT.identified_path.a_content_path_matching_no_node_is_a_null_cell:
         new: [aqlc_select/identified_path-a_content_path_matching_no_node_is_a_null_cell]
+      SELECT.identified_path.a_dv_boolean_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_coded_text_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_date_time_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_date_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_duration_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_ehr_uri_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_ordinal_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_parsable_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_text_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_time_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.a_dv_uri_value_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.identified_path.a_path_through_content_reads_each_content_item:
         new: []
         open: >-
@@ -5818,6 +6088,69 @@ corpora:
           Not carried (level core). The answer needs CONTAINS to reach below a
           direct child; AQL never says whether containment is direct or at any
           depth, upstream report #160.
+      SELECT.identified_path.an_elements_null_flavour_reads_null_where_the_element_has_a_value:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.an_event_context_root_reads_its_start_time_as_written:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class that is not LOCATABLE can be a FROM or CONTAINS
+          operand is not assigned, upstream report #706.
+      SELECT.identified_path.an_event_context_root_reads_the_location_its_context_holds:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class that is not LOCATABLE can be a FROM or CONTAINS
+          operand is not assigned, upstream report #706.
+      SELECT.identified_path.an_item_a_contained_cluster_lacks_is_a_null_cell:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          answer needs CONTAINS to reach below a direct child; AQL never says
+          whether containment is direct or at any depth, upstream report #160.
+      SELECT.identified_path.an_item_of_each_contained_cluster_reads_one_row_per_cluster:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          answer needs CONTAINS to reach below a direct child; AQL never says
+          whether containment is direct or at any depth, upstream report #160.
+      SELECT.identified_path.an_item_one_events_cluster_lacks_is_a_null_cell:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.an_observation_root_reads_its_history_origin:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
       SELECT.identified_path.composition_metadata_paths:
         new: [aqlc_select/identified_path-composition_metadata_paths]
       SELECT.identified_path.content_text_leaf_exact_value:
@@ -5914,8 +6247,118 @@ corpora:
           Not carried (level sensible). The rows a projection through a
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
+      SELECT.identified_path.the_denominator_of_a_dv_proportion_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_id_of_a_dv_identifier_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_magnitude_of_a_dv_count_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_magnitude_of_a_dv_quantity_reads_null_where_the_element_has_no_value:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_numerator_of_a_dv_proportion_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_sample_count_of_each_event_is_null_where_it_has_none:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_size_of_a_dv_multimedia_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_time_of_each_event_reads_one_row_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_units_of_a_dv_quantity_read_null_where_the_element_has_no_value:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.identified_path.the_width_of_each_event_is_null_where_the_event_has_none:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.identified_path.trivia_inside_node_predicates_is_not_part_of_the_predicate:
         new: [aqlc_select/identified_path-trivia_inside_node_predicates_is_not_part_of_the_predicate]
+      SELECT.identified_path.two_items_of_each_events_cluster_pair_and_a_missing_one_is_a_null_cell:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.identified_path.unresolvable_root_alias_path_names_the_root_class:
         new: []
         open: >-
@@ -5925,6 +6368,20 @@ corpora:
         new: [aqlc_top/paging-select_top_limits_the_rows]
       SELECT.positional_column_name.two_paths:
         new: [aql_semantics/column-index_names]
+      SELECT.primitive.a_date_time_literal_reads_back_as_written:
+        new: [aqlc_select/primitive-a_date_time_literal_reads_back_as_written]
+      SELECT.primitive.a_null_literal_over_an_ehr_root_answers_a_null_cell:
+        new: [aql_semantics/literal-null]
+      SELECT.primitive.a_quoted_number_in_exponent_form_stays_a_string:
+        new: [aqlc_select/primitive-a_quoted_number_in_exponent_form_stays_a_string]
+      SELECT.primitive.a_quoted_true_stays_a_string:
+        new: [aqlc_select/primitive-a_quoted_true_stays_a_string]
+      SELECT.primitive.a_real_literal_over_an_ehr_root_answers_its_value:
+        new: [aql_semantics/literal-real]
+      SELECT.primitive.a_string_literal_over_an_ehr_root_answers_its_value:
+        new: [aql_semantics/literal-string]
+      SELECT.primitive.an_integer_literal_over_an_ehr_root_answers_its_value:
+        new: [aql_semantics/literal-integer]
       SELECT.primitive.every_literal_kind_projects_its_value:
         new: [aql_semantics/literal-string, aql_semantics/literal-integer, aql_semantics/literal-real, aql_semantics/literal-boolean, aql_semantics/literal-null]
       SELECT.primitive.literal_mixed_with_a_whole_object_and_a_path:
@@ -5937,8 +6394,74 @@ corpora:
         new: [aqlc_select/primitive-literal_with_an_as_alias_takes_the_alias]
       SELECT.primitive.primitive_literal_projection_refused:
         new: [aqlc_select/primitive-primitive_literal_projection_refused]
+      SELECT.whole_object.a_code_phrase_below_an_event_context_root_projects_whole:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class that is not LOCATABLE can be a FROM or CONTAINS
+          operand is not assigned, upstream report #706.
+      SELECT.whole_object.a_dv_coded_text_below_an_event_context_root_projects_whole:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class that is not LOCATABLE can be a FROM or CONTAINS
+          operand is not assigned, upstream report #706.
+      SELECT.whole_object.a_dv_date_time_below_an_event_context_root_projects_whole:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class that is not LOCATABLE can be a FROM or CONTAINS
+          operand is not assigned, upstream report #706.
+      SELECT.whole_object.a_path_ending_at_a_data_value_projects_one_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.whole_object.a_path_ending_at_an_element_projects_one_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
       SELECT.whole_object.a_path_ending_at_an_object_projects_it_whole:
         new: [aqlc_select/whole_object-a_path_ending_at_an_object_projects_it_whole]
+      SELECT.whole_object.a_path_ending_at_the_events_of_a_history_projects_one_per_event:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          rows a projection through a multi-valued attribute, an empty
+          collection or no variable yields are not assigned, upstream report
+          #701.
+      SELECT.whole_object.a_terminology_id_below_an_event_context_root_projects_whole:
+        new: []
+        open: >-
+          Not carried (level sensible). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class that is not LOCATABLE can be a FROM or CONTAINS
+          operand is not assigned, upstream report #706.
       SELECT.whole_object.composition_alias:
         new: [aqlc_select/whole_object-composition_alias]
       SELECT.whole_object.ehr_alias_refused:
