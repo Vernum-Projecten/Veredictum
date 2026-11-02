@@ -1,5 +1,5 @@
 # The SELECT-clause cases of the aql-conformance corpus whose answer the released AQL text assigns. Each workflow carries one case of the AQL conformance corpus
-# (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
+# (github.com/Cadasto/aql-conformance at 3ecd2508e6b8), named in its
 # description; catalogue/id-map.yaml maps every case of the corpus. The case's
 # own data is committed by the set-up it names in
 # _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
@@ -374,6 +374,131 @@ workflows:
               context: $response.body
               match: count
               count: 1
+  - workflowId: primitive-a_date_time_literal_reads_back_as_written
+    summary: A quoted date/time literal projects as the value it writes
+    description: 'Carries aql-conformance case SELECT.primitive.a_date_time_literal_reads_back_as_written
+      (level sensible, corpus/cases/SELECT/ehrbase/primitive_date_time_string.yaml): over the set-up seed-empty_ehr,
+      the query returns the rows the case expects. The released text treats a date/time as a string literal,
+      and lets the processor read it as a date/time quantity, so the cell compares by the instant it names.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-empty_ehr
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Dates and Times
+      quote: These types are treated as string literals
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT '2021-12-21T14:19:31.649613+01:00' FROM EHR e WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-empty_ehr.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              cells: instant
+              rows:
+                - - '2021-12-21T14:19:31.649613+01:00'
+  - workflowId: primitive-a_quoted_number_in_exponent_form_stays_a_string
+    summary: A quoted number in exponent form is a String literal, never a number
+    description: 'Carries aql-conformance case SELECT.primitive.a_quoted_number_in_exponent_form_stays_a_string
+      (level core, corpus/cases/SELECT/ehrbase/primitive_string_in_exponent_form.yaml): over the set-up
+      seed-empty_ehr, the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-empty_ehr
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: String data
+      quote: All string literals are enclosed in double or single quotes, such as `'encounter'` or `"encounter"`.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT '3e102' FROM EHR e WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-empty_ehr.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - '3e102'
+  - workflowId: primitive-a_quoted_true_stays_a_string
+    summary: A quoted true is a String literal, never a Boolean
+    description: 'Carries aql-conformance case SELECT.primitive.a_quoted_true_stays_a_string (level core,
+      corpus/cases/SELECT/ehrbase/primitive_string_true.yaml): over the set-up seed-empty_ehr, the query
+      returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-empty_ehr
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: String data
+      quote: All string literals are enclosed in double or single quotes, such as `'encounter'` or `"encounter"`.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT 'True' FROM EHR e WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-empty_ehr.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - 'True'
   - workflowId: primitive-literal_mixed_with_a_whole_object_and_a_path
     summary: One SELECT mixes a literal, a whole object and a scalar path
     description: 'Carries aql-conformance case SELECT.primitive.literal_mixed_with_a_whole_object_and_a_path
