@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 
-name: Bug Report
-description: Report a defect in Veredictum (a mis-judged case, a wrong expectation, a crash)
+name: Incorrect test or bug
+description: A case that judges wrongly, an expectation the specification does not support, or a crash
 type: Bug
 body:
   - type: markdown
@@ -20,8 +20,8 @@ body:
         - label: I have searched existing issues
           required: true
         - label: >
-            I have stated the commit or tag I reproduced on. Nothing is published
-            from this repository yet, so `main` is the only version there is
+            I have removed any patient data from the exchange and output I paste
+            below. A test EHR on a production server can still hold real records
           required: true
   - type: dropdown
     id: suspect
@@ -45,15 +45,17 @@ body:
       description: >
         The release tag or image digest, or the commit if you ran the
         runner from source.
-      placeholder: v0.1.0, or ghcr.io/vernum-projecten/veredictum@sha256:..., or commit 4aa7923
+      placeholder: v0.4.0, or ghcr.io/vernum-projecten/veredictum@sha256:..., or commit 6a043b46
     validations:
       required: true
   - type: input
     id: case-id
     attributes:
       label: Case id
-      description: The case the failure appeared on, if it is one case.
-      placeholder: EHR-CREATE-201-location
+      description: >
+        The case the failure appeared on, as the console or `results.json`
+        shows it (`<document>/<workflowId>`).
+      placeholder: ehr_committal/create_ehr-committal_headers
     validations:
       required: false
   - type: textarea
@@ -83,7 +85,8 @@ body:
       description: >
         The request the runner sent and the response the server returned,
         verbatim: method, path, headers, bodies. This is the evidence the
-        attribution is made from.
+        attribution is made from. The console shows it on the case, and
+        `recording.har` in the run directory holds every exchange.
     validations:
       required: true
   - type: textarea

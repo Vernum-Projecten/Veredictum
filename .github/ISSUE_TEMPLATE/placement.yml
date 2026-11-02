@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: BASE or OPTIONS placement
+description: Propose moving one or more cases between BASE and OPTIONS, with the reason
+title: "Placement: "
+type: Task
+labels: ["test", "vendor-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One reason per issue. Several cases may share an issue when the same reason and citation cover all of them; a case with a different reason gets its own issue, so each one can be settled on its own.
+
+        How placement works today: a case is OPTIONS when the released openEHR specification leaves the behaviour to the implementation, and BASE otherwise. A move is settled from the released text, so the citation below is what decides it. A request to phase a required behaviour in later is welcome too; it is recorded for the review organisers to decide and does not change a verdict on its own.
+  - type: textarea
+    id: cases
+    attributes:
+      label: Cases
+      description: >
+        The case ids, one per line, as the console or `results.json` shows
+        them (`<document>/<workflowId>`). Placement applies to a whole
+        document, so naming the document alone is enough when every case in
+        it moves.
+      placeholder: |
+        ehr_committal/create_ehr-committal_headers
+        ehr_xml_not_acceptable_json_setup
+    validations:
+      required: true
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Move to
+      options:
+        - OPTIONS
+        - BASE
+    validations:
+      required: true
+  - type: dropdown
+    id: reason
+    attributes:
+      label: Reason
+      options:
+        - The released specification leaves this behaviour to the implementation (MAY, SHOULD, or silent)
+        - The cited text is TRIAL or DEVELOPMENT, so it should not count toward BASE
+        - The released specification requires this behaviour, and BASE should require it too
+        - The specification requires it, but the community should phase it into BASE later
+        - Other (explained below)
+    validations:
+      required: true
+  - type: textarea
+    id: citation
+    attributes:
+      label: Specification citation
+      description: >
+        The openEHR component, document and section heading, with the sentence
+        you rely on quoted. For a phasing request, give the citation the case
+        rests on and say so.
+      placeholder: |
+        ITS-REST, overview/Resources.md, "Data representation":
+        "Services MUST support at least one of the openEHR XML or JSON canonical formats ..."
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why
+      description: >
+        A short paragraph. For a phasing request, say what blocks
+        implementations today and when the behaviour could become required.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Veredictum version
+      description: The release tag or image digest you ran.
+      placeholder: v0.4.0
+    validations:
+      required: true
+  - type: input
+    id: product
+    attributes:
+      label: CDR product and version (optional)
+      description: Leave empty if you prefer not to name it in public.
+    validations:
+      required: false
