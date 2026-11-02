@@ -1,1 +1,0 @@
-- A counting badge names the failed and errored rows that make it red or orange, `2601/2609 passed, 8 failed`, and no longer shows the warning count, which changes no colour and stays in the results.
