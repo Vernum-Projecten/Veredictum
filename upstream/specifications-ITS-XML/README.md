@@ -4,7 +4,7 @@ Each patch here is the fix proposed in one `upstream-report` issue, written
 against the `master` branch of
 [openEHR/specifications-ITS-XML](https://github.com/openEHR/specifications-ITS-XML), the newest
 openEHR text and the line a fix lands on. The patches target `master` at
-commit `e6ff2a4e55c13cc79e15376a46c29f4c1e529f92`, the snapshot vendored under
+commit `bb515ae66ca9bc5ec52f3c24e2be59aef425c65a`, the snapshot vendored under
 `specs/openehr-development/specifications-ITS-XML/`. The report itself quotes the released text under
 `specs/its-xml-schemas/its-xml-2.0.0-nsv2/`, which stays the oracle.
 

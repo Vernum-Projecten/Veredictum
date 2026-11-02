@@ -4,7 +4,7 @@ Each patch here is the fix proposed in one `upstream-report` issue, written
 against the `master` branch of
 [openEHR/specifications-RM](https://github.com/openEHR/specifications-RM), the newest
 openEHR text and the line a fix lands on. The patches target `master` at
-commit `654296bb027b03b4b076101e7171f3359f44cebc`, the snapshot vendored under
+commit `09e481e9f2ed9e3f9d5b9257bd68c0679d80c7cc`, the snapshot vendored under
 `specs/openehr-development/specifications-RM/`. The report itself quotes the released text under
 `specs/openehr/RM/`, which stays the oracle.
 

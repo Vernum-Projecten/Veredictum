@@ -2,7 +2,7 @@
 
 - Source: https://github.com/openEHR/specifications-ITS-XML
 - Branch: master
-- Commit: `e6ff2a4e55c13cc79e15376a46c29f4c1e529f92`
+- Commit: `bb515ae66ca9bc5ec52f3c24e2be59aef425c65a`
 - License: Apache-2.0. The upstream `LICENSE` is vendored verbatim alongside
   this file, from the same pinned commit.
 - Vendored by: `scripts/vendor/spec-docs-development.sh`, at the
