@@ -3,7 +3,7 @@
 		   xmlns="http://schemas.openehr.org/v2" targetNamespace="http://schemas.openehr.org/v2" elementFormDefault="qualified"
 		   id="DataTypes.xsd" version="v1.1.0">
 	<!-- dependencies -->
-	<xs:include schemaLocation="../../BASE/latest/BaseTypes.xsd"/>
+	<xs:include schemaLocation="../../BASE/Release-1.2.0/BaseTypes.xsd"/>
 	<xs:complexType name="DATA_VALUE" abstract="true">
 		<xs:sequence/>
 	</xs:complexType>

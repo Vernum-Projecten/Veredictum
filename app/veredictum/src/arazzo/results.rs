@@ -833,10 +833,18 @@ mod tests {
         let why = &development[0].skip.as_ref().unwrap().why;
         assert_eq!(why.quote, "the snapshot's wording");
         assert_eq!(why.source, source);
+        let provenance = std::fs::read_to_string(
+            root().join("specs/openehr-development/specifications-RM/PROVENANCE.md"),
+        )
+        .unwrap();
+        let pin = provenance
+            .lines()
+            .find_map(|l| l.strip_prefix("- Commit: `"))
+            .and_then(|l| l.strip_suffix('`'))
+            .unwrap();
+        let expected = format!("specifications-RM/blob/{pin}/");
         assert!(
-            why.link
-                .as_deref()
-                .is_some_and(|l| l.contains("specifications-RM/blob/654296bb027b")),
+            why.link.as_deref().is_some_and(|l| l.contains(&expected)),
             "{why:?}"
         );
         let mut released = [row()];
