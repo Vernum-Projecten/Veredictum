@@ -48,7 +48,7 @@ COMPONENTS=(
   "BASE|specifications-BASE|master|93abaf9f656b7bc87019458303c9d88f3f688ef8"
   "ITS-JSON|specifications-ITS-JSON|master|14387ce9191f228d768b6bade3308b79aaf87471"
   "ITS-REST|specifications-ITS-REST|master|9d25ea783f790512e05f908ef743626b4f7e8d2c"
-  "ITS-XML|specifications-ITS-XML|master|bb515ae66ca9bc5ec52f3c24e2be59aef425c65a"
+  "ITS-XML|specifications-ITS-XML|master|27c7a78b17c8a5fe0d688d4b47a6bb1407261906"
   "LANG|specifications-LANG|master|46406fe57c606aba7c0c7a9fd60a31bc7749c175"
   "QUERY|specifications-QUERY|master|28575a39d6cda11b588892cc8d3376724e645b2e"
   "RM|specifications-RM|master|09e481e9f2ed9e3f9d5b9257bd68c0679d80c7cc"
