@@ -258,7 +258,7 @@ LABEL org.opencontainers.image.title="Veredictum console" \
       org.opencontainers.image.authors="Ruben Talstra <https://github.com/rubentalstra>" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.base.name="gcr.io/distroless/cc-debian13:nonroot" \
-      org.opencontainers.image.base.digest="sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e" \
+      org.opencontainers.image.base.digest="sha256:08476c244888bfb425bae1ae4dd7c17f093e972aab8426883d97f3c6f280f7c1" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 # Not an OCI predefined key, because none of them means this: the image carries
