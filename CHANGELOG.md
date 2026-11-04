@@ -20,6 +20,36 @@ version on.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-04
+
+### Changed
+
+- The aql-conformance corpus import moves to commit `3ecd250`. All 555 of its
+  case ids are in `catalogue/id-map.yaml`. Of the 60 SELECT cases the corpus
+  added, 3 are carried by new `aqlc_select` workflows (a quoted `'True'` and a
+  quoted `'3e102'` stay String literals, and a quoted date/time literal
+  projects as the instant it writes), 4 fold onto the existing literal
+  workflows and 53 are not carried, each with the reason or upstream report
+  that blocks it. (#1058)
+- The development snapshot moves RM `master` to `09e481e9`, which fixes the
+  `accreditaton` typo in TRANSLATION_DETAILS, and ITS-XML `master` to `bb515ae6`,
+  where `Resource.xsd` and `DataTypes.xsd` import BASE 1.2.0 in place of the
+  latest BASE (#1060, #1061).
+- The development snapshot moves ITS-XML `master` to `27c7a78b`, where the
+  AM 1.4 `Archetype.xsd` types `CONSTRAINT_BINDING_ITEM.value` as `xs:string`
+  in place of `xs:anyURI` (SPECPR-47, #1064).
+- The container image runs on a newer build of
+  `gcr.io/distroless/cc-debian13:nonroot` (digest `sha256:08476c24…`), and its
+  `org.opencontainers.image.base.digest` label names that digest. (#1066)
+
+### Fixed
+
+- A refusal row whose every control was skipped is now skipped with the
+  control's reason and citation, naming the control in its detail, instead of
+  errored. On the development profile, the two `get_template_adl2_example`
+  refusals followed their control's `cited-text-absent` skip into the errored
+  count (#1065).
+
 ## [0.4.0] - 2026-11-02
 
 ### Added
@@ -6270,7 +6300,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.1...v0.3.2
