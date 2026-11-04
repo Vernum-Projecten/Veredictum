@@ -20,8 +20,10 @@
 //! accepted when the run holds a row of it and every
 //! one of its rows passed or failed only criteria that yield a warning, so the server took
 //! the request. A refusal row is judged when no listed control that ran was
-//! refused and at least one ran; otherwise it is recorded errored, naming the
-//! control, whatever the refusal itself received. No openEHR spec governs the
+//! refused and at least one ran. When every listed control was skipped, the
+//! refusal is skipped with the first control's reason, naming it; otherwise
+//! it is recorded errored, naming the control, whatever the refusal itself
+//! received. No openEHR spec governs the
 //! extension itself — our own design.
 
 use std::collections::BTreeMap;
@@ -34,7 +36,7 @@ use serde_json::Value;
 
 use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{CmpOp, Expr, Operand, SimpleCondition};
-use crate::arazzo::results::{Explanation, ResultRow, Status, Whose};
+use crate::arazzo::results::{Explanation, ResultRow, Skip, Status, Whose};
 use crate::arazzo::source::split_qualified;
 
 /// The specification-extension key of a refusal workflow's control.
@@ -205,44 +207,62 @@ fn document_prefix(file: &Path) -> Option<&str> {
 }
 
 /// How one control's rows ended in a run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ControlOutcome {
     /// Every row passed or failed only criteria that yield a warning.
     Accepted,
-    /// Every row was skipped.
-    Skipped,
+    /// Every row was skipped; the skip of the first, when it carries one.
+    Skipped(Option<Skip>),
     /// A row that ran ended with this status and was not a warning.
     Refused(Status),
 }
 
 impl ControlOutcome {
-    /// The outcome of one more row of the control.
-    fn with(self, row: &ResultRow) -> Self {
+    /// The outcome of the control's first row.
+    fn of(row: &ResultRow) -> Self {
         let warning = row
             .explanation
             .as_ref()
             .is_some_and(|explanation| explanation.whose == Whose::Warning);
-        let this = match row.status {
+        match row.status {
             Status::Passed => Self::Accepted,
             Status::Failed if warning => Self::Accepted,
-            Status::Skipped => Self::Skipped,
+            Status::Skipped => Self::Skipped(row.skip.clone()),
             other => Self::Refused(other),
-        };
-        match (self, this) {
-            (Self::Refused(_), _) => self,
-            (_, Self::Refused(_)) => this,
+        }
+    }
+
+    /// The outcome of one more row of the control.
+    fn with(self, row: &ResultRow) -> Self {
+        match (self, Self::of(row)) {
+            (refused @ Self::Refused(_), _) | (_, refused @ Self::Refused(_)) => refused,
             (Self::Accepted, _) | (_, Self::Accepted) => Self::Accepted,
-            (Self::Skipped, Self::Skipped) => Self::Skipped,
+            (skipped @ Self::Skipped(_), Self::Skipped(_)) => skipped,
         }
     }
 }
 
-/// Records errored every judged refusal row whose controls were not accepted.
+/// What a refusal row's controls make of it.
+#[derive(Debug)]
+enum Judgement {
+    /// A control was accepted and none was refused: the row stands.
+    Judged,
+    /// Every control was skipped: the row is skipped with the first
+    /// control's reason, naming that control.
+    Skipped(Skip),
+    /// The row is not judged, for this reason.
+    Unjudged(String),
+}
+
+/// Records errored every judged refusal row whose controls were not
+/// accepted, and skipped every one whose controls were all skipped.
 ///
 /// A control shows the server accepted the request without the defect in
 /// this run. `controls` maps each refusal case to its controls' cases, as
-/// [`controls`] builds it. A skipped or already errored refusal row is left
-/// as it is.
+/// [`controls`] builds it. A refusal whose every control was skipped carries
+/// the first control's skip reason and citation, with the control named in
+/// the detail, because the instrument chose not to judge it. A skipped or
+/// already errored refusal row is left as it is.
 pub fn apply(rows: &mut [ResultRow], controls: &BTreeMap<String, Control>) {
     let mut outcome: BTreeMap<String, ControlOutcome> = BTreeMap::new();
     for row in rows.iter() {
@@ -250,9 +270,10 @@ pub fn apply(rows: &mut [ResultRow], controls: &BTreeMap<String, Control>) {
             Control::Workflows(named) => named.contains(&row.case),
             Control::Pending(_) => false,
         }) {
-            let seen = outcome.get(&row.case).copied();
-            let next =
-                seen.map_or_else(|| ControlOutcome::Skipped.with(row), |seen| seen.with(row));
+            let next = match outcome.remove(&row.case) {
+                Some(seen) => seen.with(row),
+                None => ControlOutcome::of(row),
+            };
             outcome.insert(row.case.clone(), next);
         }
     }
@@ -270,8 +291,15 @@ pub fn apply(rows: &mut [ResultRow], controls: &BTreeMap<String, Control>) {
                 format!("no control yet: #{issue}"),
             ),
             Control::Workflows(named) => {
-                let Some(received) = unjudged(named, &outcome) else {
-                    continue;
+                let received = match judge(named, &outcome) {
+                    Judgement::Judged => continue,
+                    Judgement::Skipped(skip) => {
+                        row.status = Status::Skipped;
+                        row.explanation = None;
+                        row.skip = Some(skip);
+                        continue;
+                    }
+                    Judgement::Unjudged(received) => received,
                 };
                 let listed = named
                     .iter()
@@ -301,23 +329,44 @@ pub fn apply(rows: &mut [ResultRow], controls: &BTreeMap<String, Control>) {
     }
 }
 
-/// Why a refusal with the controls `named` is not judged, or `None` when it
-/// is: a control that ran and was refused, or no control that ran at all.
-fn unjudged(named: &[String], outcome: &BTreeMap<String, ControlOutcome>) -> Option<String> {
+/// What the controls `named` make of a refusal row: judged when one was
+/// accepted and none refused, skipped when every one of them was skipped
+/// with a skip record, and otherwise not judged, naming a control that was
+/// refused or saying that none ran.
+fn judge(named: &[String], outcome: &BTreeMap<String, ControlOutcome>) -> Judgement {
     let mut accepted = false;
+    let mut first_skip: Option<(&str, &Skip)> = None;
+    let mut all_skipped = true;
     for control in named {
         match outcome.get(control) {
             Some(ControlOutcome::Refused(status)) => {
-                return Some(format!("the control `{control}` ended {status}"));
+                return Judgement::Unjudged(format!("the control `{control}` ended {status}"));
             }
             Some(ControlOutcome::Accepted) => accepted = true,
-            Some(ControlOutcome::Skipped) | None => {}
+            Some(ControlOutcome::Skipped(Some(skip))) => {
+                first_skip.get_or_insert((control, skip));
+            }
+            Some(ControlOutcome::Skipped(None)) | None => all_skipped = false,
         }
     }
     if accepted {
-        return None;
+        return Judgement::Judged;
     }
-    Some(match named {
+    if let (true, Some((control, skip))) = (all_skipped, first_skip) {
+        let detail = match &skip.detail {
+            Some(detail) => format!(
+                "the control `{control}` is skipped as {}: {detail}",
+                skip.reason
+            ),
+            None => format!("the control `{control}` is skipped as {}", skip.reason),
+        };
+        return Judgement::Skipped(Skip {
+            reason: skip.reason,
+            why: skip.why.clone(),
+            detail: Some(detail),
+        });
+    }
+    Judgement::Unjudged(match named {
         [control] => format!("the control `{control}` did not run"),
         _ => "no control ran".to_owned(),
     })
