@@ -3346,13 +3346,16 @@ workflows:
             Some(Status::Errored),
             "a refusal the server failed is not judged without its control either"
         );
+    }
 
+    #[test]
+    fn a_refusal_whose_control_was_skipped_is_skipped_with_the_control_named() {
         let skipped = Plan {
             skips: BTreeMap::from([(
                 "twin".to_owned(),
                 Skip {
-                    detail: None,
-                    reason: SkipReason::NotClaimed,
+                    detail: Some("development profile: no file `x.adoc`".to_owned()),
+                    reason: SkipReason::CitedTextAbsent,
                     why: Why {
                         source: "s".to_owned(),
                         section: "d".to_owned(),
@@ -3366,6 +3369,33 @@ workflows:
         };
         let rows = drive_controlled(&skipped, &[(400, "")]);
         let refused = rows.get(1).unwrap();
+        assert_eq!(refused.status, Status::Skipped);
+        assert_eq!(refused.explanation, None);
+        let skip = refused.skip.as_ref().unwrap();
+        assert_eq!(skip.reason, SkipReason::CitedTextAbsent);
+        assert_eq!(skip.why.quote, "q");
+        assert_eq!(
+            skip.detail.as_deref(),
+            Some(
+                "the control `ehr/twin` is skipped as cited-text-absent: development profile: no file `x.adoc`"
+            )
+        );
+    }
+
+    #[test]
+    fn a_refusal_whose_control_is_absent_from_the_run_is_errored() {
+        let mut rows = drive_controlled(&Plan::default(), &[(201, ""), (400, "")]);
+        rows.retain(|row| row.case != "ehr/twin");
+        for row in &mut rows {
+            row.status = Status::Passed;
+            row.explanation = None;
+        }
+        let controls = BTreeMap::from([(
+            "ehr/refused".to_owned(),
+            crate::arazzo::control::Control::Workflows(vec!["ehr/twin".to_owned()]),
+        )]);
+        crate::arazzo::control::apply(&mut rows, &controls);
+        let refused = rows.first().unwrap();
         assert_eq!(refused.status, Status::Errored);
         assert_eq!(
             refused.explanation.as_ref().map(|e| e.received.as_str()),
@@ -3429,10 +3459,12 @@ workflows:
             Some("not judged: the control `ehr/other` ended FAILED".to_owned())
         );
         let row = drive_listed(&doc, &skip(&["twin", "other"]), &[(400, "")]);
-        assert_eq!(row.status, Status::Errored);
+        assert_eq!(row.status, Status::Skipped);
+        let skip = row.skip.unwrap();
+        assert_eq!(skip.reason, SkipReason::OptionNotSelected);
         assert_eq!(
-            row.explanation.map(|e| e.received),
-            Some("not judged: no control ran".to_owned())
+            skip.detail.as_deref(),
+            Some("the control `ehr/twin` is skipped as option-not-selected")
         );
     }
 
