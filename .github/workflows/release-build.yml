@@ -78,7 +78,7 @@ jobs:
       # otherwise be linked from bytes this job did not build. A publishing lane
       # restores no cache — nothing a prior run could have poisoned may
       # influence the artifact it signs.
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
           cache: false
       # `cargo auditable` embeds the compressed dependency list in the binary's
@@ -87,7 +87,7 @@ jobs:
       # page's SBOM never travelled with it
       # (https://github.com/rust-secure-code/cargo-auditable).
       - name: Install cargo-auditable
-        uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-auditable@0.7.5
       - name: Build the instrument
@@ -131,7 +131,7 @@ jobs:
       # 8). Generated from the release commit's own `Cargo.lock`, so it
       # describes the graph that was actually built.
       - name: Install cargo-cyclonedx
-        uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-cyclonedx
       - name: Generate the dependency SBOM
@@ -226,7 +226,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Upload to release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           # The release is still a DRAFT here and must stay one: the caller's
           # finalize job publishes it once every architecture has attached its

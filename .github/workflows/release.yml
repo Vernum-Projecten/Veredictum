@@ -284,7 +284,7 @@ jobs:
       # supplier, component name, version, other unique identifiers (purl),
       # dependency relationships, SBOM author and timestamp
       # (https://www.cisa.gov/sbom).
-      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: syft@1.50.0
       - name: Generate the repository SPDX SBOM
@@ -331,7 +331,7 @@ jobs:
       # the release page already says which project it belongs to, so a name
       # that repeats it is noise in every list a consumer reads.
       - name: Create the GitHub release as a draft
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           draft: true
           tag_name: ${{ needs.plan.outputs.tag }}
@@ -496,7 +496,7 @@ jobs:
       # No cache in a publishing lane: nothing a prior run could have poisoned
       # may influence the bytes that get pushed and attested.
       - name: Install cargo-auditable
-        uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-auditable@0.7.5
 
@@ -561,7 +561,7 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
 
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
           target: wasm32-unknown-unknown
           cache: false
@@ -652,7 +652,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -876,7 +876,7 @@ jobs:
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
       # No cache in the lane that uploads: a published version is immutable, so
       # it is built from this checkout and nothing else.
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
           cache: false
 
