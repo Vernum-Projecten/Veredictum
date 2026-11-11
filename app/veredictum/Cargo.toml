@@ -147,7 +147,7 @@ oxixml-infoset = "=0.1.2"
 regex-syntax = "0.8.11"
 # The AQL parser (https://docs.rs/openehr-query/0.0.116): `validate` parses
 # every catalogue query with it.
-openehr-query = "=0.0.116"
+openehr-query = "=0.0.128"
 
 [dev-dependencies]
 assert_fs = "1"
